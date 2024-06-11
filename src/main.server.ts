@@ -4,4 +4,5 @@ import { config } from './app/app.config.server';
 
 const bootstrap = () => bootstrapApplication(AppComponent, config);
 
+// biome-ignore lint/style/noDefaultExport: needed per API contract
 export default bootstrap;

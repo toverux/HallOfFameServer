@@ -50,6 +50,7 @@ Commits must follow the [Conventional Commits](https://www.conventionalcommits.o
 specification and more specifically the Angular one.
 
 Scope can be one or more of the following:
+- `server`: for non-specific changes in the server;
 - `admin`: for changes in the backoffice admin interface;
 - `api`: for changes in the server HTTP API;
 - `i18n`: for changes in translations and translations system;

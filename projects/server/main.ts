@@ -1,3 +1,4 @@
+import 'source-map-support/register'; // This doesn't work in Bun yet.
 import * as path from 'node:path';
 import * as url from 'node:url';
 import { APP_BASE_HREF } from '@angular/common';

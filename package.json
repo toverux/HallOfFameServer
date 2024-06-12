@@ -3,12 +3,16 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "ng": "ng",
+    "check-updates": "bunx npm-check-updates",
     "check": "biome check --fix",
-    "serve": "ng serve",
-    "serve:ssr": "node dist/client/server/server.mjs",
+    "serve:client": "ng serve",
     "watch": "ng build --watch --configuration development",
+    "watch:run:server": "bun --watch --no-clear-screen dist/server/server.mjs",
     "build": "bun check && ng build"
+  },
+  "packageManager": "bun@1.1.12",
+  "engines": {
+    "node": ">=22.3.0"
   },
   "dependencies": {
     "@angular/animations": "^18.0.2",
@@ -22,8 +26,13 @@
     "@angular/router": "^18.0.2",
     "@angular/ssr": "^18.0.3",
     "@biomejs/biome": "^1.8.1",
+    "@fastify/static": "^7.0.4",
+    "@nestjs/common": "^10.3.9",
+    "@nestjs/core": "^10.3.9",
+    "@nestjs/platform-fastify": "^10.3.9",
     "express": "^4.19.2",
     "lefthook": "^1.6.15",
+    "reflect-metadata": "^0.2.2",
     "rxjs": "~7.8.1",
     "tslib": "^2.6.3"
   },
@@ -31,8 +40,11 @@
     "@angular-devkit/build-angular": "^18.0.3",
     "@angular/cli": "^18.0.3",
     "@angular/compiler-cli": "^18.0.2",
+    "@types/bun": "^1.1.3",
     "@types/express": "^4.17.21",
-    "@types/node": "^20.14.2",
     "typescript": "~5.4.5"
+  },
+  "volta": {
+    "node": "22.3.0"
   }
 }

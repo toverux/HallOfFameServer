@@ -16,6 +16,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
 
     // Strictness options following.
     // I want the strictest possible TypeScript settings.

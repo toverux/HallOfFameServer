@@ -3,7 +3,7 @@
   "version": 1,
   "newProjectRoot": "projects",
   "projects": {
-    "HallOfFameServer": {
+    "hof": {
       "projectType": "application",
       "schematics": {
         "@schematics/angular:component": {
@@ -11,30 +11,31 @@
         }
       },
       "root": "",
-      "sourceRoot": "src",
+      "sourceRoot": "projects",
       "prefix": "app",
       "architect": {
         "build": {
           "builder": "@angular-devkit/build-angular:application",
           "options": {
-            "outputPath": "dist/client",
-            "index": "src/index.html",
-            "browser": "src/main.ts",
+            "outputPath": "dist",
+            "index": "projects/client/index.html",
+            "browser": "projects/client/main.ts",
             "tsConfig": "tsconfig.app.json",
             "inlineStyleLanguage": "scss",
             "assets": [
               {
                 "glob": "**/*",
-                "input": "public"
+                "input": "projects/client/static"
               }
             ],
-            "styles": ["src/styles.scss"],
+            "styles": ["projects/client/styles.scss"],
             "scripts": [],
-            "server": "src/main.server.ts",
+            "server": "projects/client/main.server.ts",
             "prerender": true,
             "ssr": {
-              "entry": "server.ts"
-            }
+              "entry": "projects/server/main.ts"
+            },
+            "externalDependencies": ["@nestjs"]
           },
           "configurations": {
             "production": {
@@ -64,10 +65,10 @@
           "builder": "@angular-devkit/build-angular:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "HallOfFameServer:build:production"
+              "buildTarget": "hof:build:production"
             },
             "development": {
-              "buildTarget": "HallOfFameServer:build:development"
+              "buildTarget": "hof:build:development"
             }
           },
           "defaultConfiguration": "development"

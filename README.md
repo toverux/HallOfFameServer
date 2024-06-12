@@ -10,12 +10,21 @@ Server part of the [Hall of Fame](https://github.com/toverux/HallOfFame) mod for
 ### Installation
 
 1. Install [Bun](https://bun.sh).
-2. Run `bun i` to install dependencies.
-3. You may `bun run build` to test that the project builds and everything is in order.
+2. (Recommended) Install [Volta](https://volta.sh) for per-project Node.js version management,
+   or use Node >= 22. Node is still needed to run the bundlers, while Bun is used for package
+   management and the server runtime.
+3. Run `bun i` to install dependencies.
+4. You may `bun run build` to test that the project builds and everything is in order.
 
-### Development workflow
+### Development Workflow
 
 TBD
+
+### Updating Dependencies & Toolchain
+
+- To update Bun: `bun upgrade`, and update `package.json#packageManager`.
+- To update Node: `volta install node@latest`, and update `package.json#engines.node`.
+- To update npm dependencies: `bun check-updates`.
 
 ## Code Style
 
@@ -41,6 +50,7 @@ Commits must follow the [Conventional Commits](https://www.conventionalcommits.o
 specification and more specifically the Angular one.
 
 Scope can be one or more of the following:
+- `admin`: for changes in the backoffice admin interface;
 - `api`: for changes in the server HTTP API;
 - `i18n`: for changes in translations and translations system;
 - `deps`: for dependencies updates;

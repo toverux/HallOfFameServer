@@ -41,6 +41,7 @@
         "noCommaOperator": "off",
         // Same reason as performance.noBarrelFile.
         "noNamespaceImport": "off",
+        "noParameterProperties": "off",
         // I like using template literals for hardcoded english strings, ex.
         // exception error messages. This makes spotting them easier and also it
         // makes it easier to use double or single quotes.

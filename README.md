@@ -5,6 +5,41 @@
 
 Server part of the [Hall of Fame](https://github.com/toverux/HallOfFame) mod for Cities: Skylines II.
 
+This is a [Nest.js](https://nestjs.com/) project with an [Angular](https://angular.dev) w/SSR frontend and
+[Prisma](https://www.prisma.io) as a MongoDB ORM.
+
+Featuring a simple REST-like HTTP API for uploading photos from the mod and retrieving them.
+
+## Features & Roadmap
+
+This only covers what needs to be implemented server-side.<br>
+Client side Roadmap is maintained in the client repository.
+
+- For Beta:
+  - Upload endpoint.
+  - Image resize and storage on Azure.
+  - Mongo Database with Prisma, storing creator name, creator ID, city name/pop, photo, date of post, IP address.
+  - Rate Limiting for uploads.
+  - IP and username banning.
+  - Moderation admin web interface.
+  - Get random photo endpoint.
+  - Deployment with PM2.
+
+- Planned next:
+  - Add comment to uploads.
+  - Localization for error messages.
+  - Report abuse endpoint, abuse management admin interface.
+  - Upvote endpoint
+  - Get random photo endpoint with preferences (most liked, most recent, mixed, etc.).
+  - Get photo endpoint returning photos not already seen.
+
+- In the future, maybe:
+  - Get photo from the same city endpoint.
+  - Follow creator to see more of their uploads.
+  - Photo labelling so you can choose your preferred style of pictures to see (ex. landscape, detailing, skyline, aerial, etc.).
+  - Website for photo listing.
+  - Personal space for creators to manage their collection.
+
 ## Development
 
 ### Installation

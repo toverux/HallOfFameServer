@@ -33,9 +33,8 @@
             "server": "projects/client/main.server.ts",
             "prerender": true,
             "ssr": {
-              "entry": "projects/server/main.ts"
-            },
-            "externalDependencies": ["@nestjs"]
+              "entry": "projects/server/ssr.ts"
+            }
           },
           "configurations": {
             "production": {

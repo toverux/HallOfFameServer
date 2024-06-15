@@ -1,8 +1,4 @@
-import 'source-map-support/register'; // This doesn't work in Bun yet.
 import * as path from 'node:path';
-import * as url from 'node:url';
-import { APP_BASE_HREF } from '@angular/common';
-import { CommonEngine } from '@angular/ssr';
 import {
     type ArgumentsHost,
     Catch,
@@ -15,8 +11,11 @@ import {
     type NestFastifyApplication
 } from '@nestjs/platform-fastify';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import bootstrapClient from '../client/main.server';
 import { AppModule } from './app.module';
+
+// @ts-expect-error We can't import JS (allowJs: false) and can't declare a d.ts
+import { ssrRender } from '../../dist/server/server.mjs';
+import type { ssrRender as ssrRenderType } from './ssr';
 
 void bootstrap();
 
@@ -26,9 +25,14 @@ async function bootstrap() {
         new FastifyAdapter()
     );
 
-    const serverDistFolder = path.dirname(url.fileURLToPath(import.meta.url));
-    const browserDistFolder = path.resolve(serverDistFolder, '../browser');
-    const indexHtml = path.join(serverDistFolder, 'index.server.html');
+    const browserDistFolder = path.resolve(
+        import.meta.dir,
+        '../../dist/browser'
+    );
+    const indexHtml = path.join(
+        import.meta.dir,
+        '../../dist/server/index.server.html'
+    );
 
     app.useStaticAssets({
         root: browserDistFolder
@@ -54,8 +58,6 @@ async function bootstrap() {
  */
 @Catch(NotFoundException)
 class NotFoundExceptionFilter extends BaseExceptionFilter {
-    private readonly commonEngine = new CommonEngine();
-
     public constructor(
         applicationRef: HttpServer,
         private readonly browserDistFolder: string,
@@ -80,14 +82,14 @@ class NotFoundExceptionFilter extends BaseExceptionFilter {
 
         const { protocol, originalUrl, headers } = req;
 
+        const url = `${protocol}://${headers.host}${originalUrl}`;
+
         try {
-            const result = await this.commonEngine.render({
-                bootstrap: bootstrapClient,
-                documentFilePath: this.indexHtml,
-                url: `${protocol}://${headers.host}${originalUrl}`,
-                publicPath: this.browserDistFolder,
-                providers: [{ provide: APP_BASE_HREF, useValue: '/' }]
-            });
+            const result = await (ssrRender as typeof ssrRenderType)(
+                this.browserDistFolder,
+                this.indexHtml,
+                url
+            );
 
             res.header('Content-Type', 'text/html');
             res.send(result);

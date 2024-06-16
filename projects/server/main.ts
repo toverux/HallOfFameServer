@@ -1,4 +1,5 @@
 import * as path from 'node:path';
+import fastifyMultipart from '@fastify/multipart';
 import {
     type ArgumentsHost,
     Catch,
@@ -20,9 +21,15 @@ import type { ssrRender as ssrRenderType } from './ssr';
 void bootstrap();
 
 async function bootstrap() {
+    const fastify = new FastifyAdapter();
+
+    // @ts-expect-error
+    // Errors due to our strict config on types we don't control.
+    fastify.register(fastifyMultipart);
+
     const app = await NestFactory.create<NestFastifyApplication>(
         AppModule,
-        new FastifyAdapter()
+        fastify
     );
 
     const browserDistFolder = path.resolve(

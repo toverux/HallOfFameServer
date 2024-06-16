@@ -1,0 +1,26 @@
+POST http://localhost:4000/api/upload
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+
+--WebAppBoundary
+Content-Disposition: form-data; name="creatorId"
+
+a86bd575-6aba-4d83-abd5-756aba9d834f
+
+--WebAppBoundary
+Content-Disposition: form-data; name="creatorName"
+
+--WebAppBoundary
+Content-Disposition: form-data; name="cityName"
+
+Colossal City
+
+--WebAppBoundary
+Content-Disposition: form-data; name="cityPopulation"
+
+1200
+
+--WebAppBoundary
+Content-Disposition: form-data; name="screenshot"; filename="screenshot.jpg"
+
+< screenshot.jpg
+--WebAppBoundary--

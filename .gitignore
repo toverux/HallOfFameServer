@@ -7,3 +7,6 @@
 
 # Build artifacts
 /dist
+
+# Test files
+/test/screenshot-*.jpg

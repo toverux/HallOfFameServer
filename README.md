@@ -88,6 +88,8 @@ Scope can be one or more of the following:
 - `server`: for non-specific changes in the server;
 - `admin`: for changes in the backoffice admin interface;
 - `api`: for changes in the server HTTP API;
+- `imgproc`: for changes in image processing;
+- `database`: for changes in the database schema or related systems;
 - `i18n`: for changes in translations and translations system;
 - `deps`: for dependencies updates;
 - Propose new scopes if needed!

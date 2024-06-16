@@ -1,3 +1,6 @@
+# Machine-specific configuration
+/.env.local
+
 # Toolchain
 /node_modules
 /.angular/cache

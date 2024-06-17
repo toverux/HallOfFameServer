@@ -6,7 +6,7 @@
     "check-updates": "bunx npm-check-updates -i",
     "check": "tsc --noEmit && biome check --fix",
     "build:client:watch": "ng build --watch --configuration development",
-    "run:server:watch": "bun --watch --no-clear-screen projects/server/main.ts",
+    "run:server:watch": "bun --watch --no-clear-screen --inspect projects/server/main.ts",
     "serve:client": "ng serve",
     "build": "bun check && ng build"
   },

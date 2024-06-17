@@ -50,10 +50,34 @@ Client side Roadmap is maintained in the client repository.
    management and the server runtime.
 3. Run `bun i` to install dependencies.
 4. You may `bun run build` to test that the project builds and everything is in order.
+5. Install [MongoDB](https://www.mongodb.com/docs/manual/administration/install-community), and setup a replica set,
+   here's an example but it varies according to your setup and preferences:
+   1. Set this in your configuration file (`/etc/mongod.conf`):
+      ```yml
+      replication:
+        replSetName: rs0
+      ```
+   2. Restart MongoDB (`sudo systemctl restart mongod`).
+   3. Using `mongosh`, run `rs.initiate()` to create a default rs0 replica set.
+   4. ...or follow [this guide](https://www.mongodb.com/docs/manual/tutorial/convert-standalone-to-replica-set/).
 
 ### Development Workflow
 
 TBD
+
+### Generating Database Schema
+
+Database schema is generated from the Prisma schema file in `prisma/schema.prisma`.
+
+You might have to reconfigure the default development connection string if it differs from the default in `.env`.
+If it does differ, as `.env` is a defaults files that is versioned, do not change it, instead override locally in your
+shell (unfortunately we can't make Prisma support `.env.local` easily).
+
+- Update database schema from Prisma schema: `bun prisma db push`.<br>
+  As the database is MongoDB which is schema-less, this essentially just creates the collections (and the database if it
+  does not exist), and indexes.
+- Update Prisma Client definitions after schema change: `bun prisma generate`.<br>
+  Note that this is also done by `prisma db push`.
 
 ### Updating Dependencies & Toolchain
 

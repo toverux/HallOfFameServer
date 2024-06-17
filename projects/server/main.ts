@@ -29,7 +29,19 @@ async function bootstrap() {
 
     const app = await NestFactory.create<NestFastifyApplication>(
         AppModule,
-        fastify
+        fastify,
+        {
+            logger: [
+                'fatal',
+                'error',
+                'warn',
+                'log',
+                'verbose',
+                ...(process.env.NODE_ENV == 'development'
+                    ? (['verbose', 'debug'] as const)
+                    : [])
+            ]
+        }
     );
 
     const browserDistFolder = path.resolve(

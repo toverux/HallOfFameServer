@@ -21,7 +21,9 @@
       },
       "correctness": {
         // I generally know what I'm doing.
-        "noNodejsModules": "off"
+        "noNodejsModules": "off",
+        // PROJECT-SPECIFIC: We do not use React and this rule gives false positives on NestJS.
+        "useHookAtTopLevel": "off"
       },
       "performance": {
         // Virtually not an issue with modern bundlers.

@@ -1,4 +1,4 @@
-POST http://localhost:4000/api/upload
+POST {{url}}/api/upload
 Content-Type: multipart/form-data; boundary=WebAppBoundary
 
 --WebAppBoundary

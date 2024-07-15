@@ -4,6 +4,7 @@ import {
     type ArgumentsHost,
     Catch,
     type HttpServer,
+    Logger,
     NotFoundException
 } from '@nestjs/common';
 import { BaseExceptionFilter, NestFactory } from '@nestjs/core';
@@ -12,16 +13,19 @@ import {
     type NestFastifyApplication
 } from '@nestjs/platform-fastify';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { AppModule } from './app.module';
-
 // @ts-expect-error We can't import JS (allowJs: false) and can't declare a d.ts
 import { ssrRender } from '../../dist/server/server.mjs';
+import { AppModule } from './app.module';
+import { ConfigService } from './services';
 import type { ssrRender as ssrRenderType } from './ssr';
+
+void linkEnvFilesForWatchMode();
 
 void bootstrap();
 
-async function bootstrap() {
+async function bootstrap(): Promise<void> {
     const fastify = new FastifyAdapter();
+    const logger = new Logger(bootstrap.name);
 
     // @ts-expect-error
     // Errors due to our strict config on types we don't control.
@@ -48,6 +52,7 @@ async function bootstrap() {
         import.meta.dir,
         '../../dist/browser'
     );
+
     const indexHtml = path.join(
         import.meta.dir,
         '../../dist/server/index.server.html'
@@ -65,7 +70,26 @@ async function bootstrap() {
         )
     );
 
-    await app.listen(4000);
+    const config = app.get(ConfigService);
+
+    await app.listen(config.http.port);
+
+    logger.log(`Server is running on: ${await app.getUrl()}`);
+}
+
+/**
+ * Link the `.env` and `.env.local` files for auto-restart in watch mode.
+ * `{ with: { type: 'text' } }` is needed for Bun to not ignore the files.
+ */
+async function linkEnvFilesForWatchMode(): Promise<void> {
+    try {
+        // @ts-ignore
+        await import('../../.env', { with: { type: 'text' } });
+        // @ts-ignore
+        await import('../../.env.local', { with: { type: 'text' } });
+    } catch {
+        // Ignore, we're just checking if the files exist.
+    }
 }
 
 /**

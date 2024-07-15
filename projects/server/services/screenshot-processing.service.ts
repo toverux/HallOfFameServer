@@ -4,11 +4,6 @@ import Bun from 'bun';
 import * as dateFns from 'date-fns';
 import sharp from 'sharp';
 
-interface ScreenshotMetadata {
-    creatorName: string | null;
-    cityName: string;
-}
-
 @Injectable()
 export class ScreenshotProcessingService {
     private static readonly debugImagesDir = path.join(
@@ -16,9 +11,9 @@ export class ScreenshotProcessingService {
         '../../../test'
     );
 
-    public async processScreenshot(
+    public async resizeScreenshots(
         buffer: Buffer,
-        { creatorName, cityName }: ScreenshotMetadata
+        metadata: { creatorName: string; cityName: string }
     ): Promise<{
         imageFHDBuffer: Buffer;
         image4KBuffer: Buffer;
@@ -32,9 +27,9 @@ export class ScreenshotProcessingService {
                     // biome-ignore lint/style/useNamingConvention: EXIF Standard
                     Software: 'Cities: Skylines II, Hall of Fame Mod',
                     // biome-ignore lint/style/useNamingConvention: EXIF Standard
-                    Artist: creatorName ?? 'Anonymous',
+                    Artist: metadata.creatorName,
                     // biome-ignore lint/style/useNamingConvention: EXIF Standard
-                    ImageDescription: cityName,
+                    ImageDescription: metadata.cityName,
                     // Must respect a specific format for EXIF dates.
                     // biome-ignore lint/style/useNamingConvention: EXIF Standard
                     DateTime: dateFns.format(new Date(), 'yyyy:MM:dd hh:mm:ss')

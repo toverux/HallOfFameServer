@@ -10,7 +10,7 @@ datasource db {
 model Creator {
   id              String       @id @default(auto()) @map("_id") @db.ObjectId
   createdAt       DateTime     @default(now())
-  creatorName     String?      @unique
+  creatorName     String       @unique
   hashedCreatorId String       @unique
   ipAddresses     String[]
   screenshots     Screenshot[]

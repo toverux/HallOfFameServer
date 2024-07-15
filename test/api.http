@@ -4,10 +4,12 @@ Content-Type: multipart/form-data; boundary=WebAppBoundary
 --WebAppBoundary
 Content-Disposition: form-data; name="creatorId"
 
-a86bd575-6aba-4d83-abd5-756aba9d834f
+a86bd575-6aba-4d83-abd5-756aba9d834a
 
 --WebAppBoundary
 Content-Disposition: form-data; name="creatorName"
+
+toverux
 
 --WebAppBoundary
 Content-Disposition: form-data; name="cityName"

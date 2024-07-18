@@ -43,9 +43,9 @@ export class ScreenshotService {
                 cityName
             });
 
-        return this.prisma.$transaction(async () => {
+        return this.prisma.$transaction(async prisma => {
             // Create the screenshot in the database.
-            const screenshotWithoutBlobs = await this.prisma.screenshot.create({
+            const screenshotWithoutBlobs = await prisma.screenshot.create({
                 select: { id: true, cityName: true },
                 data: {
                     creatorId: creator.id,
@@ -65,7 +65,7 @@ export class ScreenshotService {
             );
 
             // Update the screenshot with the blob URLs.
-            const screenshot = await this.prisma.screenshot.update({
+            const screenshot = await prisma.screenshot.update({
                 where: { id: screenshotWithoutBlobs.id },
                 data: {
                     imageUrlFHD: blobUrls.blobFHD,

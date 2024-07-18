@@ -1,7 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { Creator } from '@prisma/client';
 import Bun from 'bun';
-import { oneLine } from 'common-tags';
 import { JSONObject } from '../common';
 import { PrismaService } from './prisma.service';
 
@@ -20,11 +19,6 @@ export class CreatorService {
         creatorName: string,
         ip: string
     ): Promise<Creator> {
-        // Validate the Creator Name.
-        if (!creatorName.match(/^[\p{L}\p{N}\- ']{2,25}$/u)) {
-            throw new InvalidCreatorNameError();
-        }
-
         // Use a repeatable hash function instead of a salted hash to allow for
         // finding the creator by either the Creator ID or the Creator Name, a
         // specific requirement due to how account creation and identification
@@ -138,15 +132,6 @@ export class CreatorService {
 }
 
 export abstract class CreatorServiceError extends Error {}
-
-export class InvalidCreatorNameError extends CreatorServiceError {
-    public constructor() {
-        super(oneLine`
-            Invalid Creator Name, it must contain only letters, numbers,
-            spaces, hyphens and apostrophes, and be between 2 and 25
-            characters long.`);
-    }
-}
 
 export class InvalidCreatorIdError extends CreatorServiceError {
     public constructor(creatorName: string) {

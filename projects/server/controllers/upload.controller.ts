@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';
+import { Multipart } from '@fastify/multipart';
 import {
     BadRequestException,
     Controller,
@@ -7,6 +7,7 @@ import {
     Post,
     Req
 } from '@nestjs/common';
+import { oneLine } from 'common-tags';
 import type { FastifyRequest } from 'fastify';
 import {
     CreatorService,
@@ -17,6 +18,12 @@ import {
 
 @Controller('api/upload')
 export class UploadController {
+    /**
+     * Regular expression to validate Creator or City names.
+     * @private
+     */
+    private static readonly nameRegex = /^[\p{L}\p{N}\- ']{2,25}$/u;
+
     @Inject(CreatorService)
     private readonly creatorService!: CreatorService;
 
@@ -42,7 +49,7 @@ export class UploadController {
         // becomes undefined.
         const ip = req.ip;
 
-        const uploadedFile = await req.file({
+        const multipart = await req.file({
             isPartAFile: fieldName => fieldName == 'screenshot',
             limits: {
                 fields: 5,
@@ -51,25 +58,29 @@ export class UploadController {
             }
         });
 
-        if (!uploadedFile) {
+        if (!multipart) {
             throw new BadRequestException(
                 `Expected a file-field named 'screenshot'.`
             );
         }
 
-        const creatorId = getMultipartString('creatorId');
-        const creatorName = getMultipartString('creatorName');
-        const cityName = getMultipartString('cityName');
-        const cityPopulation = Number.parseInt(
-            getMultipartString('cityPopulation'),
-            10
+        const getString = this.getMultipartString.bind(this, multipart);
+
+        const creatorId = getString('creatorId');
+
+        const creatorName = UploadController.validateName(
+            'Creator Name',
+            getString('creatorName')
         );
 
-        if (Number.isNaN(cityPopulation)) {
-            throw new BadRequestException(
-                `Expected a valid integer number for the field 'cityPopulation'.`
-            );
-        }
+        const cityName = UploadController.validateName(
+            'City Name',
+            getString('cityName')
+        );
+
+        const cityPopulation = UploadController.validatePopulation(
+            getString('cityPopulation')
+        );
 
         try {
             // Get or create the creator.
@@ -79,7 +90,7 @@ export class UploadController {
                 ip
             );
 
-            const fileBuffer = await uploadedFile.toBuffer();
+            const fileBuffer = await multipart.toBuffer();
 
             const screenshot = await this.screenshotService.ingestScreenshot(
                 creator,
@@ -106,27 +117,51 @@ export class UploadController {
 
             throw error;
         }
+    }
 
-        function getMultipartString(fieldName: string): string {
-            assert(uploadedFile, 'Called too soon!');
+    private getMultipartString(
+        multipart: Multipart,
+        fieldName: string
+    ): string {
+        const field = multipart.fields[fieldName];
 
-            const field = uploadedFile.fields[fieldName];
-
-            if (!(field && 'value' in field)) {
-                throw new BadRequestException(
-                    `Expected a multipart field named '${fieldName}'.`
-                );
-            }
-
-            const value = String(field.value).trim();
-
-            if (!value) {
-                throw new BadRequestException(
-                    `Expected a non-empty string for the field '${fieldName}'.`
-                );
-            }
-
-            return value;
+        if (!(field && 'value' in field)) {
+            throw new BadRequestException(
+                `Expected a multipart field named '${fieldName}'.`
+            );
         }
+
+        const value = String(field.value).trim();
+
+        if (!value) {
+            throw new BadRequestException(
+                `Expected a non-empty string for the field '${fieldName}'.`
+            );
+        }
+
+        return value;
+    }
+
+    private static validateName(what: string, name: string): string {
+        if (!name.match(UploadController.nameRegex)) {
+            throw new BadRequestException(oneLine`
+                Invalid ${what}, it must contain only letters, numbers,
+                spaces, hyphens and apostrophes, and be between 2 and 25
+                characters long.`);
+        }
+
+        return name;
+    }
+
+    private static validatePopulation(population: string): number {
+        const parsed = Number.parseInt(population, 10);
+
+        if (Number.isNaN(parsed) || parsed < 0 || parsed > 5_000_000) {
+            throw new BadRequestException(
+                `Invalid population number, it must be a positive integer.`
+            );
+        }
+
+        return parsed;
     }
 }

@@ -11,6 +11,14 @@ export class ConfigService {
         port: ConfigService.getNumber('HOF_HTTP_PORT')
     } as const;
 
+    public readonly azure = {
+        url: ConfigService.getString('HOF_AZURE_URL'),
+        cdn: ConfigService.getString('HOF_AZURE_CDN'),
+        screenshotsContainer: ConfigService.getString(
+            'HOF_AZURE_SCREENSHOTS_CONTAINER'
+        )
+    } as const;
+
     private static getNumber(envVar: string): number {
         const value = ConfigService.getValue(envVar);
         const number = Number(value);
@@ -24,11 +32,16 @@ export class ConfigService {
         return number;
     }
 
+    private static getString(envVar: string): string {
+        return ConfigService.getValue(envVar);
+    }
+
     private static getValue(envVar: string): string {
         const value = process.env[envVar];
         if (!value) {
             throw new Error(`Missing environment variable: ${envVar}`);
         }
+
         return value;
     }
 }

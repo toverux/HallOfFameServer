@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { Creator } from '@prisma/client';
 import Bun from 'bun';
 import { oneLine } from 'common-tags';
+import { JSONObject } from '../common';
 import { PrismaService } from './prisma.service';
 
 /**
@@ -80,6 +81,17 @@ export class CreatorService {
         }
 
         return creator;
+    }
+
+    /**
+     * Serializes a {@link Creator} to a JSON object for API responses.
+     */
+    public serialize(creator: Creator): JSONObject {
+        return {
+            id: creator.id,
+            creatorName: creator.creatorName,
+            createdAt: creator.createdAt.toISOString()
+        };
     }
 
     /**

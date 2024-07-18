@@ -12,7 +12,7 @@ import {
     CreatorService,
     CreatorServiceError,
     InvalidCreatorIdError,
-    ScreenshotProcessingService
+    ScreenshotService
 } from '../services';
 
 @Controller('api/upload')
@@ -20,8 +20,8 @@ export class UploadController {
     @Inject(CreatorService)
     private readonly creatorService!: CreatorService;
 
-    @Inject(ScreenshotProcessingService)
-    private readonly screenshotProcessingService!: ScreenshotProcessingService;
+    @Inject(ScreenshotService)
+    private readonly screenshotService!: ScreenshotService;
 
     /**
      * Receives a screenshot and its metadata and processes it to add it to the
@@ -34,7 +34,7 @@ export class UploadController {
      * - `cityPopulation`: The population of the city.
      * - `screenshot`: The screenshot file, a JPEG.
      *
-     * Response will be 201 without body.
+     * Response will be 201 with serialized Screenshot.
      */
     @Post()
     public async upload(@Req() req: FastifyRequest) {
@@ -73,24 +73,22 @@ export class UploadController {
 
         try {
             // Get or create the creator.
-            await this.creatorService.getOrCreateCreator(
+            const creator = await this.creatorService.getOrCreateCreator(
                 creatorId,
                 creatorName,
                 ip
             );
 
-            // Generate the two resized screenshot from the uploaded file.
             const fileBuffer = await uploadedFile.toBuffer();
 
-            const { imageFHDBuffer, image4KBuffer } =
-                await this.screenshotProcessingService.resizeScreenshots(
-                    fileBuffer,
-                    { creatorName, cityName }
-                );
+            const screenshot = await this.screenshotService.ingestScreenshot(
+                creator,
+                cityName,
+                cityPopulation,
+                fileBuffer
+            );
 
-            // @todo Remove later
-            console.debug('FHD:', imageFHDBuffer.length);
-            console.debug('4K:', image4KBuffer.length);
+            return this.screenshotService.serialize(screenshot);
         } catch (error) {
             if (error instanceof Error && error.message.includes('format')) {
                 throw new BadRequestException(`Invalid image format.`, {

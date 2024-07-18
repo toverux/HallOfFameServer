@@ -48,6 +48,10 @@
         // exception error messages. This makes spotting them easier and also it
         // makes it easier to use double or single quotes.
         "noUnusedTemplateLiteral": "off",
+        // PROJECT-SPECIFIC: The rule does not play well with DI in NestJS and
+        // Angular. No fix is easily conceivable, see:
+        // https://biomejs.dev/linter/rules/use-import-type
+        "useImportType": "off",
         // Keep it but with a few exceptions.
         "useNamingConvention": {
           "level": "error",

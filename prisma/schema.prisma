@@ -33,3 +33,18 @@ model Screenshot {
   @@index([creatorId, cityName])
   @@map("screenshots")
 }
+
+model Ban {
+  id       String   @id @default(auto()) @map("_id") @db.ObjectId
+  bannedAt DateTime @default(now())
+  reason   String
+
+  // Either a Creator or an IP address can be banned.
+  // If ipAddress is set, creatorId is null unless the creator was banned and
+  // all their associated IP addresses were banned too.
+  creatorId String? @db.ObjectId
+  ipAddress String? @unique
+
+  @@index([creatorId])
+  @@map("bans")
+}

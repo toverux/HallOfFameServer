@@ -1,20 +1,9 @@
 import { Multipart } from '@fastify/multipart';
-import {
-    BadRequestException,
-    Controller,
-    ForbiddenException,
-    Inject,
-    Post,
-    Req
-} from '@nestjs/common';
+import { Controller, Inject, Post, Req } from '@nestjs/common';
 import { oneLine } from 'common-tags';
 import type { FastifyRequest } from 'fastify';
-import {
-    CreatorService,
-    CreatorServiceError,
-    InvalidCreatorIdError,
-    ScreenshotService
-} from '../services';
+import { StandardError } from '../common';
+import { BanService, CreatorService, ScreenshotService } from '../services';
 
 @Controller('api/upload')
 export class UploadController {
@@ -29,6 +18,9 @@ export class UploadController {
 
     @Inject(ScreenshotService)
     private readonly screenshotService!: ScreenshotService;
+
+    @Inject(BanService)
+    private readonly banService!: BanService;
 
     /**
      * Receives a screenshot and its metadata and processes it to add it to the
@@ -49,6 +41,8 @@ export class UploadController {
         // becomes undefined.
         const ip = req.ip;
 
+        await this.banService.ensureIpAddressNotBanned(ip);
+
         const multipart = await req.file({
             isPartAFile: fieldName => fieldName == 'screenshot',
             limits: {
@@ -59,7 +53,7 @@ export class UploadController {
         });
 
         if (!multipart) {
-            throw new BadRequestException(
+            throw new InvalidPayloadError(
                 `Expected a file-field named 'screenshot'.`
             );
         }
@@ -69,14 +63,10 @@ export class UploadController {
         const creatorId = getString('creatorId');
 
         const creatorName = UploadController.validateName(
-            'Creator Name',
             getString('creatorName')
         );
 
-        const cityName = UploadController.validateName(
-            'City Name',
-            getString('cityName')
-        );
+        const cityName = UploadController.validateName(getString('cityName'));
 
         const cityPopulation = UploadController.validatePopulation(
             getString('cityPopulation')
@@ -90,6 +80,8 @@ export class UploadController {
                 ip
             );
 
+            await this.banService.ensureCreatorNotBanned(creator);
+
             const fileBuffer = await multipart.toBuffer();
 
             const screenshot = await this.screenshotService.ingestScreenshot(
@@ -102,17 +94,7 @@ export class UploadController {
             return this.screenshotService.serialize(screenshot);
         } catch (error) {
             if (error instanceof Error && error.message.includes('format')) {
-                throw new BadRequestException(`Invalid image format.`, {
-                    cause: error
-                });
-            }
-
-            if (error instanceof InvalidCreatorIdError) {
-                throw new ForbiddenException(error.message, { cause: error });
-            }
-
-            if (error instanceof CreatorServiceError) {
-                throw new BadRequestException(error.message, { cause: error });
+                throw new InvalidImageFormatError(error);
             }
 
             throw error;
@@ -126,7 +108,7 @@ export class UploadController {
         const field = multipart.fields[fieldName];
 
         if (!(field && 'value' in field)) {
-            throw new BadRequestException(
+            throw new InvalidPayloadError(
                 `Expected a multipart field named '${fieldName}'.`
             );
         }
@@ -134,7 +116,7 @@ export class UploadController {
         const value = String(field.value).trim();
 
         if (!value) {
-            throw new BadRequestException(
+            throw new InvalidPayloadError(
                 `Expected a non-empty string for the field '${fieldName}'.`
             );
         }
@@ -142,12 +124,9 @@ export class UploadController {
         return value;
     }
 
-    private static validateName(what: string, name: string): string {
+    private static validateName(name: string): string {
         if (!name.match(UploadController.nameRegex)) {
-            throw new BadRequestException(oneLine`
-                Invalid ${what}, it must contain only letters, numbers,
-                spaces, hyphens and apostrophes, and be between 2 and 25
-                characters long.`);
+            throw new InvalidNameError(name);
         }
 
         return name;
@@ -157,11 +136,36 @@ export class UploadController {
         const parsed = Number.parseInt(population, 10);
 
         if (Number.isNaN(parsed) || parsed < 0 || parsed > 5_000_000) {
-            throw new BadRequestException(
+            throw new InvalidPayloadError(
                 `Invalid population number, it must be a positive integer.`
             );
         }
 
         return parsed;
+    }
+}
+
+abstract class UploadError extends StandardError {}
+
+/**
+ * Error class for invalid payloads, but it should not happen for users using
+ * the actual mod. This should only happen in testing, or eventually if people
+ * want to implement a custom client in good faith, otherwise we could also ban
+ * IPs with failed attempts.
+ */
+class InvalidPayloadError extends UploadError {}
+
+class InvalidNameError extends UploadError {
+    public constructor(name: string) {
+        super(oneLine`
+            Name "${name}" is invalid, it must contain only letters, numbers,
+            spaces, hyphens and apostrophes, and be between 2 and 25 characters
+            long.`);
+    }
+}
+
+class InvalidImageFormatError extends UploadError {
+    public constructor(cause: unknown) {
+        super(`Invalid image format, expected a JPEG file.`, { cause });
     }
 }

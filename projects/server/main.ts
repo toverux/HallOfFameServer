@@ -2,7 +2,9 @@ import * as path from 'node:path';
 import fastifyMultipart from '@fastify/multipart';
 import {
     type ArgumentsHost,
+    BadRequestException,
     Catch,
+    ForbiddenException,
     type HttpServer,
     Logger,
     NotFoundException
@@ -16,6 +18,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 // @ts-expect-error We can't import JS (allowJs: false) and can't declare a d.ts
 import { ssrRender } from '../../dist/server/server.mjs';
 import { AppModule } from './app.module';
+import { StandardError } from './common';
 import { ConfigService } from './services';
 import type { ssrRender as ssrRenderType } from './ssr';
 
@@ -63,6 +66,7 @@ async function bootstrap(): Promise<void> {
     });
 
     app.useGlobalFilters(
+        new StandardErrorFilter(app.getHttpAdapter()),
         new NotFoundExceptionFilter(
             app.getHttpAdapter(),
             browserDistFolder,
@@ -89,6 +93,30 @@ async function linkEnvFilesForWatchMode(): Promise<void> {
         await import('../../.env.local', { with: { type: 'text' } });
     } catch {
         // Ignore, we're just checking if the files exist.
+    }
+}
+
+/**
+ * Error filter that catches {@link StandardError}, which is a known error type,
+ * that we can convert to a {@link BadRequestException} with the original error
+ * message.
+ */
+@Catch(StandardError)
+class StandardErrorFilter extends BaseExceptionFilter {
+    public constructor(applicationRef: HttpServer) {
+        super(applicationRef);
+    }
+
+    public override catch(error: StandardError, host: ArgumentsHost) {
+        const ErrorConstructor =
+            error.kind == 'forbidden'
+                ? ForbiddenException
+                : BadRequestException;
+
+        super.catch(
+            new ErrorConstructor(error.message, { cause: error }),
+            host
+        );
     }
 }
 

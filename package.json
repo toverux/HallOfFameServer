@@ -36,6 +36,7 @@
     "express": "^4.19.2",
     "filesize": "^10.1.4",
     "lefthook": "^1.7.2",
+    "lru-cache": "^11.0.0",
     "prisma": "^5.16.2",
     "rxjs": "~7.8.1",
     "sharp": "^0.33.4",

@@ -1,7 +1,10 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { Creator } from '@prisma/client';
 import Bun from 'bun';
-import { JSONObject } from '../common';
+import { oneLine } from 'common-tags';
+import { LRUCache } from 'lru-cache';
+import { JSONObject, StandardError } from '../common';
+import { BanService } from './ban.service';
 import { PrismaService } from './prisma.service';
 
 /**
@@ -12,7 +15,16 @@ export class CreatorService {
     @Inject(PrismaService)
     private readonly prisma!: PrismaService;
 
+    @Inject(BanService)
+    private readonly banService!: BanService;
+
     private readonly logger = new Logger(CreatorService.name);
+
+    private readonly maxFailedLoginAttempts = 4;
+
+    private readonly failedLoginAttempts = new LRUCache<string, number>({
+        max: 200
+    });
 
     public async getOrCreateCreator(
         creatorId: string,
@@ -103,8 +115,34 @@ export class CreatorService {
             creator.hashedCreatorId &&
             creator.hashedCreatorId != hashedCreatorId
         ) {
-            throw new InvalidCreatorIdError(creator.creatorName);
+            let failedLoginAttempts = this.failedLoginAttempts.get(ip) ?? 0;
+
+            this.failedLoginAttempts.set(ip, ++failedLoginAttempts);
+
+            if (failedLoginAttempts >= this.maxFailedLoginAttempts) {
+                await this.banService.banIp(
+                    ip,
+                    'too many failed login attempts'
+                );
+
+                this.failedLoginAttempts.delete(ip);
+
+                // This will throw a more specific error than the one below
+                // indicating "0 attempts left".
+                await this.banService.ensureIpAddressNotBanned(ip);
+            }
+
+            const remainingAttempts =
+                this.maxFailedLoginAttempts - failedLoginAttempts;
+
+            throw new InvalidCreatorIdError(
+                creator.creatorName,
+                remainingAttempts
+            );
         }
+
+        // Reset failed login attempts if the login was successful.
+        this.failedLoginAttempts.delete(ip);
 
         // If no changes are needed, return the creator as is.
         if (
@@ -131,10 +169,16 @@ export class CreatorService {
     }
 }
 
-export abstract class CreatorServiceError extends Error {}
+export abstract class CreatorError extends StandardError {}
 
-export class InvalidCreatorIdError extends CreatorServiceError {
-    public constructor(creatorName: string) {
-        super(`Incorrect Creator ID for user "${creatorName}".`);
+export class InvalidCreatorIdError extends CreatorError {
+    public override kind = 'forbidden' as const;
+
+    public constructor(creatorName: string, remainingAttempts: number) {
+        super(oneLine`
+            Incorrect Creator ID for user "${creatorName}",
+            ${remainingAttempts} attempt(s) remaining before ban.
+            If you've never used HallOfFame before, this means this Creator Name
+            is already claimed, choose another!`);
     }
 }

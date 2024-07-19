@@ -36,7 +36,8 @@ Client side Roadmap is maintained in the client repository.
 - In the future, maybe:
   - Get photo from the same city endpoint.
   - Follow creator to see more of their uploads.
-  - Photo labelling so you can choose your preferred style of pictures to see (ex. landscape, detailing, skyline, aerial, etc.).
+  - Photo labelling so you can choose your preferred style of pictures to see (ex. landscape, detailing, skyline,
+    aerial, etc.).
   - Website for photo listing.
   - Personal space for creators to manage their collection.
 
@@ -51,15 +52,19 @@ Client side Roadmap is maintained in the client repository.
 3. Run `bun i` to install dependencies.
 4. You may `bun run build` to test that the project builds and everything is in order.
 5. Install [MongoDB](https://www.mongodb.com/docs/manual/administration/install-community)
-   ([more direct download links here](https://www.mongodb.com/try/download/community-edition)), mongosh, and setup a replica set,
+   ([more direct download links here](https://www.mongodb.com/try/download/community-edition)), mongosh, and setup a
+   replica set,
    here's an example but it varies according to your setup and preferences:
-   1. Set this in your configuration file (`/etc/mongod.conf`, Windows: `C:\Program Files\MongoDB\Server\7.0\bin\mongod.cfg`):
+   1. Set this in your configuration file (`/etc/mongod.conf`,
+      Windows: `C:\Program Files\MongoDB\Server\7.0\bin\mongod.cfg`):
       ```yml
       replication:
         replSetName: rs0
       ```
-   2. Restart MongoDB (`sudo systemctl restart mongod`, Windows: open "Services", search for "MongoDB Server", right-clik it and choose Restart).
-   3. Connecting to the database using `mongosh`, run `rs.initiate()` to create a default rs0 replica set, check there's no error.
+   2. Restart MongoDB (`sudo systemctl restart mongod`, Windows: open "Services", search for "MongoDB Server",
+      right-click it and choose Restart).
+   3. Connecting to the database using `mongosh`, run `rs.initiate()` to create a default rs0 replica set, check there's
+      no error.
    4. Done!
 
    ...or follow [this guide](https://www.mongodb.com/docs/manual/tutorial/convert-standalone-to-replica-set/).
@@ -112,11 +117,12 @@ Commits must follow the [Conventional Commits](https://www.conventionalcommits.o
 specification and more specifically the Angular one.
 
 Scope can be one or more of the following:
+
 - `server`: for non-specific changes in the server;
 - `admin`: for changes in the backoffice admin interface;
 - `api`: for changes in the server HTTP API;
 - `imgproc`: for changes in image processing;
 - `database`: for changes in the database schema or related systems;
 - `i18n`: for changes in translations and translations system;
-- `deps`: for dependencies updates;
+- `deps`: for changes in dependencies (updates, additions, removals);
 - Propose new scopes if needed!

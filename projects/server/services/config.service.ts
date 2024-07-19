@@ -19,6 +19,10 @@ export class ConfigService {
         )
     } as const;
 
+    public readonly supportContact = ConfigService.getString(
+        'HOF_SUPPORT_CONTACT'
+    );
+
     private static getNumber(envVar: string): number {
         const value = ConfigService.getValue(envVar);
         const number = Number(value);

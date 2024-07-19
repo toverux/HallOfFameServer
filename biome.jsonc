@@ -69,6 +69,7 @@
     }
   },
   "formatter": {
+    "formatWithErrors": true,
     "lineEnding": "lf",
     "indentStyle": "space",
     "indentWidth": 4,

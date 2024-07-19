@@ -193,7 +193,10 @@ export abstract class BanError extends StandardError {}
 export class BannedIpAddressError extends BanError {
     public override kind = 'forbidden' as const;
 
-    public constructor(ban: Ban, supportContact: string) {
+    public constructor(
+        public readonly ban: Ban,
+        public readonly supportContact: string
+    ) {
         super(oneLine`
             Your IP address "${ban.ipAddress}" is banned
             for the following reason: ${ban.reason}
@@ -206,9 +209,9 @@ export class BannedCreatorError extends BanError {
     public override kind = 'forbidden' as const;
 
     public constructor(
-        ban: Ban,
-        creator: Pick<Creator, 'creatorName'>,
-        supportContact: string
+        public readonly ban: Ban,
+        public readonly creator: Pick<Creator, 'creatorName'>,
+        public readonly supportContact: string
     ) {
         super(oneLine`
             Creator "${creator.creatorName}" is banned

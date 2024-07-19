@@ -22,6 +22,7 @@ model Screenshot {
   id             String   @id @default(auto()) @map("_id") @db.ObjectId
   createdAt      DateTime @default(now())
   approved       Boolean  @default(false)
+  ipAddress      String
   creatorId      String   @db.ObjectId
   creator        Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
   cityName       String
@@ -31,6 +32,7 @@ model Screenshot {
 
   @@index([creatorId])
   @@index([creatorId, cityName])
+  @@index([ipAddress])
   @@map("screenshots")
 }
 

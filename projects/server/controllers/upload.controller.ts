@@ -85,6 +85,7 @@ export class UploadController {
             const fileBuffer = await multipart.toBuffer();
 
             const screenshot = await this.screenshotService.ingestScreenshot(
+                ip,
                 creator,
                 cityName,
                 cityPopulation,
@@ -156,11 +157,11 @@ abstract class UploadError extends StandardError {}
 class InvalidPayloadError extends UploadError {}
 
 class InvalidNameError extends UploadError {
-    public constructor(name: string) {
+    public constructor(public readonly incorrectName: string) {
         super(oneLine`
-            Name "${name}" is invalid, it must contain only letters, numbers,
-            spaces, hyphens and apostrophes, and be between 2 and 25 characters
-            long.`);
+            Name "${incorrectName}" is invalid, it must contain only letters,
+            numbers, spaces, hyphens and apostrophes, and be between 2 and 25
+            characters long.`);
     }
 }
 

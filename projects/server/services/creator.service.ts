@@ -174,7 +174,10 @@ export abstract class CreatorError extends StandardError {}
 export class InvalidCreatorIdError extends CreatorError {
     public override kind = 'forbidden' as const;
 
-    public constructor(creatorName: string, remainingAttempts: number) {
+    public constructor(
+        public readonly creatorName: string,
+        public readonly remainingAttempts: number
+    ) {
         super(oneLine`
             Incorrect Creator ID for user "${creatorName}",
             ${remainingAttempts} attempt(s) remaining before ban.

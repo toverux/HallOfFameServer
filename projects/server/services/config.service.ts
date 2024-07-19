@@ -19,6 +19,10 @@ export class ConfigService {
         )
     } as const;
 
+    public readonly screenshotsLimitPer24h = ConfigService.getNumber(
+        'HOF_SCREENSHOTS_LIMIT_PER_24H'
+    );
+
     public readonly supportContact = ConfigService.getString(
         'HOF_SUPPORT_CONTACT'
     );

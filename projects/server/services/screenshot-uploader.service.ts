@@ -1,6 +1,7 @@
 import { ContainerClient } from '@azure/storage-blob';
 import { Injectable } from '@nestjs/common';
 import { Creator, Screenshot } from '@prisma/client';
+import * as dateFns from 'date-fns';
 import slug from 'slug';
 import { AzureService } from './azure.service';
 import { ConfigService } from './config.service';
@@ -23,13 +24,10 @@ export class ScreenshotUploaderService {
     ): Promise<{ blobFHD: string; blob4K: string }> {
         const containerClient = this.containerClient;
 
-        const date = new Date();
-        const year = date.getFullYear();
-        const month = (date.getMonth() + 1).toString().padStart(2, '0');
-        const day = date.getDate().toString().padStart(2, '0');
+        const date = dateFns.format(new Date(), 'yyyy-MM-dd-HH-mm-ss');
 
         const blobSlug = slug(
-            `${screenshot.cityName} by ${creator.creatorName} ${year}-${month}-${day}`
+            `${screenshot.cityName} by ${creator.creatorName} ${date}`
         );
 
         const blobNameBase = `${creator.id}/${screenshot.id}/${blobSlug}`;

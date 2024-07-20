@@ -1,6 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Creator, Screenshot } from '@prisma/client';
 import { oneLine } from 'common-tags';
+import * as dateFns from 'date-fns';
 import { JSONObject, StandardError } from '../common';
 import { ConfigService } from './config.service';
 import { PrismaService } from './prisma.service';
@@ -129,7 +130,7 @@ export class ScreenshotService {
             where: {
                 // biome-ignore lint/style/useNamingConvention: prisma
                 OR: [{ creatorId }, { ipAddress }],
-                createdAt: { gt: new Date(Date.now() - 1000 * 60 * 60 * 24) }
+                createdAt: { gt: dateFns.subDays(new Date(), 1) }
             }
         });
 
@@ -137,11 +138,8 @@ export class ScreenshotService {
         if (latestScreenshots.length >= this.config.screenshotsLimitPer24h) {
             throw new ScreenshotRateLimitExceededError(
                 this.config.screenshotsLimitPer24h,
-                new Date(
-                    // biome-ignore lint/style/noNonNullAssertion: cannot be null
-                    latestScreenshots[0]!.createdAt.getTime() +
-                        1000 * 60 * 60 * 24
-                )
+                // biome-ignore lint/style/noNonNullAssertion: cannot be null
+                dateFns.addDays(latestScreenshots[0]!.createdAt, 1)
             );
         }
     }

@@ -1,4 +1,18 @@
-POST {{url}}/api/upload
+### Get random screenshot
+
+GET {{url}}/api/screenshot/weighted&incrementViews={{incrementViews}}
+
+### Get random screenshot weighted algorithms
+
+GET {{url}}/api/screenshot/weighted
+    ?random=10
+    &recent=10
+    &lowViews=10
+    &incrementViews={{incrementViews}}
+
+### Upload a screenshot
+
+POST {{url}}/api/screenshot/upload
 Content-Type: multipart/form-data; boundary=WebAppBoundary
 
 --WebAppBoundary

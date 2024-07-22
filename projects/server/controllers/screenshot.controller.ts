@@ -1,12 +1,21 @@
 import { Multipart } from '@fastify/multipart';
-import { Controller, Inject, Post, Req } from '@nestjs/common';
+import {
+    Controller,
+    Get,
+    Inject,
+    ParseBoolPipe,
+    ParseIntPipe,
+    Post,
+    Query,
+    Req
+} from '@nestjs/common';
 import { oneLine } from 'common-tags';
 import type { FastifyRequest } from 'fastify';
-import { StandardError } from '../common';
+import { JSONObject, StandardError } from '../common';
 import { BanService, CreatorService, ScreenshotService } from '../services';
 
-@Controller('api/upload')
-export class UploadController {
+@Controller('api/screenshot')
+export class ScreenshotController {
     /**
      * Regular expression to validate Creator or City names.
      * @private
@@ -22,6 +31,30 @@ export class UploadController {
     @Inject(BanService)
     private readonly banService!: BanService;
 
+    @Get('weighted')
+    public async weighted(
+        @Query('random', new ParseIntPipe({ optional: true })) random = 0,
+        @Query('recent', new ParseIntPipe({ optional: true })) recent = 0,
+        @Query('lowViews', new ParseIntPipe({ optional: true })) lowViews = 0,
+        @Query('incrementViews', new ParseBoolPipe({ optional: true }))
+        incrementViews = true
+    ) {
+        const screenshot =
+            await this.screenshotService.getWeightedRandomScreenshot(
+                {
+                    recent,
+                    random,
+                    lowViews
+                },
+                incrementViews
+            );
+
+        return {
+            __algorithm: screenshot.__algorithm,
+            ...this.screenshotService.serialize(screenshot)
+        };
+    }
+
     /**
      * Receives a screenshot and its metadata and processes it to add it to the
      * Hall of Fame.
@@ -35,8 +68,8 @@ export class UploadController {
      *
      * Response will be 201 with serialized Screenshot.
      */
-    @Post()
-    public async upload(@Req() req: FastifyRequest) {
+    @Post('upload')
+    public async upload(@Req() req: FastifyRequest): Promise<JSONObject> {
         // We need to retrieve the IP address before consuming the body, or it
         // becomes undefined.
         const ip = req.ip;
@@ -62,13 +95,15 @@ export class UploadController {
 
         const creatorId = getString('creatorId');
 
-        const creatorName = UploadController.validateName(
+        const creatorName = ScreenshotController.validateName(
             getString('creatorName')
         );
 
-        const cityName = UploadController.validateName(getString('cityName'));
+        const cityName = ScreenshotController.validateName(
+            getString('cityName')
+        );
 
-        const cityPopulation = UploadController.validatePopulation(
+        const cityPopulation = ScreenshotController.validatePopulation(
             getString('cityPopulation')
         );
 
@@ -126,7 +161,7 @@ export class UploadController {
     }
 
     private static validateName(name: string): string {
-        if (!name.match(UploadController.nameRegex)) {
+        if (!name.match(ScreenshotController.nameRegex)) {
             throw new InvalidNameError(name);
         }
 

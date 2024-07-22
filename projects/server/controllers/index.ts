@@ -1,5 +1,5 @@
-import { UploadController } from './upload.controller';
+import { ScreenshotController } from './screenshot.controller';
 
-export * from './upload.controller';
+export * from './screenshot.controller';
 
-export const controllers = [UploadController];
+export const controllers = [ScreenshotController];

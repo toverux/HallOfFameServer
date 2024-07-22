@@ -1,5 +1,7 @@
+import assert from 'node:assert/strict';
+import * as timers from 'node:timers';
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { Creator, Screenshot } from '@prisma/client';
+import { Creator, Prisma, Screenshot } from '@prisma/client';
 import { oneLine } from 'common-tags';
 import * as dateFns from 'date-fns';
 import { JSONObject, StandardError } from '../common';
@@ -7,6 +9,15 @@ import { ConfigService } from './config.service';
 import { PrismaService } from './prisma.service';
 import { ScreenshotProcessingService } from './screenshot-processing.service';
 import { ScreenshotUploaderService } from './screenshot-uploader.service';
+
+type RandomScreenshotAlgorithm = 'random' | 'recent' | 'lowViews';
+
+type RandomScreenshotWeights = Record<RandomScreenshotAlgorithm, number>;
+
+type RandomScreenshotFunctions = Record<
+    RandomScreenshotAlgorithm,
+    () => Promise<Screenshot | null>
+>;
 
 @Injectable()
 export class ScreenshotService {
@@ -23,6 +34,12 @@ export class ScreenshotService {
     private readonly screenshotUploader!: ScreenshotUploaderService;
 
     private readonly logger = new Logger(ScreenshotService.name);
+
+    private readonly randomScreenshotFunctions: RandomScreenshotFunctions = {
+        random: this.getRandomScreenshot.bind(this),
+        recent: this.getRecentScreenshot.bind(this),
+        lowViews: this.getLowViewsScreenshot.bind(this)
+    };
 
     /**
      * Ingests a screenshot and its metadata into the Hall of Fame.
@@ -92,12 +109,68 @@ export class ScreenshotService {
     }
 
     /**
+     * Retrieves a random screenshot from the Hall of Fame, with weights to
+     * assign probabilities to select the algorithm used to find a screenshot
+     * ({@link RandomScreenshotAlgorithm}), algorithms with a higher weight have
+     * a higher probability of being selected.
+     *
+     * If no screenshot is found by the algorithm that was randomly selected,
+     * it falls back to {@link getRandomScreenshot}.
+     */
+    public async getWeightedRandomScreenshot(
+        weights: RandomScreenshotWeights,
+        incrementViews: boolean
+    ): Promise<Screenshot & { __algorithm: RandomScreenshotAlgorithm }> {
+        // Get the total weight.
+        const totalWeight = Object.values(weights).reduce(
+            (total, weight) => total + weight,
+            0
+        );
+
+        // Generate a random number between 0 and the total weight.
+        let random = Math.random() * totalWeight;
+
+        // Find the screenshot based on the random number.
+        let screenshot: Screenshot | null = null;
+        let algorithm: RandomScreenshotAlgorithm = 'random';
+
+        for (const [algo, weight] of Object.entries(weights)) {
+            if (random < weight) {
+                screenshot =
+                    await this.randomScreenshotFunctions[
+                        algo as RandomScreenshotAlgorithm
+                    ]();
+
+                if (screenshot) {
+                    algorithm = algo as RandomScreenshotAlgorithm;
+                }
+
+                break;
+            }
+
+            random -= weight;
+        }
+
+        // If no screenshot was found by an algorithm other than random,
+        // fallback to a random screenshot.
+        screenshot ??= await this.getRandomScreenshot();
+
+        if (incrementViews) {
+            // noinspection JSObjectNullOrUndefined False positive
+            this.incrementViews(screenshot.id);
+        }
+
+        return { ...screenshot, __algorithm: algorithm };
+    }
+
+    /**
      * Serializes a {@link Screenshot} to a JSON object for API responses.
      */
     public serialize(screenshot: Screenshot): JSONObject {
         return {
             id: screenshot.id,
             approved: screenshot.approved,
+            views: screenshot.views,
             creatorId: screenshot.creatorId,
             cityName: screenshot.cityName,
             cityPopulation: screenshot.cityPopulation,
@@ -135,13 +208,129 @@ export class ScreenshotService {
         });
 
         // If the limit is reached, throw the error.
-        if (latestScreenshots.length >= this.config.screenshotsLimitPer24h) {
+        if (latestScreenshots.length >= this.config.screenshots.limitPer24h) {
             throw new ScreenshotRateLimitExceededError(
-                this.config.screenshotsLimitPer24h,
+                this.config.screenshots.limitPer24h,
                 // biome-ignore lint/style/noNonNullAssertion: cannot be null
                 dateFns.addDays(latestScreenshots[0]!.createdAt, 1)
             );
         }
+    }
+
+    /**
+     * Retrieves an approved completely random screenshot.
+     */
+    private async getRandomScreenshot(): Promise<Screenshot> {
+        const screenshot = await this.runAggregateForSingleScreenshot([
+            { $match: { approved: true } },
+            { $sample: { size: 1 } }
+        ]);
+
+        // This should always return something, or the database is empty.
+        assert(screenshot, `Not a single screenshot found. Empty database?`);
+
+        return screenshot;
+    }
+
+    /**
+     * Retrieves an approved random screenshot that was uploaded within the last
+     * X days (configurable in env).
+     */
+    private getRecentScreenshot(): Promise<Screenshot | null> {
+        const $date = dateFns.subDays(
+            new Date(),
+            this.config.screenshots.recencyThresholdDays
+        );
+
+        return this.runAggregateForSingleScreenshot([
+            { $match: { approved: true, createdAt: { $gt: { $date } } } },
+            { $sort: { views: 1, createdAt: 1 } },
+            { $limit: 1 }
+        ]);
+    }
+
+    /**
+     * Retrieves an approved screenshot that was uploaded more than X days ago
+     * (configurable in env) ago, has the lowest amount of views, and then
+     * prioritizes the oldest screenshots.
+     *
+     * ###### Implementation Notes
+     * This query scans the entire collection (minus last X days for recency and
+     * unapproved posts), so I was worried about performance and wondered if I
+     * should add a `{ $sample: { size: aRelativelyBigNumber } }` to limit the
+     * amount of documents scanned.
+     * After testing on ~110k documents, it seems that `{ $sample }`, before or
+     * after `{ $match }`, breaks various MongoDB optimizations (index usage,
+     * in-memory sorting, etc.), so it was actually ~30% slower.
+     * I guess a "big data" approach would be to use other optimization
+     * techniques like pre-aggregating data, or use `{ $sample }` only for much
+     * larger collections.
+     * Anyway, even on 110k documents, the query was still very fast and light
+     * due to MongoDB's optimizations, and we still transfer only one document
+     * so throughput is not a concern.
+     */
+    private getLowViewsScreenshot(): Promise<Screenshot | null> {
+        const $date = dateFns.subDays(
+            new Date(),
+            this.config.screenshots.recencyThresholdDays
+        );
+
+        return this.runAggregateForSingleScreenshot([
+            { $match: { approved: true, createdAt: { $lt: { $date } } } },
+            { $sort: { views: 1, createdAt: 1 } },
+            { $limit: 1 }
+        ]);
+    }
+
+    /**
+     * Runs an aggregate pipeline that retrieves a single screenshot (for use
+     * by {@link randomScreenshotFunctions} functions), ensures that the result
+     * is valid, and returns a handcrafted {@link Screenshot} instead of a POJO.
+     */
+    private async runAggregateForSingleScreenshot(
+        pipeline: Prisma.InputJsonValue[]
+    ): Promise<Screenshot | null> {
+        const results = await this.prisma.screenshot.aggregateRaw({
+            pipeline
+        });
+
+        if (!Array.isArray(results)) {
+            throw new Error(
+                `Expected an array of results, got (${typeof results}) ${results}.`
+            );
+        }
+
+        const screenshot = results[0];
+        if (!screenshot?._id?.$oid) {
+            return null;
+        }
+
+        return {
+            id: screenshot._id.$oid,
+            createdAt: new Date(screenshot.createdAt.$date),
+            approved: screenshot.approved,
+            views: screenshot.views,
+            ipAddress: screenshot.ipAddress,
+            creatorId: screenshot.creatorId.$oid,
+            cityName: screenshot.cityName,
+            cityPopulation: screenshot.cityPopulation,
+            imageUrlFHD: screenshot.imageUrlFHD,
+            imageUrl4K: screenshot.imageUrl4K
+        };
+    }
+
+    /**
+     * Increments the views of a screenshot in the database.
+     * This is done asynchronously to not block the response.
+     */
+    private incrementViews(id: Screenshot['id']): void {
+        timers.setImmediate(async () => {
+            await this.prisma.screenshot.update({
+                select: { id: true },
+                where: { id },
+                data: { views: { increment: 1 } }
+            });
+        });
     }
 }
 

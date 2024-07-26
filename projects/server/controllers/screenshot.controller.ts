@@ -191,7 +191,7 @@ export class ScreenshotController {
             );
         }
 
-        return creatorId as CreatorID;
+        return CreatorService.validateCreatorId(creatorId);
     }
 
     private static getMultipartString(

@@ -3,6 +3,7 @@ import type { Creator } from '@prisma/client';
 import Bun from 'bun';
 import { oneLine } from 'common-tags';
 import { LRUCache } from 'lru-cache';
+import * as uuid from 'uuid';
 import {
     CreatorID,
     type IPAddress,
@@ -25,12 +26,37 @@ export class CreatorService {
 
     private readonly logger = new Logger(CreatorService.name);
 
+    /**
+     * Maximum number of failed login attempts before an IP is permanently
+     * banned.
+     */
     private readonly maxFailedLoginAttempts = 4;
 
-    private readonly failedLoginAttempts = new LRUCache<string, number>({
+    /**
+     * Tracks failed login attempts by IP address.
+     */
+    private readonly failedLoginAttempts = new LRUCache<IPAddress, number>({
         max: 200
     });
 
+    /**
+     * Validates that a string is a valid UUID v4 Creator ID.
+     *
+     * @throws InvalidCreatorIDError If the string is not a valid UUID v4.
+     */
+    public static validateCreatorId(creatorId: string): CreatorID {
+        if (uuid.validate(creatorId) && uuid.version(creatorId) == 4) {
+            return creatorId as CreatorID;
+        }
+
+        throw new InvalidCreatorIDError(creatorId);
+    }
+
+    /**
+     * Retrieves a Creator by their Creator ID.
+     *
+     * @returns The Creator if found, otherwise null.
+     */
     public getCreator(creatorId: CreatorID): Promise<Creator | null> {
         const hashedCreatorId = this.hashCreatorId(creatorId);
 
@@ -39,6 +65,20 @@ export class CreatorService {
         });
     }
 
+    /**
+     * Creates a new Creator or retrieves an existing one.
+     * There are three possible outcomes:
+     * - If the Creator ID and Creator Name don't match any record, a new
+     *   Creator is created with the provided credentials.
+     * - If the Creator ID matches a record, the request is authenticated, and
+     *   the Creator Name is updated if it changed.
+     * - If the Creator ID doesn't match a record, but the Creator Name does,
+     *   then the person has the wrong Creator ID and an authentication error is
+     *   thrown.
+     *
+     * @throws IncorrectCreatorIDError If the Creator ID is incorrect for the
+     *         provided Creator Name.
+     */
     public async getOrCreateCreator(
         creatorId: CreatorID,
         creatorName: string,
@@ -156,7 +196,7 @@ export class CreatorService {
             const remainingAttempts =
                 this.maxFailedLoginAttempts - failedLoginAttempts;
 
-            throw new InvalidCreatorIdError(
+            throw new IncorrectCreatorIDError(
                 creator.creatorName,
                 remainingAttempts
             );
@@ -194,7 +234,15 @@ export class CreatorService {
 
 export abstract class CreatorError extends StandardError {}
 
-export class InvalidCreatorIdError extends CreatorError {
+export class InvalidCreatorIDError extends CreatorError {
+    public constructor(public readonly creatorId: string) {
+        super(
+            `Invalid Creator ID "${creatorId}", an UUID v4 sequence was expected.`
+        );
+    }
+}
+
+export class IncorrectCreatorIDError extends CreatorError {
     public override kind = 'forbidden' as const;
 
     public constructor(

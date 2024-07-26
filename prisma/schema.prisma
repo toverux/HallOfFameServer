@@ -7,22 +7,39 @@ datasource db {
   url      = env("HOF_DATABASE_URL")
 }
 
+/// An user/account, needed to view and upload screenshots.
 model Creator {
   id              String       @id @default(auto()) @map("_id") @db.ObjectId
   createdAt       DateTime     @default(now())
+  /// Creator's name, public.
+  /// Can contain only unicode letters, numbers, spaces, hyphens, apostrophes,
+  /// and be between 2 and 20 characters long.
   creatorName     String       @unique
+  /// Blake2b256 hash of the Creator ID (not the database Creator.id) used for
+  /// authentication. Stakes are low so this is not salted or anything, but the
+  /// Creator ID is our only secret so we'd rather not store it in plain text.
   hashedCreatorId String       @unique
+  /// All unique IP addresses used by this Creator, used to ban an Creator and
+  /// mitigate multi-accounting.
   ipAddresses     String[]
+  /// One to many relationship with Screenshot.
   screenshots     Screenshot[]
 
   @@map("creators")
 }
 
+/// A screenshot uploaded by a Creator.
 model Screenshot {
   id             String   @id @default(auto()) @map("_id") @db.ObjectId
   createdAt      DateTime @default(now())
+  /// Whether the Screenshot is approved and can be shown to users.
   approved       Boolean  @default(false)
+  /// Number of views the Screenshot has received.
   views          Int      @default(0)
+  /// IP address of the user who uploaded the Screenshot.
+  /// Used in case a user is multi-accounting (which is allowed), to keep track
+  /// of all the screenshots uploaded by a same person to apply quota even
+  /// across multiple accounts.
   ipAddress      String
   creatorId      String   @db.ObjectId
   creator        Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
@@ -42,17 +59,44 @@ model Screenshot {
   @@map("screenshots")
 }
 
+/// Ban for a Creator and/or an IP address.
 model Ban {
   id       String   @id @default(auto()) @map("_id") @db.ObjectId
   bannedAt DateTime @default(now())
   reason   String
 
-  // Either a Creator or an IP address can be banned.
-  // If ipAddress is set, creatorId is null unless the creator was banned and
-  // all their associated IP addresses were banned too.
+  /// Either a Creator or an IP address can be banned.
+  /// If creatorId is set, ipAddress is set too and there is a Ban record for
+  /// each IP address used by the Creator.
   creatorId String? @db.ObjectId
+  /// If ipAddress is set, creatorId is null unless the creator was banned and
+  /// all their associated IP addresses were banned too.
   ipAddress String? @unique
 
   @@index([creatorId])
   @@map("bans")
+}
+
+/// Record of a view of a Screenshot, so that we can track views and avoid
+/// showing the same screenshot to the same user multiple times.
+model View {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  viewedAt     DateTime @default(now())
+  screenshotId String   @db.ObjectId
+  /// IP address of the user who viewed the Screenshot.
+  /// This is our primary way to track views, as screenshots can be viewed
+  /// without a Creator ID.
+  ipAddress    String
+  /// Creator ID of the user who viewed the Screenshot, if authenticated, to
+  /// consolidate views across multiple IP addresses for the same Creator.
+  creatorId    String?  @db.ObjectId
+
+  @@index([screenshotId])
+  @@index([ipAddress])
+  @@index([creatorId])
+  // Composite indexes for querying with date bounds to propose again
+  // screenshots the user hasn't seen in a while.
+  @@index([ipAddress, viewedAt])
+  @@index([creatorId, viewedAt])
+  @@map("views")
 }

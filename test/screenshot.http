@@ -1,6 +1,7 @@
 ### Get random screenshot
 
-GET {{url}}/api/screenshot/weighted&incrementViews={{incrementViews}}
+GET {{url}}/api/screenshot/weighted?markViewed={{markViewed}}
+X-Creator-Id: a86bd575-6aba-4d83-abd5-756aba9d834a
 
 ### Get random screenshot weighted algorithms
 
@@ -8,7 +9,9 @@ GET {{url}}/api/screenshot/weighted
     ?random=10
     &recent=10
     &lowViews=10
-    &incrementViews={{incrementViews}}
+    &markViewed={{markViewed}}
+    &viewMaxAge=0
+X-Creator-Id: a86bd575-6aba-4d83-abd5-756aba9d834a
 
 ### Upload a screenshot
 

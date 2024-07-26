@@ -3,7 +3,12 @@ import type { Creator } from '@prisma/client';
 import Bun from 'bun';
 import { oneLine } from 'common-tags';
 import { LRUCache } from 'lru-cache';
-import { JSONObject, StandardError } from '../common';
+import {
+    CreatorID,
+    type IPAddress,
+    type JSONObject,
+    StandardError
+} from '../common';
 import { BanService } from './ban.service';
 import { PrismaService } from './prisma.service';
 
@@ -26,23 +31,20 @@ export class CreatorService {
         max: 200
     });
 
-    public async getOrCreateCreator(
-        creatorId: string,
-        creatorName: string,
-        ip: string
-    ): Promise<Creator> {
-        // Use a repeatable hash function instead of a salted hash to allow for
-        // finding the creator by either the Creator ID or the Creator Name, a
-        // specific requirement due to how account creation and identification
-        // is done in Hall of Fame.
-        // This is not top-tier security, but it's good enough for Hall of Fame
-        // where I decided to prioritize ease of use.
-        const hasher = new Bun.CryptoHasher('blake2b256');
+    public getCreator(creatorId: CreatorID): Promise<Creator | null> {
+        const hashedCreatorId = this.hashCreatorId(creatorId);
 
-        const hashedCreatorId = hasher
-            .update(creatorId.toLowerCase())
-            .digest()
-            .toString('base64');
+        return this.prisma.creator.findFirst({
+            where: { hashedCreatorId }
+        });
+    }
+
+    public async getOrCreateCreator(
+        creatorId: CreatorID,
+        creatorName: string,
+        ipAddress: IPAddress
+    ): Promise<Creator> {
+        const hashedCreatorId = this.hashCreatorId(creatorId);
 
         // Find the creator by either the Creator ID or the Creator Name.
         // If we find a match,
@@ -64,7 +66,7 @@ export class CreatorService {
                 await this.authenticateAndUpdateCreator(
                     hashedCreatorId,
                     creatorName,
-                    ip,
+                    ipAddress,
                     creator
                 );
 
@@ -79,7 +81,7 @@ export class CreatorService {
                 data: {
                     hashedCreatorId,
                     creatorName,
-                    ipAddresses: [ip]
+                    ipAddresses: [ipAddress]
                 }
             });
 
@@ -101,12 +103,30 @@ export class CreatorService {
     }
 
     /**
+     * Hashes the Creator ID for storage in the database.
+     */
+    private hashCreatorId(creatorId: CreatorID): string {
+        // Use a repeatable hash function instead of a salted hash to allow for
+        // finding the creator by either the Creator ID or the Creator Name, a
+        // specific requirement due to how account creation and identification
+        // is done in Hall of Fame.
+        // This is not top-tier security, but it's good enough for Hall of Fame
+        // where I decided to prioritize ease of use.
+        const hasher = new Bun.CryptoHasher('blake2b256');
+
+        return hasher
+            .update(creatorId.toLowerCase())
+            .digest()
+            .toString('base64');
+    }
+
+    /**
      * Verifies that the Creator ID and Creator Name are correct and updates
      */
     private async authenticateAndUpdateCreator(
         hashedCreatorId: string,
         creatorName: string,
-        ip: string,
+        ipAddress: IPAddress,
         creator: Creator
     ): Promise<{ creator: Creator; modified: boolean }> {
         // Check if the Creator ID hashes match.
@@ -115,21 +135,22 @@ export class CreatorService {
             creator.hashedCreatorId &&
             creator.hashedCreatorId != hashedCreatorId
         ) {
-            let failedLoginAttempts = this.failedLoginAttempts.get(ip) ?? 0;
+            let failedLoginAttempts =
+                this.failedLoginAttempts.get(ipAddress) ?? 0;
 
-            this.failedLoginAttempts.set(ip, ++failedLoginAttempts);
+            this.failedLoginAttempts.set(ipAddress, ++failedLoginAttempts);
 
             if (failedLoginAttempts >= this.maxFailedLoginAttempts) {
                 await this.banService.banIp(
-                    ip,
+                    ipAddress,
                     'too many failed login attempts'
                 );
 
-                this.failedLoginAttempts.delete(ip);
+                this.failedLoginAttempts.delete(ipAddress);
 
                 // This will throw a more specific error than the one below
                 // indicating "0 attempts left".
-                await this.banService.ensureIpAddressNotBanned(ip);
+                await this.banService.ensureIpAddressNotBanned(ipAddress);
             }
 
             const remainingAttempts =
@@ -142,12 +163,12 @@ export class CreatorService {
         }
 
         // Reset failed login attempts if the login was successful.
-        this.failedLoginAttempts.delete(ip);
+        this.failedLoginAttempts.delete(ipAddress);
 
         // If no changes are needed, return the creator as is.
         if (
             creator.creatorName == creatorName &&
-            creator.ipAddresses.includes(ip) &&
+            creator.ipAddresses.includes(ipAddress) &&
             creator.hashedCreatorId == hashedCreatorId
         ) {
             return { creator, modified: false };
@@ -161,7 +182,9 @@ export class CreatorService {
             data: {
                 creatorName,
                 hashedCreatorId,
-                ipAddresses: Array.from(new Set([ip, ...creator.ipAddresses]))
+                ipAddresses: Array.from(
+                    new Set([ipAddress, ...creator.ipAddresses])
+                )
             }
         });
 

@@ -4,11 +4,17 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Creator, Prisma, Screenshot } from '@prisma/client';
 import { oneLine } from 'common-tags';
 import * as dateFns from 'date-fns';
-import { JSONObject, StandardError } from '../common';
+import {
+    type CreatorID,
+    type IPAddress,
+    type JSONObject,
+    StandardError
+} from '../common';
 import { ConfigService } from './config.service';
 import { PrismaService } from './prisma.service';
 import { ScreenshotProcessingService } from './screenshot-processing.service';
 import { ScreenshotUploaderService } from './screenshot-uploader.service';
+import { ViewService } from './view.service';
 
 type RandomScreenshotAlgorithm = 'random' | 'recent' | 'lowViews';
 
@@ -16,7 +22,7 @@ type RandomScreenshotWeights = Record<RandomScreenshotAlgorithm, number>;
 
 type RandomScreenshotFunctions = Record<
     RandomScreenshotAlgorithm,
-    () => Promise<Screenshot | null>
+    (nin: readonly Screenshot['id'][]) => Promise<Screenshot | null>
 >;
 
 @Injectable()
@@ -26,6 +32,9 @@ export class ScreenshotService {
 
     @Inject(ConfigService)
     private readonly config!: ConfigService;
+
+    @Inject(ViewService)
+    private readonly viewService!: ViewService;
 
     @Inject(ScreenshotProcessingService)
     private readonly screenshotProcessing!: ScreenshotProcessingService;
@@ -50,7 +59,7 @@ export class ScreenshotService {
      * - Creating a {@link Screenshot} record in the database.
      */
     public async ingestScreenshot(
-        ipAddress: string,
+        ipAddress: IPAddress,
         creator: Pick<Creator, 'id' | 'creatorName'>,
         cityName: string,
         cityPopulation: number,
@@ -119,8 +128,18 @@ export class ScreenshotService {
      */
     public async getWeightedRandomScreenshot(
         weights: RandomScreenshotWeights,
-        incrementViews: boolean
+        markViewed: boolean,
+        ipAddress: IPAddress,
+        creatorId: CreatorID | undefined,
+        alreadyViewedMaxAgeInDays: number | undefined
     ): Promise<Screenshot & { __algorithm: RandomScreenshotAlgorithm }> {
+        const viewedScreenshotIds =
+            await this.viewService.getViewedScreenshotIds(
+                ipAddress,
+                creatorId,
+                alreadyViewedMaxAgeInDays
+            );
+
         // Get the total weight.
         const totalWeight = Object.values(weights).reduce(
             (total, weight) => total + weight,
@@ -139,7 +158,7 @@ export class ScreenshotService {
                 screenshot =
                     await this.randomScreenshotFunctions[
                         algo as RandomScreenshotAlgorithm
-                    ]();
+                    ](viewedScreenshotIds);
 
                 if (screenshot) {
                     algorithm = algo as RandomScreenshotAlgorithm;
@@ -155,9 +174,16 @@ export class ScreenshotService {
         // fallback to a random screenshot.
         screenshot ??= await this.getRandomScreenshot();
 
-        if (incrementViews) {
-            // noinspection JSObjectNullOrUndefined False positive
-            this.incrementViews(screenshot.id);
+        // noinspection JSObjectNullOrUndefined False positive
+        if (markViewed && !viewedScreenshotIds.includes(screenshot.id)) {
+            // Do it asynchronously so the response is not delayed.
+            timers.setImmediate(() => {
+                void this.viewService.markViewed(
+                    screenshot.id,
+                    ipAddress,
+                    creatorId
+                );
+            });
         }
 
         return { ...screenshot, __algorithm: algorithm };
@@ -191,7 +217,7 @@ export class ScreenshotService {
      * @throws ScreenshotRateLimitExceededError If the limit is reached.
      */
     private async checkUploadLimit(
-        ipAddress: string,
+        ipAddress: IPAddress,
         creatorId: Creator['id']
     ): Promise<void> {
         // Let's find out by retrieving the screenshots uploaded in the last 24
@@ -220,9 +246,16 @@ export class ScreenshotService {
     /**
      * Retrieves an approved completely random screenshot.
      */
-    private async getRandomScreenshot(): Promise<Screenshot> {
+    private async getRandomScreenshot(
+        nin: readonly Screenshot['id'][] = []
+    ): Promise<Screenshot> {
         const screenshot = await this.runAggregateForSingleScreenshot([
-            { $match: { approved: true } },
+            {
+                $match: {
+                    approved: true,
+                    _id: { $nin: nin }
+                }
+            },
             { $sample: { size: 1 } }
         ]);
 
@@ -236,14 +269,22 @@ export class ScreenshotService {
      * Retrieves an approved random screenshot that was uploaded within the last
      * X days (configurable in env).
      */
-    private getRecentScreenshot(): Promise<Screenshot | null> {
+    private getRecentScreenshot(
+        nin: readonly Screenshot['id'][] = []
+    ): Promise<Screenshot | null> {
         const $date = dateFns.subDays(
             new Date(),
             this.config.screenshots.recencyThresholdDays
         );
 
         return this.runAggregateForSingleScreenshot([
-            { $match: { approved: true, createdAt: { $gt: { $date } } } },
+            {
+                $match: {
+                    approved: true,
+                    createdAt: { $gt: { $date } },
+                    _id: { $nin: nin }
+                }
+            },
             { $sort: { views: 1, createdAt: 1 } },
             { $limit: 1 }
         ]);
@@ -269,14 +310,22 @@ export class ScreenshotService {
      * due to MongoDB's optimizations, and we still transfer only one document
      * so throughput is not a concern.
      */
-    private getLowViewsScreenshot(): Promise<Screenshot | null> {
+    private getLowViewsScreenshot(
+        nin: readonly Screenshot['id'][] = []
+    ): Promise<Screenshot | null> {
         const $date = dateFns.subDays(
             new Date(),
             this.config.screenshots.recencyThresholdDays
         );
 
         return this.runAggregateForSingleScreenshot([
-            { $match: { approved: true, createdAt: { $lt: { $date } } } },
+            {
+                $match: {
+                    approved: true,
+                    createdAt: { $lt: { $date } },
+                    _id: { $nin: nin }
+                }
+            },
             { $sort: { views: 1, createdAt: 1 } },
             { $limit: 1 }
         ]);
@@ -317,20 +366,6 @@ export class ScreenshotService {
             imageUrlFHD: screenshot.imageUrlFHD,
             imageUrl4K: screenshot.imageUrl4K
         };
-    }
-
-    /**
-     * Increments the views of a screenshot in the database.
-     * This is done asynchronously to not block the response.
-     */
-    private incrementViews(id: Screenshot['id']): void {
-        timers.setImmediate(async () => {
-            await this.prisma.screenshot.update({
-                select: { id: true },
-                where: { id },
-                data: { views: { increment: 1 } }
-            });
-        });
     }
 }
 

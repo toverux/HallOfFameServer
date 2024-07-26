@@ -2,7 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Ban, Creator } from '@prisma/client';
 import { oneLine } from 'common-tags';
 import { LRUCache } from 'lru-cache';
-import { StandardError } from '../common';
+import { type IPAddress, StandardError } from '../common';
 import { ConfigService } from './config.service';
 import { PrismaService } from './prisma.service';
 
@@ -40,7 +40,7 @@ export class BanService {
      * @throws BannedIpAddressError If the IP address is banned.
      * @throws BannedCreatorError If the ban was a general ban on a creator.
      */
-    public async ensureIpAddressNotBanned(ipAddress: string): Promise<void> {
+    public async ensureIpAddressNotBanned(ipAddress: IPAddress): Promise<void> {
         if (this.checkBanCache(ipAddress)) {
             return;
         }
@@ -80,7 +80,7 @@ export class BanService {
     /**
      * Bans a specific IP address.
      */
-    public async banIp(ipAddress: string, reason: string): Promise<void> {
+    public async banIp(ipAddress: IPAddress, reason: string): Promise<void> {
         this.banCache.delete(ipAddress);
 
         const reasonFormatted = BanService.fmtReason(reason);
@@ -157,7 +157,7 @@ export class BanService {
      * @returns `true` if the IP address or creator is *NOT* banned,
      *          `false` if the status must be verified with the database.
      */
-    private checkBanCache(ipOrCreatorId: string): boolean {
+    private checkBanCache(ipOrCreatorId: IPAddress | Creator['id']): boolean {
         const cachedError = this.banCache.get(ipOrCreatorId);
 
         if (cachedError) {
@@ -170,7 +170,10 @@ export class BanService {
     /**
      * Returns the given ban error after having cached it in {@link banCache}.
      */
-    private cacheBanError(ipOrCreatorId: string, error: BanError): BanError {
+    private cacheBanError(
+        ipOrCreatorId: IPAddress | Creator['id'],
+        error: BanError
+    ): BanError {
         this.banCache.set(ipOrCreatorId, error);
 
         return error;

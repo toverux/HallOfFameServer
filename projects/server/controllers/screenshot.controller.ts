@@ -2,7 +2,9 @@ import { Multipart } from '@fastify/multipart';
 import {
     Controller,
     Get,
+    Headers,
     Inject,
+    Ip,
     ParseBoolPipe,
     ParseIntPipe,
     Post,
@@ -11,14 +13,14 @@ import {
 } from '@nestjs/common';
 import { oneLine } from 'common-tags';
 import type { FastifyRequest } from 'fastify';
-import { JSONObject, StandardError } from '../common';
+import type { CreatorID } from '../common';
+import { type IPAddress, type JSONObject, StandardError } from '../common';
 import { BanService, CreatorService, ScreenshotService } from '../services';
 
 @Controller('api/screenshot')
 export class ScreenshotController {
     /**
      * Regular expression to validate Creator or City names.
-     * @private
      */
     private static readonly nameRegex = /^[\p{L}\p{N}\- ']{2,25}$/u;
 
@@ -31,22 +33,54 @@ export class ScreenshotController {
     @Inject(BanService)
     private readonly banService!: BanService;
 
+    /**
+     * Returns a random screenshot.
+     * Different algorithms can be used to select the screenshot randomly, to
+     * each algorithm a weight can be assigned to favor one method over others.
+     * See {@link ScreenshotService} for the description of the algorithms.
+     * By default, all weights are zero and "random" is used.
+     *
+     * @param ipAddress  The IP address for view tracking.
+     * @param creatorId  The Creator ID for view tracking. Optional, to avoid
+     *                   creating an account for people who have never posted
+     *                   and are just browsing.
+     * @param random     Weight for the "random" algorithm, see
+     *                   {@link ScreenshotService.getRandomScreenshot}.
+     * @param recent     Weight for the "recent" algorithm, see
+     *                   {@link ScreenshotService.getRecentScreenshot}.
+     * @param lowViews   Weight for the "lowViews" algorithm, see
+     *                   {@link ScreenshotService.getLowViewsScreenshot}.
+     * @param markViewed Whether to mark the screenshot as viewed: increment
+     *                   view count and add a View record. Default is true.
+     * @param viewMaxAge Min time in days before showing a screenshot the user
+     *                   has already seen. Default is 60 days, 0 is no limit.
+     */
     @Get('weighted')
     public async weighted(
-        @Query('random', new ParseIntPipe({ optional: true })) random = 0,
-        @Query('recent', new ParseIntPipe({ optional: true })) recent = 0,
-        @Query('lowViews', new ParseIntPipe({ optional: true })) lowViews = 0,
-        @Query('incrementViews', new ParseBoolPipe({ optional: true }))
-        incrementViews = true
+        @Ip()
+        ipAddress: IPAddress,
+        @Headers('X-Creator-ID')
+        creatorId: CreatorID | undefined,
+        @Query('random', new ParseIntPipe({ optional: true }))
+        random = 0,
+        @Query('recent', new ParseIntPipe({ optional: true }))
+        recent = 0,
+        @Query('lowViews', new ParseIntPipe({ optional: true }))
+        lowViews = 0,
+        @Query('markViewed', new ParseBoolPipe({ optional: true }))
+        markViewed = true,
+        @Query('viewMaxAge', new ParseIntPipe({ optional: true }))
+        viewMaxAge = 60
     ) {
+        const weights = { random, recent, lowViews };
+
         const screenshot =
             await this.screenshotService.getWeightedRandomScreenshot(
-                {
-                    recent,
-                    random,
-                    lowViews
-                },
-                incrementViews
+                weights,
+                markViewed,
+                ipAddress,
+                creatorId,
+                viewMaxAge
             );
 
         return {
@@ -69,12 +103,11 @@ export class ScreenshotController {
      * Response will be 201 with serialized Screenshot.
      */
     @Post('upload')
-    public async upload(@Req() req: FastifyRequest): Promise<JSONObject> {
-        // We need to retrieve the IP address before consuming the body, or it
-        // becomes undefined.
-        const ip = req.ip;
-
-        await this.banService.ensureIpAddressNotBanned(ip);
+    public async upload(
+        @Req() req: FastifyRequest,
+        @Ip() ipAddress: IPAddress
+    ): Promise<JSONObject> {
+        await this.banService.ensureIpAddressNotBanned(ipAddress);
 
         const multipart = await req.file({
             isPartAFile: fieldName => fieldName == 'screenshot',
@@ -93,7 +126,7 @@ export class ScreenshotController {
 
         const getString = this.getMultipartString.bind(this, multipart);
 
-        const creatorId = getString('creatorId');
+        const creatorId = getString('creatorId') as CreatorID;
 
         const creatorName = ScreenshotController.validateName(
             getString('creatorName')
@@ -112,7 +145,7 @@ export class ScreenshotController {
             const creator = await this.creatorService.getOrCreateCreator(
                 creatorId,
                 creatorName,
-                ip
+                ipAddress
             );
 
             await this.banService.ensureCreatorNotBanned(creator);
@@ -120,7 +153,7 @@ export class ScreenshotController {
             const fileBuffer = await multipart.toBuffer();
 
             const screenshot = await this.screenshotService.ingestScreenshot(
-                ip,
+                ipAddress,
                 creator,
                 cityName,
                 cityPopulation,

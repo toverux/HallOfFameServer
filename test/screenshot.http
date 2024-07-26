@@ -1,7 +1,7 @@
 ### Get random screenshot
 
 GET {{url}}/api/screenshot/weighted?markViewed={{markViewed}}
-X-Creator-Id: a86bd575-6aba-4d83-abd5-756aba9d834a
+Authorization: CreatorID {{creatorId}}
 
 ### Get random screenshot weighted algorithms
 
@@ -11,17 +11,13 @@ GET {{url}}/api/screenshot/weighted
     &lowViews=10
     &markViewed={{markViewed}}
     &viewMaxAge=0
-X-Creator-Id: a86bd575-6aba-4d83-abd5-756aba9d834a
+Authorization: CreatorID {{creatorId}}
 
 ### Upload a screenshot
 
 POST {{url}}/api/screenshot/upload
+Authorization: CreatorID {{creatorId}}
 Content-Type: multipart/form-data; boundary=WebAppBoundary
-
---WebAppBoundary
-Content-Disposition: form-data; name="creatorId"
-
-a86bd575-6aba-4d83-abd5-756aba9d834a
 
 --WebAppBoundary
 Content-Disposition: form-data; name="creatorName"

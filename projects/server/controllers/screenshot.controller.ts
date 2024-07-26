@@ -40,27 +40,28 @@ export class ScreenshotController {
      * See {@link ScreenshotService} for the description of the algorithms.
      * By default, all weights are zero and "random" is used.
      *
-     * @param ipAddress  The IP address for view tracking.
-     * @param creatorId  The Creator ID for view tracking. Optional, to avoid
-     *                   creating an account for people who have never posted
-     *                   and are just browsing.
-     * @param random     Weight for the "random" algorithm, see
-     *                   {@link ScreenshotService.getRandomScreenshot}.
-     * @param recent     Weight for the "recent" algorithm, see
-     *                   {@link ScreenshotService.getRecentScreenshot}.
-     * @param lowViews   Weight for the "lowViews" algorithm, see
-     *                   {@link ScreenshotService.getLowViewsScreenshot}.
-     * @param markViewed Whether to mark the screenshot as viewed: increment
-     *                   view count and add a View record. Default is true.
-     * @param viewMaxAge Min time in days before showing a screenshot the user
-     *                   has already seen. Default is 60 days, 0 is no limit.
+     * @param ipAddress     The IP address for view tracking.
+     * @param authorization The CreatorID Authorization header for more accurate
+     *                      view tracking. Optional, its role is to avoid
+     *                      creating an account for people who have never posted
+     *                      and are just browsing.
+     * @param random        Weight for the "random" algorithm, see
+     *                      {@link ScreenshotService.getRandomScreenshot}.
+     * @param recent        Weight for the "recent" algorithm, see
+     *                      {@link ScreenshotService.getRecentScreenshot}.
+     * @param lowViews      Weight for the "lowViews" algorithm, see
+     *                      {@link ScreenshotService.getLowViewsScreenshot}.
+     * @param markViewed    Whether to mark the screenshot as viewed: increment
+     *                      view count and add a View record. Default is true.
+     * @param viewMaxAge    Min time in days before showing a screenshot the
+     *                      user has already seen. Default is 60, 0 is no limit.
      */
     @Get('weighted')
     public async weighted(
         @Ip()
         ipAddress: IPAddress,
-        @Headers('X-Creator-ID')
-        creatorId: CreatorID | undefined,
+        @Headers('Authorization')
+        authorization: string | undefined,
         @Query('random', new ParseIntPipe({ optional: true }))
         random = 0,
         @Query('recent', new ParseIntPipe({ optional: true }))
@@ -73,6 +74,10 @@ export class ScreenshotController {
         viewMaxAge = 60
     ) {
         const weights = { random, recent, lowViews };
+
+        const creatorId = authorization
+            ? ScreenshotController.getCreatorId(authorization)
+            : undefined;
 
         const screenshot =
             await this.screenshotService.getWeightedRandomScreenshot(
@@ -104,8 +109,12 @@ export class ScreenshotController {
      */
     @Post('upload')
     public async upload(
-        @Req() req: FastifyRequest,
-        @Ip() ipAddress: IPAddress
+        @Req()
+        req: FastifyRequest,
+        @Ip()
+        ipAddress: IPAddress,
+        @Headers('Authorization')
+        authorization: string | undefined
     ): Promise<JSONObject> {
         await this.banService.ensureIpAddressNotBanned(ipAddress);
 
@@ -124,9 +133,12 @@ export class ScreenshotController {
             );
         }
 
-        const getString = this.getMultipartString.bind(this, multipart);
+        const creatorId = ScreenshotController.getCreatorId(authorization);
 
-        const creatorId = getString('creatorId') as CreatorID;
+        const getString = ScreenshotController.getMultipartString.bind(
+            this,
+            multipart
+        );
 
         const creatorName = ScreenshotController.validateName(
             getString('creatorName')
@@ -170,7 +182,19 @@ export class ScreenshotController {
         }
     }
 
-    private getMultipartString(
+    private static getCreatorId(authorization: string | undefined): CreatorID {
+        const [scheme, creatorId, rest] = authorization?.split(' ') ?? [];
+
+        if (scheme?.toLowerCase() != 'creatorid' || !creatorId || rest) {
+            throw new InvalidPayloadError(
+                `Expected an Authorization header of format CreatorID YOUR-UUID`
+            );
+        }
+
+        return creatorId as CreatorID;
+    }
+
+    private static getMultipartString(
         multipart: Multipart,
         fieldName: string
     ): string {

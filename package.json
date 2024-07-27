@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "pm:update": "bunx npm-check-updates -i && bun update",
+    "prisma": "bun prisma/run-prisma.ts",
     "check": "tsc --noEmit; biome check --fix --error-on-warnings",
     "build:client:watch": "ng build --watch --configuration development",
     "run:server:watch": "bun --watch --no-clear-screen --inspect projects/server/main.ts",

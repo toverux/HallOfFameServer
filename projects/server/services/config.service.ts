@@ -11,6 +11,8 @@ export class ConfigService {
         port: ConfigService.getNumber('HOF_HTTP_PORT')
     } as const;
 
+    public readonly databaseUrl = ConfigService.getString('HOF_DATABASE_URL');
+
     public readonly azure = {
         url: ConfigService.getString('HOF_AZURE_URL'),
         cdn: ConfigService.getString('HOF_AZURE_CDN'),

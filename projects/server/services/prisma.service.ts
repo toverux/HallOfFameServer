@@ -5,25 +5,29 @@ import {
 } from '@nestjs/common';
 import { type Prisma, PrismaClient } from '@prisma/client';
 import { filesize } from 'filesize';
+import { ConfigService } from './config.service';
 
-const prismaConfig = {
-    log: [
-        { emit: 'event', level: 'error' },
-        { emit: 'event', level: 'info' },
-        { emit: 'event', level: 'warn' },
-        { emit: 'event', level: 'query' }
-    ]
-} as const satisfies Prisma.PrismaClientOptions;
+// Remap all events to be emitted as events (for custom handling with `$on()`)
+// rather than being printed on stdout/stderr directly by Prisma.
+const logDefinitions = [
+    { emit: 'event', level: 'error' },
+    { emit: 'event', level: 'info' },
+    { emit: 'event', level: 'warn' },
+    { emit: 'event', level: 'query' }
+] satisfies Prisma.LogDefinition[];
 
 @Injectable()
 export class PrismaService
-    extends PrismaClient<typeof prismaConfig>
+    extends PrismaClient<{ log: typeof logDefinitions; datasourceUrl: string }>
     implements OnApplicationBootstrap
 {
     private readonly logger = new Logger(PrismaService.name);
 
-    public constructor() {
-        super(prismaConfig);
+    public constructor(config: ConfigService) {
+        super({
+            log: logDefinitions,
+            datasourceUrl: config.databaseUrl
+        });
 
         this.$on('error', ({ target, message }) => {
             this.logger.error(`Error on ${target}: ${message}`);

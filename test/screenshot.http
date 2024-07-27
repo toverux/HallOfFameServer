@@ -2,6 +2,7 @@
 
 GET {{url}}/api/screenshot/weighted?markViewed={{markViewed}}
 Authorization: CreatorID {{creatorId}}
+X-Forwarded-For: ::1
 
 ### Get random screenshot weighted algorithms
 
@@ -12,12 +13,14 @@ GET {{url}}/api/screenshot/weighted
     &markViewed={{markViewed}}
     &viewMaxAge=0
 Authorization: CreatorID {{creatorId}}
+X-Forwarded-For: ::1
 
 ### Upload a screenshot
 
 POST {{url}}/api/screenshot/upload
 Authorization: CreatorID {{creatorId}}
 Content-Type: multipart/form-data; boundary=WebAppBoundary
+X-Forwarded-For: ::1
 
 --WebAppBoundary
 Content-Disposition: form-data; name="creatorName"

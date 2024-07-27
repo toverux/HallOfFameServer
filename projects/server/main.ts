@@ -27,7 +27,7 @@ void linkEnvFilesForWatchMode();
 void bootstrap();
 
 async function bootstrap(): Promise<void> {
-    const fastify = new FastifyAdapter();
+    const fastify = new FastifyAdapter({ trustProxy: '127.0.0.1' });
     const logger = new Logger(bootstrap.name);
 
     // @ts-expect-error

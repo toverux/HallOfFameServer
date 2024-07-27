@@ -3,14 +3,14 @@ import { Injectable } from '@nestjs/common';
 import { Creator, Screenshot } from '@prisma/client';
 import * as dateFns from 'date-fns';
 import slug from 'slug';
+import { config } from '../config';
 import { AzureService } from './azure.service';
-import { ConfigService } from './config.service';
 
 @Injectable()
 export class ScreenshotUploaderService {
     private readonly containerClient: ContainerClient;
 
-    public constructor(azure: AzureService, config: ConfigService) {
+    public constructor(azure: AzureService) {
         this.containerClient = azure.blobServiceClient.getContainerClient(
             config.azure.screenshotsContainer
         );

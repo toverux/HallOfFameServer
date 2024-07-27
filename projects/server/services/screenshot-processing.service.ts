@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import Bun from 'bun';
 import * as dateFns from 'date-fns';
 import sharp from 'sharp';
+import { config } from '../config';
 
 @Injectable()
 export class ScreenshotProcessingService {
@@ -53,7 +54,7 @@ export class ScreenshotProcessingService {
         const image4KBuffer = await image4K.toBuffer();
 
         // Write debug images to the test directory.
-        if (process.env.NODE_ENV == 'development') {
+        if (config.env == 'development') {
             await this.writeDebugImages({
                 // Also save a non-resized version of the image, useful to test
                 // compression settings.

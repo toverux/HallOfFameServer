@@ -1,4 +1,5 @@
-import * as path from 'node:path';
+import './sentry';
+
 import fastifyMultipart from '@fastify/multipart';
 import {
     type ArgumentsHost,
@@ -15,11 +16,13 @@ import {
     type NestFastifyApplication
 } from '@nestjs/platform-fastify';
 import type { FastifyReply, FastifyRequest } from 'fastify';
+
+import * as path from 'node:path';
 // @ts-expect-error We can't import JS (allowJs: false) and can't declare a d.ts
 import { ssrRender } from '../../dist/server/server.mjs';
 import { AppModule } from './app.module';
 import { StandardError } from './common';
-import { ConfigService } from './services';
+import { config } from './config';
 import type { ssrRender as ssrRenderType } from './ssr';
 
 void linkEnvFilesForWatchMode();
@@ -43,7 +46,7 @@ async function bootstrap(): Promise<void> {
                 'error',
                 'warn',
                 'log',
-                ...(process.env.NODE_ENV == 'development'
+                ...(config.env == 'development'
                     ? (['verbose', 'debug'] as const)
                     : [])
             ]
@@ -72,8 +75,6 @@ async function bootstrap(): Promise<void> {
             indexHtml
         )
     );
-
-    const config = app.get(ConfigService);
 
     await app.listen(config.http.port);
 

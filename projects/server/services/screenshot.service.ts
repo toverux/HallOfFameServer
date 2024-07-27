@@ -10,7 +10,7 @@ import {
     type JSONObject,
     StandardError
 } from '../common';
-import { ConfigService } from './config.service';
+import { config } from '../config';
 import { PrismaService } from './prisma.service';
 import { ScreenshotProcessingService } from './screenshot-processing.service';
 import { ScreenshotUploaderService } from './screenshot-uploader.service';
@@ -29,9 +29,6 @@ type RandomScreenshotFunctions = Record<
 export class ScreenshotService {
     @Inject(PrismaService)
     private readonly prisma!: PrismaService;
-
-    @Inject(ConfigService)
-    private readonly config!: ConfigService;
 
     @Inject(ViewService)
     private readonly viewService!: ViewService;
@@ -207,7 +204,7 @@ export class ScreenshotService {
     }
 
     private getBlobUrl(blobName: string): string {
-        return `${this.config.azure.cdn}/${this.config.azure.screenshotsContainer}/${blobName}`;
+        return `${config.azure.cdn}/${config.azure.screenshotsContainer}/${blobName}`;
     }
 
     /**
@@ -234,9 +231,9 @@ export class ScreenshotService {
         });
 
         // If the limit is reached, throw the error.
-        if (latestScreenshots.length >= this.config.screenshots.limitPer24h) {
+        if (latestScreenshots.length >= config.screenshots.limitPer24h) {
             throw new ScreenshotRateLimitExceededError(
-                this.config.screenshots.limitPer24h,
+                config.screenshots.limitPer24h,
                 // biome-ignore lint/style/noNonNullAssertion: cannot be null
                 dateFns.addDays(latestScreenshots[0]!.createdAt, 1)
             );
@@ -274,7 +271,7 @@ export class ScreenshotService {
     ): Promise<Screenshot | null> {
         const $date = dateFns.subDays(
             new Date(),
-            this.config.screenshots.recencyThresholdDays
+            config.screenshots.recencyThresholdDays
         );
 
         return this.runAggregateForSingleScreenshot([
@@ -315,7 +312,7 @@ export class ScreenshotService {
     ): Promise<Screenshot | null> {
         const $date = dateFns.subDays(
             new Date(),
-            this.config.screenshots.recencyThresholdDays
+            config.screenshots.recencyThresholdDays
         );
 
         return this.runAggregateForSingleScreenshot([

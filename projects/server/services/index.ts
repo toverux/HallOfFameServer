@@ -1,6 +1,5 @@
 import { AzureService } from './azure.service';
 import { BanService } from './ban.service';
-import { ConfigService } from './config.service';
 import { CreatorService } from './creator.service';
 import { PrismaService } from './prisma.service';
 import { ScreenshotProcessingService } from './screenshot-processing.service';
@@ -10,7 +9,6 @@ import { ViewService } from './view.service';
 
 export * from './azure.service';
 export * from './ban.service';
-export * from './config.service';
 export * from './creator.service';
 export * from './prisma.service';
 export * from './screenshot.service';
@@ -21,7 +19,6 @@ export * from './view.service';
 export const services = [
     AzureService,
     BanService,
-    ConfigService,
     CreatorService,
     PrismaService,
     ScreenshotService,

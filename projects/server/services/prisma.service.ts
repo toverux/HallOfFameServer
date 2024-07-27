@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { type Prisma, PrismaClient } from '@prisma/client';
 import { filesize } from 'filesize';
-import { ConfigService } from './config.service'; // Remap all events to be emitted as events (for custom handling with `$on()`)
+import { config } from '../config';
 
 // Remap all events to be emitted as events (for custom handling with `$on()`)
 // rather than being printed on stdout/stderr directly by Prisma.
@@ -24,7 +24,7 @@ export class PrismaService
 {
     private readonly logger = new Logger(PrismaService.name);
 
-    public constructor(config: ConfigService) {
+    public constructor() {
         super({
             log: logDefinitions,
             datasourceUrl: config.databaseUrl

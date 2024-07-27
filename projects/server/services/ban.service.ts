@@ -3,7 +3,7 @@ import { Ban, Creator } from '@prisma/client';
 import { oneLine } from 'common-tags';
 import { LRUCache } from 'lru-cache';
 import { type IPAddress, StandardError } from '../common';
-import { ConfigService } from './config.service';
+import { config } from '../config';
 import { PrismaService } from './prisma.service';
 
 /**
@@ -13,9 +13,6 @@ import { PrismaService } from './prisma.service';
 export class BanService {
     @Inject(PrismaService)
     private readonly prisma!: PrismaService;
-
-    @Inject(ConfigService)
-    private readonly config!: ConfigService;
 
     private readonly logger = new Logger(BanService.name);
 
@@ -58,11 +55,7 @@ export class BanService {
             if (creator) {
                 throw this.cacheBanError(
                     creator.id,
-                    new BannedCreatorError(
-                        ban,
-                        creator,
-                        this.config.supportContact
-                    )
+                    new BannedCreatorError(ban, creator, config.supportContact)
                 );
             }
         }
@@ -70,7 +63,7 @@ export class BanService {
         if (ban) {
             throw this.cacheBanError(
                 ipAddress,
-                new BannedIpAddressError(ban, this.config.supportContact)
+                new BannedIpAddressError(ban, config.supportContact)
             );
         }
 
@@ -113,7 +106,7 @@ export class BanService {
         if (ban) {
             throw this.cacheBanError(
                 creator.id,
-                new BannedCreatorError(ban, creator, this.config.supportContact)
+                new BannedCreatorError(ban, creator, config.supportContact)
             );
         }
 

@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import {
     Injectable,
     Logger,
@@ -5,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { type Prisma, PrismaClient } from '@prisma/client';
 import { filesize } from 'filesize';
-import { ConfigService } from './config.service';
+import { ConfigService } from './config.service'; // Remap all events to be emitted as events (for custom handling with `$on()`)
 
 // Remap all events to be emitted as events (for custom handling with `$on()`)
 // rather than being printed on stdout/stderr directly by Prisma.
@@ -60,9 +61,17 @@ export class PrismaService
         // connection, but if there is, for example, no MongoDB server running,
         // it will happily return.
 
-        const { totalSize } = await this.$runCommandRaw({ dbStats: 1 });
+        const stats = await this.$runCommandRaw({ dbStats: 1 });
 
-        const totalSizeStr = filesize(Number(totalSize), { round: 0 });
+        assert(stats.ok, 'dbStats command returned ok: false.');
+
+        // totalSize is normally returned by dbStats, but not on Atlas.
+        // Note that this is the total size of the database occupied on disk,
+        // not just the raw data, and it includes space that's reserved but not
+        // used yet.
+        const totalSize = Number(stats.storageSize) + Number(stats.indexSize);
+
+        const totalSizeStr = filesize(totalSize, { round: 0 });
 
         this.logger.log(`Connected to MongoDB, DB size: ${totalSizeStr}.`);
     }

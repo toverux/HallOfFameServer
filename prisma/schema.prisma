@@ -32,8 +32,10 @@ model Creator {
 model Screenshot {
   id             String   @id @default(auto()) @map("_id") @db.ObjectId
   createdAt      DateTime @default(now())
-  /// Whether the Screenshot is approved and can be shown to users.
-  approved       Boolean  @default(false)
+  /// Whether an user has reported the Screenshot as inappropriate.
+  /// If true, the Screenshot is hidden from the public until an admin reviews
+  /// it and decides to reset the flag or take action.
+  isReported     Boolean  @default(false)
   /// Number of views the Screenshot has received.
   views          Int      @default(0)
   /// IP address of the user who uploaded the Screenshot.
@@ -49,10 +51,10 @@ model Screenshot {
   imageUrl4K     String
 
   @@index([createdAt])
-  @@index([approved])
-  @@index([createdAt, approved]) // for "recent" aggregation
+  @@index([isReported])
+  @@index([createdAt, isReported]) // for "recent" aggregation
   @@index([views])
-  @@index([views, approved]) // for "low views" aggregation
+  @@index([views, isReported]) // for "low views" aggregation
   @@index([creatorId])
   @@index([creatorId, cityName])
   @@index([ipAddress])

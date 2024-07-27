@@ -192,7 +192,7 @@ export class ScreenshotService {
     public serialize(screenshot: Screenshot): JSONObject {
         return {
             id: screenshot.id,
-            approved: screenshot.approved,
+            isReported: screenshot.isReported,
             views: screenshot.views,
             creatorId: screenshot.creatorId,
             cityName: screenshot.cityName,
@@ -241,7 +241,7 @@ export class ScreenshotService {
     }
 
     /**
-     * Retrieves an approved completely random screenshot.
+     * Retrieves a non-reported completely random screenshot.
      */
     private async getRandomScreenshot(
         nin: readonly Screenshot['id'][] = []
@@ -249,7 +249,7 @@ export class ScreenshotService {
         const screenshot = await this.runAggregateForSingleScreenshot([
             {
                 $match: {
-                    approved: true,
+                    isReported: false,
                     _id: { $nin: nin }
                 }
             },
@@ -263,8 +263,8 @@ export class ScreenshotService {
     }
 
     /**
-     * Retrieves an approved random screenshot that was uploaded within the last
-     * X days (configurable in env).
+     * Retrieves a non-reported random screenshot that was uploaded within the
+     * last X days (configurable in env).
      */
     private getRecentScreenshot(
         nin: readonly Screenshot['id'][] = []
@@ -277,7 +277,7 @@ export class ScreenshotService {
         return this.runAggregateForSingleScreenshot([
             {
                 $match: {
-                    approved: true,
+                    isReported: false,
                     createdAt: { $gt: { $date } },
                     _id: { $nin: nin }
                 }
@@ -288,13 +288,13 @@ export class ScreenshotService {
     }
 
     /**
-     * Retrieves an approved screenshot that was uploaded more than X days ago
-     * (configurable in env) ago, has the lowest amount of views, and then
+     * Retrieves a non-reported screenshot that was uploaded more than X days
+     * ago (configurable in env) ago, has the lowest amount of views, and then
      * prioritizes the oldest screenshots.
      *
      * ###### Implementation Notes
      * This query scans the entire collection (minus last X days for recency and
-     * unapproved posts), so I was worried about performance and wondered if I
+     * reported posts), so I was worried about performance and wondered if I
      * should add a `{ $sample: { size: aRelativelyBigNumber } }` to limit the
      * amount of documents scanned.
      * After testing on ~110k documents, it seems that `{ $sample }`, before or
@@ -318,7 +318,7 @@ export class ScreenshotService {
         return this.runAggregateForSingleScreenshot([
             {
                 $match: {
-                    approved: true,
+                    isReported: false,
                     createdAt: { $lt: { $date } },
                     _id: { $nin: nin }
                 }
@@ -354,7 +354,7 @@ export class ScreenshotService {
         return {
             id: screenshot._id.$oid,
             createdAt: new Date(screenshot.createdAt.$date),
-            approved: screenshot.approved,
+            isReported: screenshot.isReported,
             views: screenshot.views,
             ipAddress: screenshot.ipAddress,
             creatorId: screenshot.creatorId.$oid,

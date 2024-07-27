@@ -43,7 +43,6 @@ async function bootstrap(): Promise<void> {
                 'error',
                 'warn',
                 'log',
-                'verbose',
                 ...(process.env.NODE_ENV == 'development'
                     ? (['verbose', 'debug'] as const)
                     : [])

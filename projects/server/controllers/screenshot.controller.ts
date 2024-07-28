@@ -102,6 +102,7 @@ export class ScreenshotController {
      * - `creatorId`: The Creator ID.
      * - `creatorName`: The Creator Name.
      * - `cityName`: The name of the city.
+     * - `cityMilestone`: The milestone reached by the city.
      * - `cityPopulation`: The population of the city.
      * - `screenshot`: The screenshot file, a JPEG.
      *
@@ -148,6 +149,10 @@ export class ScreenshotController {
             getString('cityName')
         );
 
+        const cityMilestone = ScreenshotController.validateMilestone(
+            getString('cityMilestone')
+        );
+
         const cityPopulation = ScreenshotController.validatePopulation(
             getString('cityPopulation')
         );
@@ -168,6 +173,7 @@ export class ScreenshotController {
                 ipAddress,
                 creator,
                 cityName,
+                cityMilestone,
                 cityPopulation,
                 fileBuffer
             );
@@ -223,6 +229,18 @@ export class ScreenshotController {
         }
 
         return name;
+    }
+
+    private static validateMilestone(milestone: string): number {
+        const parsed = Number.parseInt(milestone, 10);
+
+        if (Number.isNaN(parsed) || parsed < 1 || parsed > 20) {
+            throw new InvalidPayloadError(
+                `Invalid milestone, it must be a positive integer between 1 and 20.`
+            );
+        }
+
+        return parsed;
     }
 
     private static validatePopulation(population: string): number {

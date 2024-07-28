@@ -33,6 +33,11 @@ Content-Disposition: form-data; name="cityName"
 Colossal City
 
 --WebAppBoundary
+Content-Disposition: form-data; name="cityMilestone"
+
+20
+
+--WebAppBoundary
 Content-Disposition: form-data; name="cityPopulation"
 
 1200

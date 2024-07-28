@@ -59,6 +59,7 @@ export class ScreenshotService {
         ipAddress: IPAddress,
         creator: Pick<Creator, 'id' | 'creatorName'>,
         cityName: string,
+        cityMilestone: number,
         cityPopulation: number,
         file: Buffer
     ): Promise<Screenshot> {
@@ -82,6 +83,7 @@ export class ScreenshotService {
                     ipAddress,
                     creatorId: creator.id,
                     cityName,
+                    cityMilestone,
                     cityPopulation,
                     imageUrlFHD: '',
                     imageUrl4K: ''
@@ -106,8 +108,7 @@ export class ScreenshotService {
             });
 
             this.logger.log(
-                `Created screenshot #${screenshot.id} "${screenshot.cityName}".`,
-                { screenshot, creator }
+                `Created screenshot #${screenshot.id} "${screenshot.cityName}".`
             );
 
             return screenshot;
@@ -196,6 +197,7 @@ export class ScreenshotService {
             views: screenshot.views,
             creatorId: screenshot.creatorId,
             cityName: screenshot.cityName,
+            cityMilestone: screenshot.cityMilestone,
             cityPopulation: screenshot.cityPopulation,
             imageUrlFHD: this.getBlobUrl(screenshot.imageUrlFHD),
             imageUrl4K: this.getBlobUrl(screenshot.imageUrl4K),
@@ -359,6 +361,7 @@ export class ScreenshotService {
             ipAddress: screenshot.ipAddress,
             creatorId: screenshot.creatorId.$oid,
             cityName: screenshot.cityName,
+            cityMilestone: screenshot.cityMilestone,
             cityPopulation: screenshot.cityPopulation,
             imageUrlFHD: screenshot.imageUrlFHD,
             imageUrl4K: screenshot.imageUrl4K

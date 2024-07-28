@@ -46,6 +46,7 @@ model Screenshot {
   creatorId      String   @db.ObjectId
   creator        Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
   cityName       String
+  cityMilestone  Int
   cityPopulation Int
   imageUrlFHD    String
   imageUrl4K     String

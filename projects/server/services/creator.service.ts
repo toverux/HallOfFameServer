@@ -131,6 +131,26 @@ export class CreatorService {
         return creator;
     }
 
+    public async createCreator(
+        creatorName: string,
+        creatorId: string | CreatorID = uuid.v4()
+    ): Promise<{ creator: Creator; creatorId: CreatorID }> {
+        const validCreatorId = CreatorService.validateCreatorId(creatorId);
+
+        const hashedCreatorId = this.hashCreatorId(validCreatorId);
+
+        const creator = await this.prisma.creator.create({
+            data: {
+                hashedCreatorId,
+                creatorName
+            }
+        });
+
+        this.logger.log(`Created creator "${creator.creatorName}".`);
+
+        return { creator, creatorId: validCreatorId };
+    }
+
     /**
      * Serializes a {@link Creator} to a JSON object for API responses.
      */

@@ -1,11 +1,10 @@
 import { Module } from '@nestjs/common';
 import { SentryModule } from '@sentry/nestjs/setup';
 import { controllers } from './controllers';
-import { services } from './services';
+import { SharedModule } from './shared.module';
 
 @Module({
     controllers,
-    providers: services,
-    imports: [SentryModule.forRoot()]
+    imports: [SharedModule, SentryModule.forRoot()]
 })
 export class AppModule {}

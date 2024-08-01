@@ -47,8 +47,13 @@ export class ScreenshotProcessingService {
         // Resize to 4K and Full HD-like resolutions but keep the aspect ratio,
         // allowing overflow so the dimensions specified are a minimum.
         // Ex. A 1:1 image of 4000x4000 will be resized to 3840x3840.
-        const imageFHD = image.clone().resize(1920, 1080, { fit: 'outside' });
-        const image4K = image.clone().resize(3840, 2160, { fit: 'outside' });
+        const options: sharp.ResizeOptions = {
+            fit: 'outside',
+            withoutEnlargement: true
+        };
+
+        const imageFHD = image.clone().resize(1920, 1080, options);
+        const image4K = image.clone().resize(3840, 2160, options);
 
         const imageFHDBuffer = await imageFHD.toBuffer();
         const image4KBuffer = await image4K.toBuffer();

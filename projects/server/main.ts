@@ -46,7 +46,7 @@ async function bootstrap(): Promise<void> {
                 'error',
                 'warn',
                 'log',
-                ...(config.env == 'development'
+                ...(config.env == 'development' || config.verbose
                     ? (['verbose', 'debug'] as const)
                     : [])
             ]

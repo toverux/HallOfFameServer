@@ -42,7 +42,9 @@ model Screenshot {
   /// Used in case a user is multi-accounting (which is allowed), to keep track
   /// of all the screenshots uploaded by a same person to apply quota even
   /// across multiple accounts.
-  ipAddress      String
+  /// Null if the screenshot was created programmatically by an admin (ex.
+  /// screenshots import via CLI).
+  ipAddress      String?
   creatorId      String   @db.ObjectId
   creator        Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
   cityName       String

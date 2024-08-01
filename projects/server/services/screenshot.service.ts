@@ -8,6 +8,7 @@ import {
     type CreatorID,
     type IPAddress,
     type JSONObject,
+    type Maybe,
     StandardError
 } from '../common';
 import { config } from '../config';
@@ -56,15 +57,17 @@ export class ScreenshotService {
      * - Creating a {@link Screenshot} record in the database.
      */
     public async ingestScreenshot(
-        ipAddress: IPAddress,
+        ipAddress: Maybe<IPAddress>,
         creator: Pick<Creator, 'id' | 'creatorName'>,
         cityName: string,
         cityMilestone: number,
         cityPopulation: number,
         file: Buffer
     ): Promise<Screenshot> {
-        // Check upload limit, throws if reached.
-        await this.checkUploadLimit(ipAddress, creator.id);
+        if (ipAddress) {
+            // Check upload limit, throws if reached.
+            await this.checkUploadLimit(ipAddress, creator.id);
+        }
 
         // Generate the two resized screenshot from the uploaded file.
         const { imageFHDBuffer, image4KBuffer } =
@@ -80,7 +83,7 @@ export class ScreenshotService {
             const screenshotWithoutBlobs = await prisma.screenshot.create({
                 select: { id: true, cityName: true },
                 data: {
-                    ipAddress,
+                    ipAddress: ipAddress ?? null,
                     creatorId: creator.id,
                     cityName,
                     cityMilestone,

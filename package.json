@@ -6,6 +6,7 @@
     "prisma": "bun prisma/run-prisma.ts",
     "check": "tsc --noEmit; biome check --fix --error-on-warnings",
     "build:client:watch": "ng build --watch --configuration development",
+    "run:cli": "bun projects/server/cli/main.ts",
     "run:server:watch": "bun --watch --no-clear-screen --inspect projects/server/main.ts",
     "serve:client": "ng serve",
     "build": "bun check && ng build"
@@ -40,6 +41,7 @@
     "filesize": "^10.1.4",
     "lefthook": "^1.7.5",
     "lru-cache": "^11.0.0",
+    "nest-commander": "^3.14.0",
     "prisma": "^5.17.0",
     "rxjs": "~7.8.1",
     "sharp": "^0.33.4",
@@ -53,6 +55,7 @@
     "@angular/compiler-cli": "^18.1.1",
     "@types/bun": "^1.1.6",
     "@types/express": "^4.17.21",
+    "@types/inquirer": "^9.0.7",
     "@types/slug": "^5.0.8",
     "@types/uuid": "^10.0.0",
     "typescript": "~5.5.3"

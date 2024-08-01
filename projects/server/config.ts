@@ -8,6 +8,8 @@
 export const config = {
     env: getNodeEnv('NODE_ENV'),
 
+    verbose: process.argv.includes('--verbose') || process.argv.includes('-v'),
+
     http: {
         port: getNumber('HOF_HTTP_PORT')
     },

@@ -1,3 +1,4 @@
+import { Provider } from '@nestjs/common';
 import { AzureService } from './azure.service';
 import { BanService } from './ban.service';
 import { CreatorService } from './creator.service';
@@ -16,7 +17,7 @@ export * from './screenshot-processing.service';
 export * from './screenshot-uploader.service';
 export * from './view.service';
 
-export const services = [
+export const services: Provider[] = [
     AzureService,
     BanService,
     CreatorService,

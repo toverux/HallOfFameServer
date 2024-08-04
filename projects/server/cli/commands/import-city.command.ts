@@ -47,7 +47,7 @@ const milestones = [
         Creator from a directory.`,
     arguments: '<directoryPath>'
 })
-export class ImportCityCommand extends CommandRunner {
+class ImportCityCommand extends CommandRunner {
     @Inject(InquirerService)
     private readonly inquirer!: InquirerService;
 
@@ -227,6 +227,18 @@ class CityInfoQuestions {
 
         return name;
     }
+    @Question({
+        name: 'cityPopulation',
+        message: `What is the population of the city?`,
+        type: 'number'
+    })
+    public parseCityPopulation(val: number): number {
+        if (Number.isNaN(val) || val < 0) {
+            throw `Invalid population number, it must be a positive integer.`;
+        }
+
+        return val;
+    }
 
     @Question({
         name: 'cityMilestone',
@@ -239,19 +251,6 @@ class CityInfoQuestions {
     public parseMilestone(val: string): number {
         // biome-ignore lint/style/noNonNullAssertion: input is safe
         return milestones.indexOf(val.split('. ')[1]!) + 1;
-    }
-
-    @Question({
-        name: 'cityPopulation',
-        message: `What is the population of the city?`,
-        type: 'number'
-    })
-    public parseCityPopulation(val: number): number {
-        if (Number.isNaN(val) || val < 0) {
-            throw `Invalid population number, it must be a positive integer.`;
-        }
-
-        return val;
     }
 
     @Question({
@@ -301,7 +300,7 @@ class ConfirmUpdateQuestions {
     }
 }
 
-export const importCityCommandInjectables: Provider[] = [
+export const importCityCommandProviders: Provider[] = [
     ImportCityCommand,
     CityInfoQuestions,
     ConfirmCityInfoQuestions,

@@ -14,7 +14,7 @@ import {
 import { config } from '../config';
 import { PrismaService } from './prisma.service';
 import { ScreenshotProcessingService } from './screenshot-processing.service';
-import { ScreenshotUploaderService } from './screenshot-uploader.service';
+import { ScreenshotStorageService } from './screenshot-storage.service';
 import { ViewService } from './view.service';
 
 type RandomScreenshotAlgorithm = 'random' | 'recent' | 'lowViews';
@@ -37,8 +37,8 @@ export class ScreenshotService {
     @Inject(ScreenshotProcessingService)
     private readonly screenshotProcessing!: ScreenshotProcessingService;
 
-    @Inject(ScreenshotUploaderService)
-    private readonly screenshotUploader!: ScreenshotUploaderService;
+    @Inject(ScreenshotStorageService)
+    private readonly screenshotStorage!: ScreenshotStorageService;
 
     private readonly logger = new Logger(ScreenshotService.name);
 
@@ -94,7 +94,7 @@ export class ScreenshotService {
             });
 
             // Upload the screenshots.
-            const blobUrls = await this.screenshotUploader.uploadScreenshots(
+            const blobUrls = await this.screenshotStorage.uploadScreenshots(
                 creator,
                 screenshotWithoutBlobs,
                 imageFHDBuffer,
@@ -208,7 +208,10 @@ export class ScreenshotService {
         };
     }
 
-    private getBlobUrl(blobName: string): string {
+    /**
+     * Retrieves the complete URL for a screenshot blob name.
+     */
+    public getBlobUrl(blobName: string): string {
         return `${config.azure.cdn}/${config.azure.screenshotsContainer}/${blobName}`;
     }
 

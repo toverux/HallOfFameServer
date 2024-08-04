@@ -7,13 +7,22 @@ import { config } from '../config';
 import { AzureService } from './azure.service';
 
 @Injectable()
-export class ScreenshotUploaderService {
+export class ScreenshotStorageService {
     private readonly containerClient: ContainerClient;
 
     public constructor(azure: AzureService) {
         this.containerClient = azure.blobServiceClient.getContainerClient(
             config.azure.screenshotsContainer
         );
+    }
+
+    public async downloadScreenshotToFile(
+        blobName: string,
+        filePath: string
+    ): Promise<void> {
+        await this.containerClient
+            .getBlobClient(blobName)
+            .downloadToFile(filePath);
     }
 
     public async uploadScreenshots(

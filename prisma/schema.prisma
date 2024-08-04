@@ -76,9 +76,10 @@ model Ban {
   creatorId String? @db.ObjectId
   /// If ipAddress is set, creatorId is null unless the creator was banned and
   /// all their associated IP addresses were banned too.
-  ipAddress String? @unique
+  ipAddress String?
 
   @@index([creatorId])
+  @@index([ipAddress])
   @@map("bans")
 }
 

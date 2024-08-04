@@ -4,7 +4,7 @@ import { BanService } from './ban.service';
 import { CreatorService } from './creator.service';
 import { PrismaService } from './prisma.service';
 import { ScreenshotProcessingService } from './screenshot-processing.service';
-import { ScreenshotUploaderService } from './screenshot-uploader.service';
+import { ScreenshotStorageService } from './screenshot-storage.service';
 import { ScreenshotService } from './screenshot.service';
 import { ViewService } from './view.service';
 
@@ -14,7 +14,7 @@ export * from './creator.service';
 export * from './prisma.service';
 export * from './screenshot.service';
 export * from './screenshot-processing.service';
-export * from './screenshot-uploader.service';
+export * from './screenshot-storage.service';
 export * from './view.service';
 
 export const services: Provider[] = [
@@ -24,6 +24,6 @@ export const services: Provider[] = [
     PrismaService,
     ScreenshotService,
     ScreenshotProcessingService,
-    ScreenshotUploaderService,
+    ScreenshotStorageService,
     ViewService
 ];

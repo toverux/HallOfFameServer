@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { Creator } from '@prisma/client';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import Bun from 'bun';
 import { oneLine } from 'common-tags';
 import { LRUCache } from 'lru-cache';
@@ -67,6 +68,9 @@ export class CreatorService {
 
     /**
      * Creates a new Creator or retrieves an existing one.
+     * This method is intended to be used as authentication and account creation
+     * as it performs Creator Name/Creator ID validation and updates.
+     *
      * There are three possible outcomes:
      * - If the Creator ID and Creator Name don't match any record, a new
      *   Creator is created with the provided credentials.
@@ -131,6 +135,11 @@ export class CreatorService {
         return creator;
     }
 
+    /**
+     * Creates a new Creator with the provided Creator Name and Creator ID.
+     * This method is intended to be used internally as there are no checks for
+     * authentication.
+     */
     public async createCreator(
         creatorName: string,
         creatorId: string | CreatorID = uuid.v4()
@@ -149,6 +158,48 @@ export class CreatorService {
         this.logger.log(`Created creator "${creator.creatorName}".`);
 
         return { creator, creatorId: validCreatorId };
+    }
+
+    /**
+     * Resets the Creator ID for a given Creator Name.
+     * This method is intended to be used internally as there are no checks for
+     * authentication.
+     * If no Creator ID is provided, a new UUID v4 string will be generated.
+     *
+     * @throws IncorrectCreatorNameError If no match is found for
+     *         {@link creatorName}
+     */
+    public async resetCreatorId(
+        creatorName: string,
+        creatorId: string | CreatorID = uuid.v4()
+    ): Promise<{ creator: Creator; creatorId: CreatorID }> {
+        const validCreatorId = CreatorService.validateCreatorId(creatorId);
+
+        const hashedCreatorId = this.hashCreatorId(validCreatorId);
+
+        try {
+            const creator = await this.prisma.creator.update({
+                where: { creatorName },
+                data: {
+                    hashedCreatorId
+                }
+            });
+
+            this.logger.log(`Reset Creator ID for "${creator.creatorName}".`);
+
+            return { creator, creatorId: validCreatorId };
+        } catch (error) {
+            if (
+                error instanceof PrismaClientKnownRequestError &&
+                error.code == 'P2025'
+            ) {
+                throw new IncorrectCreatorNameError(creatorId, {
+                    cause: error
+                });
+            }
+
+            throw error;
+        }
     }
 
     /**
@@ -259,6 +310,15 @@ export class InvalidCreatorIDError extends CreatorError {
         super(
             `Invalid Creator ID "${creatorId}", an UUID v4 sequence was expected.`
         );
+    }
+}
+
+export class IncorrectCreatorNameError extends CreatorError {
+    public constructor(
+        public readonly creatorName: string,
+        options: ErrorOptions
+    ) {
+        super(`Creator "${creatorName}" does not exist.`, options);
     }
 }
 

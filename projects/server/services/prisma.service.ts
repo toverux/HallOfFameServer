@@ -31,11 +31,12 @@ export class PrismaService
         });
 
         this.$on('error', ({ target, message }) => {
-            this.logger.error(`Error on ${target}: ${message}`);
-
-            // There should be no need to rethrow here, first we don't have
-            // the error object, and if an error was raised it should be thrown
-            // in the caller stack.
+            // You might be surprised that 'debug' level is used, but this is
+            // because all errors we get there are also thrown into the caller
+            // stack, so there already is proper error handling in place, so
+            // logging as error is redundant and rethrowing would break the
+            // aforementioned classic error handling.
+            this.logger.debug(`Error on ${target}: ${message}`);
         });
 
         this.$on('warn', ({ target, message }) => {

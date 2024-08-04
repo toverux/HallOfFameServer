@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import Bun from 'bun';
 import * as dateFns from 'date-fns';
 import sharp from 'sharp';
+import { allFulfilled } from '../common';
 import { config } from '../config';
 
 @Injectable()
@@ -16,6 +17,7 @@ export class ScreenshotProcessingService {
         buffer: Buffer,
         metadata: { creatorName: string; cityName: string }
     ): Promise<{
+        imageThumbnailBuffer: Buffer;
         imageFHDBuffer: Buffer;
         image4KBuffer: Buffer;
     }> {
@@ -44,55 +46,47 @@ export class ScreenshotProcessingService {
             // mozjpeg also produces progressive JPEGs.
             .jpeg({ force: true, quality: 70, mozjpeg: true });
 
-        // Resize to 4K and Full HD-like resolutions but keep the aspect ratio,
-        // allowing overflow so the dimensions specified are a minimum.
-        // Ex. A 1:1 image of 4000x4000 will be resized to 3840x3840.
+        // Resize to Thumbnail, 4K and Full HD-like resolutions but keep the
+        // aspect ratio, allowing overflow so the dimensions specified are a
+        // minimum. Ex. A 1:1 image of 4000x4000 will be resized to 3840x3840.
         const options: sharp.ResizeOptions = {
             fit: 'outside',
             withoutEnlargement: true
         };
 
+        const imageThumbnail = image.clone().resize(256, 144, options);
         const imageFHD = image.clone().resize(1920, 1080, options);
         const image4K = image.clone().resize(3840, 2160, options);
 
-        const imageFHDBuffer = await imageFHD.toBuffer();
-        const image4KBuffer = await image4K.toBuffer();
+        // Wait for all images to be processed.
+        const [imageThumbnailBuffer, imageFHDBuffer, image4KBuffer] =
+            await allFulfilled([
+                imageThumbnail.toBuffer(),
+                imageFHD.toBuffer(),
+                image4K.toBuffer()
+            ]);
 
         // Write debug images to the test directory.
         if (config.env == 'development') {
-            await this.writeDebugImages({
-                // Also save a non-resized version of the image, useful to test
-                // compression settings.
-                'noresize': await image.toBuffer(),
-                'fhd': imageFHDBuffer,
-                '4k': image4KBuffer
-            });
+            await allFulfilled(
+                Object.entries({
+                    // Also save a non-resized version of the image, useful to test
+                    // compression settings.
+                    'noresize': await image.toBuffer(),
+                    'thumbnail': imageThumbnailBuffer,
+                    'fhd': imageFHDBuffer,
+                    '4k': image4KBuffer
+                }).map(([name, buffer]) => {
+                    const imagePath = path.join(
+                        ScreenshotProcessingService.debugImagesDir,
+                        `screenshot-${name}.jpg`
+                    );
+
+                    return Bun.write(imagePath, buffer);
+                })
+            );
         }
 
-        return { imageFHDBuffer, image4KBuffer };
-    }
-
-    private async writeDebugImages(
-        images: Record<string, Buffer>
-    ): Promise<void> {
-        const results = await Promise.allSettled(
-            Object.entries(images).map(([name, buffer]) => {
-                const imagePath = path.join(
-                    ScreenshotProcessingService.debugImagesDir,
-                    `screenshot-${name}.jpg`
-                );
-
-                return Bun.write(imagePath, buffer);
-            })
-        );
-
-        const failed = results.find(
-            (result): result is PromiseRejectedResult =>
-                result.status == 'rejected'
-        );
-
-        if (failed) {
-            throw failed.reason;
-        }
+        return { imageThumbnailBuffer, imageFHDBuffer, image4KBuffer };
     }
 }

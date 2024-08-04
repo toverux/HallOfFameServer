@@ -28,9 +28,10 @@ export class ScreenshotStorageService {
     public async uploadScreenshots(
         creator: Pick<Creator, 'id' | 'creatorName'>,
         screenshot: Pick<Screenshot, 'id' | 'cityName'>,
+        bufferThumbnail: Buffer,
         bufferFHD: Buffer,
         buffer4K: Buffer
-    ): Promise<{ blobFHD: string; blob4K: string }> {
+    ): Promise<{ blobThumbnail: string; blobFHD: string; blob4K: string }> {
         const containerClient = this.containerClient;
 
         const date = dateFns.format(new Date(), 'yyyy-MM-dd-HH-mm-ss');
@@ -41,10 +42,12 @@ export class ScreenshotStorageService {
 
         const blobNameBase = `${creator.id}/${screenshot.id}/${blobSlug}`;
 
+        const blobNameThumbnail = `${blobNameBase}-thumbnail.jpg`;
         const blobNameFHD = `${blobNameBase}-fhd.jpg`;
         const blobName4K = `${blobNameBase}-4k.jpg`;
 
         const results = await Promise.allSettled([
+            upload(blobNameThumbnail, bufferThumbnail),
             upload(blobNameFHD, bufferFHD),
             upload(blobName4K, buffer4K)
         ]);
@@ -58,6 +61,7 @@ export class ScreenshotStorageService {
         }
 
         return {
+            blobThumbnail: blobNameThumbnail,
             blobFHD: blobNameFHD,
             blob4K: blobName4K
         };

@@ -70,7 +70,7 @@ export class ScreenshotService {
         }
 
         // Generate the two resized screenshot from the uploaded file.
-        const { imageFHDBuffer, image4KBuffer } =
+        const { imageThumbnailBuffer, imageFHDBuffer, image4KBuffer } =
             await this.screenshotProcessing.resizeScreenshots(file, {
                 creatorName: creator.creatorName,
                 cityName
@@ -88,6 +88,7 @@ export class ScreenshotService {
                     cityName,
                     cityMilestone,
                     cityPopulation,
+                    imageUrlThumbnail: '',
                     imageUrlFHD: '',
                     imageUrl4K: ''
                 }
@@ -97,6 +98,7 @@ export class ScreenshotService {
             const blobUrls = await this.screenshotStorage.uploadScreenshots(
                 creator,
                 screenshotWithoutBlobs,
+                imageThumbnailBuffer,
                 imageFHDBuffer,
                 image4KBuffer
             );
@@ -105,6 +107,7 @@ export class ScreenshotService {
             const screenshot = await prisma.screenshot.update({
                 where: { id: screenshotWithoutBlobs.id },
                 data: {
+                    imageUrlThumbnail: blobUrls.blobThumbnail,
                     imageUrlFHD: blobUrls.blobFHD,
                     imageUrl4K: blobUrls.blob4K
                 }
@@ -369,6 +372,7 @@ export class ScreenshotService {
             cityName: screenshot.cityName,
             cityMilestone: screenshot.cityMilestone,
             cityPopulation: screenshot.cityPopulation,
+            imageUrlThumbnail: screenshot.imageUrlThumbnail,
             imageUrlFHD: screenshot.imageUrlFHD,
             imageUrl4K: screenshot.imageUrl4K
         };

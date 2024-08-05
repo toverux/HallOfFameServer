@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import { Multipart } from '@fastify/multipart';
 import {
     Controller,
@@ -15,7 +16,12 @@ import { oneLine } from 'common-tags';
 import type { FastifyRequest } from 'fastify';
 import type { CreatorID } from '../common';
 import { type IPAddress, type JSONObject, StandardError } from '../common';
-import { BanService, CreatorService, ScreenshotService } from '../services';
+import {
+    BanService,
+    CreatorService,
+    PrismaService,
+    ScreenshotService
+} from '../services';
 
 @Controller('api/screenshot')
 export class ScreenshotController {
@@ -23,6 +29,9 @@ export class ScreenshotController {
      * Regular expression to validate Creator or City names.
      */
     private static readonly nameRegex = /^[\p{L}\p{N}\- ']{2,25}$/u;
+
+    @Inject(PrismaService)
+    private readonly prisma!: PrismaService;
 
     @Inject(CreatorService)
     private readonly creatorService!: CreatorService;
@@ -88,9 +97,15 @@ export class ScreenshotController {
                 viewMaxAge
             );
 
+        const creator = await this.prisma.creator.findFirst({
+            where: { id: screenshot.creatorId }
+        });
+
+        assert(creator);
+
         return {
             __algorithm: screenshot.__algorithm,
-            ...this.screenshotService.serialize(screenshot)
+            ...this.screenshotService.serialize({ ...screenshot, creator })
         };
     }
 
@@ -178,7 +193,7 @@ export class ScreenshotController {
                 fileBuffer
             );
 
-            return this.screenshotService.serialize(screenshot);
+            return this.screenshotService.serialize({ ...screenshot, creator });
         } catch (error) {
             if (error instanceof Error && error.message.includes('format')) {
                 throw new InvalidImageFormatError(error);

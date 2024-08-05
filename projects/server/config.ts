@@ -1,3 +1,5 @@
+import { oneLine } from 'common-tags';
+
 /**
  * Custom configuration solution, we do not use @nestjs/config because Bun
  * already loads dotenv files for us and NestJS solution is not type-safe
@@ -6,7 +8,7 @@
  * the form of a service.
  */
 export const config = {
-    env: getNodeEnv('NODE_ENV'),
+    env: getEnum('NODE_ENV', ['development', 'production']),
 
     verbose: process.argv.includes('--verbose') || process.argv.includes('-v'),
 
@@ -36,16 +38,20 @@ export const config = {
     supportContact: getString('HOF_SUPPORT_CONTACT')
 } as const;
 
-function getNodeEnv(envVar: string): 'development' | 'production' {
-    const nodeEnv = getString(envVar);
+function getEnum<const Choices extends string[]>(
+    envVar: string,
+    choices: Choices
+): Choices[number] {
+    const value = getString(envVar);
 
-    if (nodeEnv != 'development' && nodeEnv != 'production') {
-        throw new Error(
-            `Invalid NODE_ENV: ${envVar}, use "development" or "production".`
-        );
+    if (!choices.includes(value)) {
+        throw new Error(oneLine`
+            Invalid value for environment variable ${envVar},
+            got "${value}",
+            expected one of: ${choices.join(', ')}.`);
     }
 
-    return nodeEnv;
+    return value as Choices[number];
 }
 
 function getNumber(envVar: string): number {

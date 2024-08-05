@@ -12,6 +12,7 @@ import {
     StandardError
 } from '../common';
 import { config } from '../config';
+import { CreatorService } from './creator.service';
 import { PrismaService } from './prisma.service';
 import { ScreenshotProcessingService } from './screenshot-processing.service';
 import { ScreenshotStorageService } from './screenshot-storage.service';
@@ -30,6 +31,9 @@ type RandomScreenshotFunctions = Record<
 export class ScreenshotService {
     @Inject(PrismaService)
     private readonly prisma!: PrismaService;
+
+    @Inject(CreatorService)
+    private readonly creatorService!: CreatorService;
 
     @Inject(ViewService)
     private readonly viewService!: ViewService;
@@ -196,18 +200,21 @@ export class ScreenshotService {
     /**
      * Serializes a {@link Screenshot} to a JSON object for API responses.
      */
-    public serialize(screenshot: Screenshot): JSONObject {
+    public serialize(
+        screenshot: Screenshot & { creator: Creator }
+    ): JSONObject {
         return {
             id: screenshot.id,
             isReported: screenshot.isReported,
             views: screenshot.views,
-            creatorId: screenshot.creatorId,
             cityName: screenshot.cityName,
             cityMilestone: screenshot.cityMilestone,
             cityPopulation: screenshot.cityPopulation,
+            imageUrlThumbnail: this.getBlobUrl(screenshot.imageUrlThumbnail),
             imageUrlFHD: this.getBlobUrl(screenshot.imageUrlFHD),
             imageUrl4K: this.getBlobUrl(screenshot.imageUrl4K),
-            createdAt: screenshot.createdAt.toISOString()
+            createdAt: screenshot.createdAt.toISOString(),
+            creator: this.creatorService.serialize(screenshot.creator)
         };
     }
 

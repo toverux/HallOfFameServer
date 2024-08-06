@@ -77,7 +77,9 @@ export class ViewService {
 
         const screenshotIds = screenshots.map(view => view.screenshotId);
 
-        this.viewsCache.set(ipAddress, screenshotIds);
+        if (screenshotIds.length) {
+            this.viewsCache.set(ipAddress, screenshotIds);
+        }
 
         return screenshotIds;
     }

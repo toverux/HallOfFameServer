@@ -297,7 +297,7 @@ export class ScreenshotService {
                 $match: {
                     isReported: false,
                     createdAt: { $gt: { $date } },
-                    _id: { $nin: nin }
+                    _id: { $nin: nin.map(id => ({ $oid: id })) }
                 }
             },
             { $sort: { views: 1, createdAt: 1 } },
@@ -338,7 +338,7 @@ export class ScreenshotService {
                 $match: {
                     isReported: false,
                     createdAt: { $lt: { $date } },
-                    _id: { $nin: nin }
+                    _id: { $nin: nin.map(id => ({ $oid: id })) }
                 }
             },
             { $sort: { views: 1, createdAt: 1 } },

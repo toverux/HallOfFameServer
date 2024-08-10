@@ -10,6 +10,7 @@ GET {{url}}/api/screenshot/weighted
     ?random=10
     &recent=10
     &archeologist=10
+    &supporter=10
     &markViewed={{markViewed}}
     &viewMaxAge=1
 Authorization: CreatorID {{creatorId}}

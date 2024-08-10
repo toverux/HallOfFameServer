@@ -1,5 +1,7 @@
+import assert from 'node:assert/strict';
 import * as path from 'node:path';
 import { Inject, Provider } from '@nestjs/common';
+import { Creator, Screenshot } from '@prisma/client';
 import Bun from 'bun';
 import { oneLine } from 'common-tags';
 import * as dateFns from 'date-fns';
@@ -10,6 +12,7 @@ import {
     Question,
     QuestionSet
 } from 'nest-commander';
+import { Maybe } from '../../common';
 import {
     CreatorService,
     PrismaService,
@@ -62,48 +65,21 @@ class ImportCityCommand extends CommandRunner {
 
     public override async run([directoryPath]: [string]): Promise<void> {
         // Find all PNG and JPG files in the directory passed as argument.
-        const glob = new Bun.Glob('**/*.{png,jpg}');
-        const filePaths = Array.from(
-            glob.scanSync({
-                cwd: directoryPath,
-                onlyFiles: true
-            })
-        );
-
-        // If no files are found, log an error and exit.
-        if (!filePaths.length) {
-            console.error(`No screenshots found in the directory.`);
-            process.exitCode = 1;
-            return;
-        }
-
-        console.info(
-            `Found ${filePaths.length} candidate file(s) in directory.`
-        );
+        const filePaths = this.getFilesList(directoryPath);
 
         let confirm = false;
 
         // Loop until the user confirms all the confirmation prompts.
         while (!confirm) {
             // Ask the user for the city information.
-            const cityInfo = await this.inquirer.ask<CityInfoQuestionsResult>(
-                'city-info',
-                undefined
-            );
+            const cityInfo = await this.askForCityInfo();
 
-            // Log the city information for the user to review.
-            console.info(`\nPlease review the city information:`, cityInfo);
-
-            confirm = await this.inquirer
-                .ask<ConfirmCityInfoQuestionsResult>(
-                    'confirm-city-info',
-                    undefined
-                )
-                .then(result => result.confirm);
-
+            confirm = !!cityInfo;
             if (!confirm) {
                 continue;
             }
+
+            assert(cityInfo);
 
             // Check if the creator already exists.
             const existingCreator = await this.prisma.creator.findFirst({
@@ -124,33 +100,17 @@ class ImportCityCommand extends CommandRunner {
                     }
                 }));
 
-            // Log each operation that will be performed for the user to review.
-            console.info(`\nPlease review this carefully:`);
-
-            existingCreator
-                ? console.info(
-                      ` - Use EXISTING Creator "${existingCreator.creatorName}" #${existingCreator.id}.`
-                  )
-                : console.info(
-                      ` - Create NEW Creator "${cityInfo.creatorName}".`
-                  );
-
-            existingCity
-                ? console.info(
-                      ` - Add to EXISTING City "${existingCity.cityName}" #${existingCity.id}.`
-                  )
-                : console.info(
-                      ` - Create screenshot(s) for a NEW City "${cityInfo.cityName}".`
-                  );
-
-            console.info(
-                ` - Create Screenshot record(s) for each of those ${filePaths.length} files:`,
-                filePaths.join(', ')
+            // Ask the user to confirm the changes.
+            confirm = await this.confirmChanges(
+                existingCreator,
+                existingCity,
+                cityInfo,
+                filePaths
             );
 
-            confirm = await this.inquirer
-                .ask<ConfirmUpdateQuestionsResult>('confirm-update', undefined)
-                .then(result => result.confirm);
+            if (!confirm) {
+                continue;
+            }
 
             // Create the creator if it doesn't exist.
             let creator = existingCreator;
@@ -167,27 +127,132 @@ class ImportCityCommand extends CommandRunner {
                 creator = createdCreator;
             }
 
-            // Loop over each file and import it.
-            for (const filePath of filePaths) {
-                const absoluteFilePath = path.join(directoryPath, filePath);
+            // Make the creator a supporter if requested.
+            await this.maybeMakeCreatorSupporter(
+                creator,
+                existingCreator,
+                cityInfo
+            );
 
-                const fileBytes =
-                    await Bun.file(absoluteFilePath).arrayBuffer();
+            // Import the screenshots.
+            await this.ingestScreenshots(
+                directoryPath,
+                filePaths,
+                creator,
+                cityInfo
+            );
+        }
+    }
 
-                const screenshot =
-                    await this.screenshotService.ingestScreenshot(
-                        undefined,
-                        creator,
-                        cityInfo.cityName,
-                        cityInfo.cityMilestone,
-                        cityInfo.cityPopulation,
-                        Buffer.from(fileBytes)
-                    );
+    private getFilesList(directoryPath: string): readonly string[] {
+        const glob = new Bun.Glob('**/*.{png,jpg}');
+        const filePaths = Array.from(
+            glob.scanSync({
+                cwd: directoryPath,
+                onlyFiles: true
+            })
+        );
 
-                console.info(
-                    `Imported screenshot "${filePath}", #${screenshot.id}`
-                );
-            }
+        // If no files are found, log an error and exit.
+        if (!filePaths.length) {
+            console.error(`No screenshots found in the directory.`);
+            process.exit(1);
+        }
+
+        console.info(
+            `Found ${filePaths.length} candidate file(s) in directory.`
+        );
+
+        return filePaths;
+    }
+
+    private async askForCityInfo(): Promise<
+        CityInfoQuestionsResult | undefined
+    > {
+        const cityInfo = await this.inquirer.ask<CityInfoQuestionsResult>(
+            'city-info',
+            undefined
+        );
+
+        // Log the city information for the user to review.
+        console.info(`\nPlease review the city information:`, cityInfo);
+
+        return await this.inquirer
+            .ask<ConfirmCityInfoQuestionsResult>('confirm-city-info', undefined)
+            .then(result => (result.confirm ? cityInfo : undefined));
+    }
+
+    private async confirmChanges(
+        existingCreator: Maybe<Creator>,
+        existingCity: Maybe<Screenshot>,
+        cityInfo: CityInfoQuestionsResult,
+        filePaths: readonly string[]
+    ): Promise<boolean> {
+        console.info(`\nPlease review this carefully:`);
+
+        existingCreator
+            ? console.info(
+                  ` - Use EXISTING Creator "${existingCreator.creatorName}" #${existingCreator.id}.`
+              )
+            : console.info(` - Create NEW Creator "${cityInfo.creatorName}".`);
+
+        existingCity
+            ? console.info(
+                  ` - Add to EXISTING City "${existingCity.cityName}" #${existingCity.id}.`
+              )
+            : console.info(
+                  ` - Create screenshot(s) for a NEW City "${cityInfo.cityName}".`
+              );
+
+        console.info(
+            ` - Create Screenshot record(s) for each of those ${filePaths.length} files:`,
+            filePaths.join(', ')
+        );
+
+        return this.inquirer
+            .ask<ConfirmUpdateQuestionsResult>('confirm-update', undefined)
+            .then(result => result.confirm);
+    }
+
+    private async maybeMakeCreatorSupporter(
+        creator: Creator,
+        existingCreator: Maybe<Creator>,
+        cityInfo: CityInfoQuestionsResult
+    ): Promise<void> {
+        if (cityInfo.makeCreatorSupporter && !existingCreator?.isSupporter) {
+            await this.prisma.creator.update({
+                where: { id: creator.id },
+                data: { isSupporter: true }
+            });
+
+            console.info(`Made Creator "${creator.creatorName}" a supporter.`);
+        }
+    }
+
+    private async ingestScreenshots(
+        directoryPath: string,
+        filePaths: readonly string[],
+        creator: Creator,
+        cityInfo: CityInfoQuestionsResult
+    ): Promise<void> {
+        // Loop over each file and import it.
+        for (const filePath of filePaths) {
+            const absoluteFilePath = path.join(directoryPath, filePath);
+
+            const fileBytes = await Bun.file(absoluteFilePath).arrayBuffer();
+
+            const screenshot = await this.screenshotService.ingestScreenshot(
+                undefined,
+                creator,
+                cityInfo.cityName,
+                cityInfo.cityMilestone,
+                cityInfo.cityPopulation,
+                Buffer.from(fileBytes)
+            );
+
+            console.info(
+                `Imported screenshot "${filePath}", #${screenshot.id}`
+            );
         }
     }
 }
@@ -198,6 +263,7 @@ interface CityInfoQuestionsResult {
     cityPopulation: number;
     cityMilestone: number;
     date: Date;
+    makeCreatorSupporter: boolean;
 }
 
 @QuestionSet({ name: 'city-info' })
@@ -265,6 +331,15 @@ class CityInfoQuestions {
         }
 
         return date;
+    }
+
+    @Question({
+        name: 'makeCreatorSupporter',
+        message: `Make the Creator a supporter?`,
+        type: 'confirm'
+    })
+    public parseMakeCreatorSupporter(val: boolean): boolean {
+        return val;
     }
 }
 

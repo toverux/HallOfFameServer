@@ -18,7 +18,11 @@ import { ScreenshotProcessingService } from './screenshot-processing.service';
 import { ScreenshotStorageService } from './screenshot-storage.service';
 import { ViewService } from './view.service';
 
-type RandomScreenshotAlgorithm = 'random' | 'recent' | 'archeologist';
+type RandomScreenshotAlgorithm =
+    | 'random'
+    | 'recent'
+    | 'archeologist'
+    | 'supporter';
 
 type RandomScreenshotWeights = Record<RandomScreenshotAlgorithm, number>;
 
@@ -49,7 +53,8 @@ export class ScreenshotService {
     private readonly randomScreenshotFunctions: RandomScreenshotFunctions = {
         random: this.getScreenshotRandom.bind(this),
         recent: this.getScreenshotRecent.bind(this),
-        archeologist: this.getScreenshotArcheologist.bind(this)
+        archeologist: this.getScreenshotArcheologist.bind(this),
+        supporter: this.getScreenshotSupporter.bind(this)
     };
 
     /**
@@ -267,8 +272,8 @@ export class ScreenshotService {
         const screenshot = await this.runAggregateForSingleScreenshot([
             {
                 $match: {
-                    isReported: false,
-                    _id: { $nin: nin }
+                    _id: { $nin: nin.map(id => ({ $oid: id })) },
+                    isReported: false
                 }
             },
             { $sample: { size: 1 } }
@@ -295,9 +300,9 @@ export class ScreenshotService {
         return this.runAggregateForSingleScreenshot([
             {
                 $match: {
+                    _id: { $nin: nin.map(id => ({ $oid: id })) },
                     isReported: false,
-                    createdAt: { $gt: { $date } },
-                    _id: { $nin: nin.map(id => ({ $oid: id })) }
+                    createdAt: { $gt: { $date } }
                 }
             },
             { $sort: { views: 1, createdAt: 1 } },
@@ -336,9 +341,49 @@ export class ScreenshotService {
         return this.runAggregateForSingleScreenshot([
             {
                 $match: {
+                    _id: { $nin: nin.map(id => ({ $oid: id })) },
                     isReported: false,
-                    createdAt: { $lt: { $date } },
-                    _id: { $nin: nin.map(id => ({ $oid: id })) }
+                    createdAt: { $lt: { $date } }
+                }
+            },
+            { $sort: { views: 1, createdAt: 1 } },
+            { $limit: 1 }
+        ]);
+    }
+
+    /**
+     * Retrieves a non-reported random screenshot from a random supporter.
+     * Prioritizes the oldest screenshots with the least views for the
+     * randomly-selected supporter.
+     *
+     * ###### Implementation Notes
+     * Same performance considerations as {@link getScreenshotArcheologist} for
+     * the screenshots' aggregation.
+     */
+    private async getScreenshotSupporter(
+        nin: readonly Screenshot['id'][] = []
+    ): Promise<Screenshot | null> {
+        const supporters = await this.prisma.creator.aggregateRaw({
+            pipeline: [
+                { $match: { isSupporter: true } },
+                { $sample: { size: 1 } },
+                { $project: { _id: true } }
+            ]
+        });
+
+        assert(Array.isArray(supporters), `Expected an array of 0..1 results.`);
+
+        const supporter = supporters[0];
+        if (!supporter?._id) {
+            return null;
+        }
+
+        return this.runAggregateForSingleScreenshot([
+            {
+                $match: {
+                    _id: { $nin: nin.map(id => ({ $oid: id })) },
+                    isReported: false,
+                    creatorId: supporter._id
                 }
             },
             { $sort: { views: 1, createdAt: 1 } },
@@ -358,11 +403,7 @@ export class ScreenshotService {
             pipeline
         });
 
-        if (!Array.isArray(results)) {
-            throw new Error(
-                `Expected an array of results, got (${typeof results}) ${results}.`
-            );
-        }
+        assert(Array.isArray(results), `Expected an array of 0..1 results.`);
 
         const screenshot = results[0];
         if (!screenshot?._id?.$oid) {

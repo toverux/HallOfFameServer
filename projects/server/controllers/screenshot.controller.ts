@@ -60,6 +60,8 @@ export class ScreenshotController {
      *                      {@link ScreenshotService.getScreenshotRecent}.
      * @param archeologist  Weight for the "archeologist" algorithm, see
      *                      {@link ScreenshotService.getScreenshotArcheologist}.
+     * @param supporter     Weight for the "supporter" algorithm, see
+     *                      {@link ScreenshotService.getScreenshotSupporter}.
      * @param markViewed    Whether to mark the screenshot as viewed: increment
      *                      view count and add a View record. Default is true.
      * @param viewMaxAge    Min time in days before showing a screenshot the
@@ -77,12 +79,14 @@ export class ScreenshotController {
         recent = 0,
         @Query('archeologist', new ParseIntPipe({ optional: true }))
         archeologist = 0,
+        @Query('supporter', new ParseIntPipe({ optional: true }))
+        supporter = 0,
         @Query('markViewed', new ParseBoolPipe({ optional: true }))
         markViewed = true,
         @Query('viewMaxAge', new ParseIntPipe({ optional: true }))
         viewMaxAge = 60
     ) {
-        const weights = { random, recent, archeologist };
+        const weights = { random, recent, archeologist, supporter };
 
         const creatorId = authorization
             ? ScreenshotController.getCreatorId(authorization)

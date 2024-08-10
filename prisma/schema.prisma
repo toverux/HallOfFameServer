@@ -19,6 +19,9 @@ model Creator {
   /// authentication. Stakes are low so this is not salted or anything, but the
   /// Creator ID is our only secret so we'd rather not store it in plain text.
   hashedCreatorId String       @unique
+  /// Whether the Creator is a supporter of the project.
+  /// Currently this only means they sent screenshots before public release.
+  isSupporter     Boolean      @default(false)
   /// All unique IP addresses used by this Creator, used to ban an Creator and
   /// mitigate multi-accounting.
   ipAddresses     String[]
@@ -26,6 +29,7 @@ model Creator {
   screenshots     Screenshot[]
 
   @@map("creators")
+  @@index([isSupporter])
 }
 
 /// A screenshot uploaded by a Creator.

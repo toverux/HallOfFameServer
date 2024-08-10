@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { Screenshot, View } from '@prisma/client';
+import { Screenshot } from '@prisma/client';
 import * as dateFns from 'date-fns';
 import { LRUCache } from 'lru-cache';
 import type { CreatorID, IPAddress } from '../common';

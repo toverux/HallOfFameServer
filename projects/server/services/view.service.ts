@@ -19,12 +19,15 @@ export class ViewService {
      * querying the database for the same data when the user is browsing
      * screenshots.
      */
-    private readonly viewsCache = new LRUCache<string, View['id'][]>({
+    private readonly viewsCache = new LRUCache<
+        IPAddress,
+        { maxAge?: number; screenshotIds: Screenshot['id'][] }
+    >({
         // Allow a max of 100 IP addresses entries in the cache.
         max: 100,
         // Allow a max 10,000 view IDs in the cache.
         maxSize: 10000,
-        sizeCalculation: value => value.length,
+        sizeCalculation: value => value.screenshotIds.length,
         // Cache entries for 2 hours (more if key recency is updated, less if
         // max/maxSize are reached).
         ttl: 1000 * 60 * 60 * 2
@@ -38,8 +41,8 @@ export class ViewService {
      * @param creatorId    Optional Creator ID to filter by.
      * @param maxAgeInDays Max age of the views to consider, in days, so we can
      *                     repropose screenshots the user hasn't seen in a
-     *                     while. Due to internal caching, a change in the limit
-     *                     will not apply until the IP address entry is evicted.
+     *                     while. A max age of `0` or `undefined` means no limit
+     *                     (i.e. all past known views count).
      */
     public async getViewedScreenshotIds(
         ipAddress: IPAddress,
@@ -48,7 +51,17 @@ export class ViewService {
     ): Promise<Screenshot['id'][]> {
         if (this.viewsCache.has(ipAddress)) {
             // biome-ignore lint/style/noNonNullAssertion: cannot be null
-            return this.viewsCache.get(ipAddress)!;
+            const cache = this.viewsCache.get(ipAddress)!;
+
+            if (cache.maxAge && cache.maxAge != maxAgeInDays) {
+                // If the max age has changed, we need to clear the cache entry
+                // to apply the new limit.
+                this.viewsCache.delete(ipAddress);
+            } else {
+                cache.maxAge = maxAgeInDays ?? 0;
+
+                return cache.screenshotIds;
+            }
         }
 
         const creator = creatorId
@@ -78,7 +91,10 @@ export class ViewService {
         const screenshotIds = screenshots.map(view => view.screenshotId);
 
         if (screenshotIds.length) {
-            this.viewsCache.set(ipAddress, screenshotIds);
+            this.viewsCache.set(ipAddress, {
+                maxAge: maxAgeInDays ?? 0,
+                screenshotIds
+            });
         }
 
         return screenshotIds;
@@ -95,10 +111,13 @@ export class ViewService {
         creatorId: CreatorID | undefined
     ): Promise<void> {
         // Add the view to the cache.
-        const cachedScreenshotIds = this.viewsCache.get(ipAddress) ?? [];
-        cachedScreenshotIds.push(screenshotId);
+        const cache = this.viewsCache.get(ipAddress) ?? {
+            screenshotIds: []
+        };
 
-        this.viewsCache.set(ipAddress, cachedScreenshotIds);
+        cache.screenshotIds.push(screenshotId);
+
+        this.viewsCache.set(ipAddress, cache);
 
         // Update the Screenshot view count and create a new View record.
         // No transaction, this is not critical data.

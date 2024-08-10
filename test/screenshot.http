@@ -9,9 +9,9 @@ X-Forwarded-For: ::1
 GET {{url}}/api/screenshot/weighted
     ?random=10
     &recent=10
-    &lowViews=10
+    &archeologist=10
     &markViewed={{markViewed}}
-    &viewMaxAge=0
+    &viewMaxAge=1
 Authorization: CreatorID {{creatorId}}
 X-Forwarded-For: ::1
 

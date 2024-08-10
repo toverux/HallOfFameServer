@@ -18,7 +18,7 @@ import { ScreenshotProcessingService } from './screenshot-processing.service';
 import { ScreenshotStorageService } from './screenshot-storage.service';
 import { ViewService } from './view.service';
 
-type RandomScreenshotAlgorithm = 'random' | 'recent' | 'lowViews';
+type RandomScreenshotAlgorithm = 'random' | 'recent' | 'archeologist';
 
 type RandomScreenshotWeights = Record<RandomScreenshotAlgorithm, number>;
 
@@ -47,9 +47,9 @@ export class ScreenshotService {
     private readonly logger = new Logger(ScreenshotService.name);
 
     private readonly randomScreenshotFunctions: RandomScreenshotFunctions = {
-        random: this.getRandomScreenshot.bind(this),
-        recent: this.getRecentScreenshot.bind(this),
-        lowViews: this.getLowViewsScreenshot.bind(this)
+        random: this.getScreenshotRandom.bind(this),
+        recent: this.getScreenshotRecent.bind(this),
+        archeologist: this.getScreenshotArcheologist.bind(this)
     };
 
     /**
@@ -132,7 +132,7 @@ export class ScreenshotService {
      * a higher probability of being selected.
      *
      * If no screenshot is found by the algorithm that was randomly selected,
-     * it falls back to {@link getRandomScreenshot}.
+     * it falls back to {@link getScreenshotRandom}.
      */
     public async getWeightedRandomScreenshot(
         weights: RandomScreenshotWeights,
@@ -180,7 +180,7 @@ export class ScreenshotService {
 
         // If no screenshot was found by an algorithm other than random,
         // fallback to a random screenshot.
-        screenshot ??= await this.getRandomScreenshot();
+        screenshot ??= await this.getScreenshotRandom();
 
         // noinspection JSObjectNullOrUndefined False positive
         if (markViewed && !viewedScreenshotIds.includes(screenshot.id)) {
@@ -261,7 +261,7 @@ export class ScreenshotService {
     /**
      * Retrieves a non-reported completely random screenshot.
      */
-    private async getRandomScreenshot(
+    private async getScreenshotRandom(
         nin: readonly Screenshot['id'][] = []
     ): Promise<Screenshot> {
         const screenshot = await this.runAggregateForSingleScreenshot([
@@ -284,7 +284,7 @@ export class ScreenshotService {
      * Retrieves a non-reported random screenshot that was uploaded within the
      * last X days (configurable in env).
      */
-    private getRecentScreenshot(
+    private getScreenshotRecent(
         nin: readonly Screenshot['id'][] = []
     ): Promise<Screenshot | null> {
         const $date = dateFns.subDays(
@@ -325,7 +325,7 @@ export class ScreenshotService {
      * due to MongoDB's optimizations, and we still transfer only one document
      * so throughput is not a concern.
      */
-    private getLowViewsScreenshot(
+    private getScreenshotArcheologist(
         nin: readonly Screenshot['id'][] = []
     ): Promise<Screenshot | null> {
         const $date = dateFns.subDays(

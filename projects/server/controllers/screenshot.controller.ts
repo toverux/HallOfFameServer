@@ -55,11 +55,11 @@ export class ScreenshotController {
      *                      creating an account for people who have never posted
      *                      and are just browsing.
      * @param random        Weight for the "random" algorithm, see
-     *                      {@link ScreenshotService.getRandomScreenshot}.
+     *                      {@link ScreenshotService.getScreenshotRandom}.
      * @param recent        Weight for the "recent" algorithm, see
-     *                      {@link ScreenshotService.getRecentScreenshot}.
-     * @param lowViews      Weight for the "lowViews" algorithm, see
-     *                      {@link ScreenshotService.getLowViewsScreenshot}.
+     *                      {@link ScreenshotService.getScreenshotRecent}.
+     * @param archeologist  Weight for the "archeologist" algorithm, see
+     *                      {@link ScreenshotService.getScreenshotArcheologist}.
      * @param markViewed    Whether to mark the screenshot as viewed: increment
      *                      view count and add a View record. Default is true.
      * @param viewMaxAge    Min time in days before showing a screenshot the
@@ -75,14 +75,14 @@ export class ScreenshotController {
         random = 0,
         @Query('recent', new ParseIntPipe({ optional: true }))
         recent = 0,
-        @Query('lowViews', new ParseIntPipe({ optional: true }))
-        lowViews = 0,
+        @Query('archeologist', new ParseIntPipe({ optional: true }))
+        archeologist = 0,
         @Query('markViewed', new ParseBoolPipe({ optional: true }))
         markViewed = true,
         @Query('viewMaxAge', new ParseIntPipe({ optional: true }))
         viewMaxAge = 60
     ) {
-        const weights = { random, recent, lowViews };
+        const weights = { random, recent, archeologist };
 
         const creatorId = authorization
             ? ScreenshotController.getCreatorId(authorization)

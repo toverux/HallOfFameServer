@@ -247,6 +247,7 @@ class ImportCityCommand extends CommandRunner {
                 cityInfo.cityName,
                 cityInfo.cityMilestone,
                 cityInfo.cityPopulation,
+                cityInfo.date,
                 Buffer.from(fileBytes)
             );
 

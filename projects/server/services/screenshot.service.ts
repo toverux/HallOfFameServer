@@ -71,6 +71,7 @@ export class ScreenshotService {
         cityName: string,
         cityMilestone: number,
         cityPopulation: number,
+        createdAt: Date,
         file: Buffer
     ): Promise<Screenshot> {
         if (ipAddress) {
@@ -92,6 +93,7 @@ export class ScreenshotService {
             const screenshotWithoutBlobs = await prisma.screenshot.create({
                 select: { id: true, cityName: true },
                 data: {
+                    createdAt,
                     ipAddress: ipAddress ?? null,
                     creatorId: creator.id,
                     cityName,

@@ -194,6 +194,7 @@ export class ScreenshotController {
                 cityName,
                 cityMilestone,
                 cityPopulation,
+                new Date(),
                 fileBuffer
             );
 

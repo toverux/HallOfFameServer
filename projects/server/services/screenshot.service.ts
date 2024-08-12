@@ -189,6 +189,10 @@ export class ScreenshotService {
         // fallback to a random screenshot.
         screenshot ??= await this.getScreenshotRandom();
 
+        // We should always have a screenshot at this point, if not either the
+        // database is empty or we have a bug.
+        assert(screenshot, `Not a single screenshot found. Empty database?`);
+
         // noinspection JSObjectNullOrUndefined False positive
         if (markViewed && !viewedScreenshotIds.includes(screenshot.id)) {
             // Do it asynchronously so the response is not delayed.
@@ -268,10 +272,10 @@ export class ScreenshotService {
     /**
      * Retrieves a non-reported completely random screenshot.
      */
-    private async getScreenshotRandom(
+    private getScreenshotRandom(
         nin: readonly Screenshot['id'][] = []
-    ): Promise<Screenshot> {
-        const screenshot = await this.runAggregateForSingleScreenshot([
+    ): Promise<Screenshot | null> {
+        return this.runAggregateForSingleScreenshot([
             {
                 $match: {
                     _id: { $nin: nin.map(id => ({ $oid: id })) },
@@ -280,11 +284,6 @@ export class ScreenshotService {
             },
             { $sample: { size: 1 } }
         ]);
-
-        // This should always return something, or the database is empty.
-        assert(screenshot, `Not a single screenshot found. Empty database?`);
-
-        return screenshot;
     }
 
     /**

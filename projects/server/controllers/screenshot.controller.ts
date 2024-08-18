@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { Multipart } from '@fastify/multipart';
 import {
+    BadRequestException,
+    Body,
     Controller,
     Get,
     Headers,
@@ -12,10 +14,13 @@ import {
     Query,
     Req
 } from '@nestjs/common';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { oneLine } from 'common-tags';
 import type { FastifyRequest } from 'fastify';
+import { z } from 'zod';
 import type { CreatorID } from '../common';
 import { type IPAddress, type JSONObject, StandardError } from '../common';
+import { ZodParsePipe } from '../pipes/zod-parse.pipe';
 import {
     BanService,
     CreatorService,
@@ -29,6 +34,13 @@ export class ScreenshotController {
      * Regular expression to validate Creator or City names.
      */
     private static readonly nameRegex = /^[\p{L}\p{N}\- ']{2,25}$/u;
+
+    /** @see report */
+    private static readonly postReportBodySchema = z
+        .object({
+            screenshotId: z.string().length(24)
+        })
+        .required();
 
     @Inject(PrismaService)
     private readonly prisma!: PrismaService;
@@ -111,6 +123,42 @@ export class ScreenshotController {
             __algorithm: screenshot.__algorithm,
             ...this.screenshotService.serialize({ ...screenshot, creator })
         };
+    }
+
+    /**
+     * Reports a screenshot as inappropriate.
+     *
+     * ###### Implementation notes
+     * The body is a zod-validated object, this might seem overkill for just one
+     * field, but we will probably have more fields in the future (ex. what is
+     * the nature of the issue, a comment, etc.), so the groundwork is there.
+     */
+    @Post('report')
+    public async report(
+        @Body(new ZodParsePipe(ScreenshotController.postReportBodySchema))
+        body: z.infer<typeof ScreenshotController.postReportBodySchema>
+    ): Promise<JSONObject> {
+        try {
+            const screenshot = await this.prisma.screenshot.update({
+                where: { id: body.screenshotId },
+                data: { isReported: true },
+                include: { creator: true }
+            });
+
+            return this.screenshotService.serialize(screenshot);
+        } catch (error) {
+            if (
+                error instanceof PrismaClientKnownRequestError &&
+                error.code == 'P2025'
+            ) {
+                throw new BadRequestException(
+                    `Could not find screenshot #${body.screenshotId}.`,
+                    { cause: error }
+                );
+            }
+
+            throw error;
+        }
     }
 
     /**

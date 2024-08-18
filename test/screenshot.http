@@ -16,6 +16,19 @@ GET {{url}}/api/screenshot/weighted
 Authorization: CreatorID {{creatorId}}
 X-Forwarded-For: ::1
 
+> {%
+    client.global.set("screenshot", response.body);
+%}
+
+### Report a screenshot
+
+POST {{url}}/api/screenshot/report
+Content-Type: application/json
+
+{
+    "screenshotId": "{{screenshot.id}}"
+}
+
 ### Upload a screenshot
 
 POST {{url}}/api/screenshot/upload

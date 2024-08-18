@@ -49,7 +49,8 @@
     "sharp": "^0.33.4",
     "slug": "^9.1.0",
     "tslib": "^2.6.3",
-    "uuid": "^10.0.0"
+    "uuid": "^10.0.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@angular-devkit/build-angular": "^18.1.4",

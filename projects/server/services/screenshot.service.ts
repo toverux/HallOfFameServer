@@ -2,14 +2,16 @@ import assert from 'node:assert/strict';
 import * as timers from 'node:timers';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Creator, Prisma, Screenshot } from '@prisma/client';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { oneLine } from 'common-tags';
 import * as dateFns from 'date-fns';
 import {
-    type CreatorID,
-    type IPAddress,
-    type JSONObject,
-    type Maybe,
-    StandardError
+    CreatorID,
+    IPAddress,
+    JsonObject,
+    Maybe,
+    StandardError,
+    optionallySerialized
 } from '../common';
 import { config } from '../config';
 import { CreatorService } from './creator.service';
@@ -133,6 +135,64 @@ export class ScreenshotService {
     }
 
     /**
+     * Marks a screenshot as reported by a user.
+     *
+     * @param screenshotId Screenshot to mark as reported.
+     * @param reportedBy   The IP address of the user who made the report.
+     *                     Useful to reset a bunch of reports if the report
+     *                     feature is abused.
+     */
+    public async markReported(
+        screenshotId: Screenshot['id'],
+        reportedBy: IPAddress
+    ): Promise<Screenshot> {
+        try {
+            return await this.prisma.screenshot.update({
+                where: { id: screenshotId },
+                data: { isReported: true, reportedBy },
+                include: { creator: true }
+            });
+        } catch (error) {
+            if (
+                error instanceof PrismaClientKnownRequestError &&
+                error.code == 'P2025'
+            ) {
+                throw new ScreenshotNotFoundError(screenshotId, {
+                    cause: error
+                });
+            }
+
+            throw error;
+        }
+    }
+
+    /**
+     * Unmarks a screenshot as reported by a user.
+     */
+    public async unmarkReported(
+        screenshotId: Screenshot['id']
+    ): Promise<Screenshot> {
+        try {
+            return await this.prisma.screenshot.update({
+                where: { id: screenshotId },
+                data: { isReported: false, reportedBy: null },
+                include: { creator: true }
+            });
+        } catch (error) {
+            if (
+                error instanceof PrismaClientKnownRequestError &&
+                error.code == 'P2025'
+            ) {
+                throw new ScreenshotNotFoundError(screenshotId, {
+                    cause: error
+                });
+            }
+
+            throw error;
+        }
+    }
+
+    /**
      * Retrieves a random screenshot from the Hall of Fame, with weights to
      * assign probabilities to select the algorithm used to find a screenshot
      * ({@link RandomScreenshotAlgorithm}), algorithms with a higher weight have
@@ -212,8 +272,8 @@ export class ScreenshotService {
      * Serializes a {@link Screenshot} to a JSON object for API responses.
      */
     public serialize(
-        screenshot: Screenshot & { creator: Creator }
-    ): JSONObject {
+        screenshot: Screenshot & { creator?: Creator }
+    ): JsonObject {
         return {
             id: screenshot.id,
             isReported: screenshot.isReported,
@@ -225,7 +285,10 @@ export class ScreenshotService {
             imageUrlFHD: this.getBlobUrl(screenshot.imageUrlFHD),
             imageUrl4K: this.getBlobUrl(screenshot.imageUrl4K),
             createdAt: screenshot.createdAt.toISOString(),
-            creator: this.creatorService.serialize(screenshot.creator)
+            creator: optionallySerialized(
+                screenshot.creator &&
+                    this.creatorService.serialize(screenshot.creator)
+            )
         };
     }
 
@@ -415,6 +478,7 @@ export class ScreenshotService {
             id: screenshot._id.$oid,
             createdAt: new Date(screenshot.createdAt.$date),
             isReported: screenshot.isReported,
+            reportedBy: screenshot.reportedBy,
             views: screenshot.views,
             ipAddress: screenshot.ipAddress,
             creatorId: screenshot.creatorId.$oid,
@@ -429,6 +493,12 @@ export class ScreenshotService {
 }
 
 export abstract class ScreenshotError extends StandardError {}
+
+export class ScreenshotNotFoundError extends ScreenshotError {
+    public constructor(id: Screenshot['id'], options?: ErrorOptions) {
+        super(oneLine`Could not find screenshot #${id}.`, options);
+    }
+}
 
 export class ScreenshotRateLimitExceededError extends ScreenshotError {
     public constructor(

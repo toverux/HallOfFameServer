@@ -8,7 +8,7 @@ import * as uuid from 'uuid';
 import {
     CreatorID,
     type IPAddress,
-    type JSONObject,
+    type JsonObject,
     StandardError
 } from '../common';
 import { BanService } from './ban.service';
@@ -205,7 +205,7 @@ export class CreatorService {
     /**
      * Serializes a {@link Creator} to a JSON object for API responses.
      */
-    public serialize(creator: Creator): JSONObject {
+    public serialize(creator: Creator): JsonObject {
         return {
             id: creator.id,
             creatorName: creator.creatorName,

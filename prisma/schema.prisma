@@ -28,8 +28,8 @@ model Creator {
   /// One to many relationship with Screenshot.
   screenshots     Screenshot[]
 
-  @@map("creators")
   @@index([isSupporter])
+  @@map("creators")
 }
 
 /// A screenshot uploaded by a Creator.
@@ -40,6 +40,10 @@ model Screenshot {
   /// If true, the Screenshot is hidden from the public until an admin reviews
   /// it and decides to reset the flag or take action.
   isReported        Boolean  @default(false)
+  /// IP address of the user who reported the Screenshot.
+  /// Useful to track users who abuse the report feature and eventually reset a
+  /// bunch of reports if they aren't justified.
+  reportedBy        String?
   /// Number of views the Screenshot has received.
   views             Int      @default(0)
   /// IP address of the user who uploaded the Screenshot.

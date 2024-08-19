@@ -4,6 +4,10 @@ GET {{url}}/api/screenshot/weighted?markViewed={{markViewed}}
 Authorization: CreatorID {{creatorId}}
 X-Forwarded-For: ::1
 
+> {%
+    client.global.set("screenshot", response.body);
+%}
+
 ### Get random screenshot weighted algorithms
 
 GET {{url}}/api/screenshot/weighted

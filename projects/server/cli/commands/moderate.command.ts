@@ -116,17 +116,22 @@ class ModerateCommand extends CommandRunner {
 
             switch (action) {
                 case 'approve': {
-                    await this.approveScreenshot(screenshot.id);
+                    await this.screenshotService.unmarkReported(screenshot.id);
+
                     console.info(`APPROVED screenshot.`);
                     break;
                 }
                 case 'delete': {
-                    await this.deleteScreenshot(screenshot.id);
+                    await this.prisma.screenshot.delete({
+                        where: { id: screenshot.id }
+                    });
+
                     console.info(`DELETED screenshot.`);
                     break;
                 }
                 case 'ban': {
                     await this.banCreator(screenshot.creator, screenshot);
+
                     console.info(`DELETED screenshot and BANNED creator.`);
                     break;
                 }
@@ -140,17 +145,6 @@ class ModerateCommand extends CommandRunner {
         }
     }
 
-    private async approveScreenshot(id: Screenshot['id']): Promise<void> {
-        await this.prisma.screenshot.update({
-            where: { id },
-            data: { isReported: false }
-        });
-    }
-
-    private async deleteScreenshot(id: Screenshot['id']): Promise<void> {
-        await this.prisma.screenshot.delete({ where: { id } });
-    }
-
     private async banCreator(
         creator: Creator,
         screenshot: Screenshot
@@ -162,7 +156,7 @@ class ModerateCommand extends CommandRunner {
             reported and judged to be inappropriate by our moderation team`
         );
 
-        await this.deleteScreenshot(screenshot.id);
+        await this.prisma.screenshot.delete({ where: { id: screenshot.id } });
     }
 }
 

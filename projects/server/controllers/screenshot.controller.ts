@@ -19,7 +19,7 @@ import { oneLine } from 'common-tags';
 import type { FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { CreatorID } from '../common';
-import { type IPAddress, type JSONObject, StandardError } from '../common';
+import { type IPAddress, type JsonObject, StandardError } from '../common';
 import { ZodParsePipe } from '../pipes/zod-parse.pipe';
 import {
     BanService,
@@ -135,15 +135,16 @@ export class ScreenshotController {
      */
     @Post('report')
     public async report(
+        @Ip()
+        ipAddress: IPAddress,
         @Body(new ZodParsePipe(ScreenshotController.postReportBodySchema))
         body: z.infer<typeof ScreenshotController.postReportBodySchema>
-    ): Promise<JSONObject> {
+    ): Promise<JsonObject> {
         try {
-            const screenshot = await this.prisma.screenshot.update({
-                where: { id: body.screenshotId },
-                data: { isReported: true },
-                include: { creator: true }
-            });
+            const screenshot = await this.screenshotService.markReported(
+                body.screenshotId,
+                ipAddress
+            );
 
             return this.screenshotService.serialize(screenshot);
         } catch (error) {
@@ -183,7 +184,7 @@ export class ScreenshotController {
         ipAddress: IPAddress,
         @Headers('Authorization')
         authorization: string | undefined
-    ): Promise<JSONObject> {
+    ): Promise<JsonObject> {
         await this.banService.ensureIpAddressNotBanned(ipAddress);
 
         const multipart = await req.file({

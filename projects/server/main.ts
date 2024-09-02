@@ -70,13 +70,15 @@ async function bootstrap(): Promise<void> {
     });
 
     app.useGlobalFilters(
+        // The catch-all error filter should actually come first to let the
+        // other more specific filters take precedence.
+        new GlobalExceptionFilter(app.getHttpAdapter()),
         new StandardErrorFilter(app.getHttpAdapter()),
         new NotFoundExceptionFilter(
             app.getHttpAdapter(),
             browserDistFolder,
             indexHtml
-        ),
-        new GlobalExceptionFilter(app.getHttpAdapter())
+        )
     );
 
     await app.listen(config.http.port);
@@ -183,7 +185,7 @@ class NotFoundExceptionFilter extends BaseExceptionFilter {
      */
     public override async catch(_: NotFoundException, host: ArgumentsHost) {
         const ctx = host.switchToHttp();
-        const req = ctx.getResponse<FastifyRequest>();
+        const req = ctx.getRequest<FastifyRequest>();
         const res = ctx.getResponse<FastifyReply>();
 
         const { protocol, originalUrl, headers } = req;

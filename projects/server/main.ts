@@ -6,6 +6,7 @@ import {
     BadRequestException,
     Catch,
     ForbiddenException,
+    HttpException,
     type HttpServer,
     Logger,
     NotFoundException
@@ -15,6 +16,7 @@ import {
     FastifyAdapter,
     type NestFastifyApplication
 } from '@nestjs/platform-fastify';
+import * as sentry from '@sentry/bun';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 import * as path from 'node:path';
@@ -73,7 +75,8 @@ async function bootstrap(): Promise<void> {
             app.getHttpAdapter(),
             browserDistFolder,
             indexHtml
-        )
+        ),
+        new GlobalExceptionFilter(app.getHttpAdapter())
     );
 
     await app.listen(config.http.port);
@@ -97,16 +100,48 @@ async function linkEnvFilesForWatchMode(): Promise<void> {
 }
 
 /**
+ * Catch-all error filter, uses the base exception filter to handle all errors
+ * that reach it, but adds Sentry error reporting for all errors that are not
+ * {@link HttpException} (unless status 500+) or {@link StandardError}.
+ */
+@Catch()
+class GlobalExceptionFilter extends BaseExceptionFilter {
+    public override catch(error: unknown, host: ArgumentsHost): void {
+        // Report unknown errors and 500+ errors to Sentry.
+        if (!(error instanceof HttpException) || error.getStatus() >= 500) {
+            sentry.captureException(error);
+        }
+
+        super.catch(error, host);
+    }
+
+    /**
+     * The default implementation of this method isn't great, it's called for
+     * "unknown errors" (i.e. errors that aren't HttpException) it's supposed to
+     * catch http-errors lib's errors (which we don't use btw), but just checks
+     * if the error has a `statusCode` and `message` property.
+     *
+     * In our case this was a problem with the Azure SDK errors which has
+     * `statusCode` and `message`, but they're not user errors, we want to treat
+     * that as an unknown errors too (resulting in a 500 error to the end user).
+     *
+     * So right now we don't ever want to return true for anything else as
+     * HttpException and {@link StandardError} are already properly handled.
+     */
+    public override isHttpError(
+        _error: unknown
+    ): _error is { statusCode: number; message: string } {
+        return false;
+    }
+}
+
+/**
  * Error filter that catches {@link StandardError}, which is a known error type,
  * that we can convert to a {@link BadRequestException} with the original error
  * message.
  */
 @Catch(StandardError)
 class StandardErrorFilter extends BaseExceptionFilter {
-    public constructor(applicationRef: HttpServer) {
-        super(applicationRef);
-    }
-
     public override catch(error: StandardError, host: ArgumentsHost) {
         const ErrorConstructor =
             error.kind == 'forbidden'

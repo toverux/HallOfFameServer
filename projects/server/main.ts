@@ -183,20 +183,26 @@ class NotFoundExceptionFilter extends BaseExceptionFilter {
      * configured as the default error handler elsewhere, but it's the best I've
      * found so far.
      */
-    public override async catch(_: NotFoundException, host: ArgumentsHost) {
+    public override async catch(error: NotFoundException, host: ArgumentsHost) {
         const ctx = host.switchToHttp();
         const req = ctx.getRequest<FastifyRequest>();
         const res = ctx.getResponse<FastifyReply>();
 
-        const { protocol, originalUrl, headers } = req;
+        const { protocol, originalUrl, url, headers } = req;
 
-        const url = `${protocol}://${headers.host}${originalUrl}`;
+        // If it's an API request, let the default error handler handle it.
+        if (url.startsWith('/api/')) {
+            return super.catch(error, host);
+        }
+
+        // Otherwise, render the Angular application.
+        const fullUrl = `${protocol}://${headers.host}${originalUrl}`;
 
         try {
             const result = await (ssrRender as typeof ssrRenderType)(
                 this.browserDistFolder,
                 this.indexHtml,
-                url
+                fullUrl
             );
 
             res.header('Content-Type', 'text/html');

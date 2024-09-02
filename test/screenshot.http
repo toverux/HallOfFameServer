@@ -1,6 +1,6 @@
 ### Get random screenshot
 
-GET {{url}}/api/screenshot/weighted?markViewed={{markViewed}}
+GET {{url}}/api/v1/screenshot/weighted?markViewed={{markViewed}}
 Authorization: CreatorID {{creatorId}}
 X-Forwarded-For: ::1
 
@@ -10,7 +10,7 @@ X-Forwarded-For: ::1
 
 ### Get random screenshot weighted algorithms
 
-GET {{url}}/api/screenshot/weighted
+GET {{url}}/api/v1/screenshot/weighted
     ?random=10
     &recent=10
     &archeologist=10
@@ -26,7 +26,7 @@ X-Forwarded-For: ::1
 
 ### Report a screenshot
 
-POST {{url}}/api/screenshot/report
+POST {{url}}/api/v1/screenshot/report
 Content-Type: application/json
 
 {
@@ -35,7 +35,7 @@ Content-Type: application/json
 
 ### Upload a screenshot
 
-POST {{url}}/api/screenshot/upload
+POST {{url}}/api/v1/screenshot/upload
 Authorization: CreatorID {{creatorId}}
 Content-Type: multipart/form-data; boundary=WebAppBoundary
 X-Forwarded-For: ::1

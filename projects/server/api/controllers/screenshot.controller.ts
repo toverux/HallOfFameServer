@@ -18,17 +18,17 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { oneLine } from 'common-tags';
 import type { FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import type { CreatorID } from '../common';
-import { type IPAddress, type JsonObject, StandardError } from '../common';
-import { ZodParsePipe } from '../pipes/zod-parse.pipe';
+import type { CreatorID } from '../../common';
+import { type IPAddress, type JsonObject, StandardError } from '../../common';
+import { ZodParsePipe } from '../../pipes';
 import {
     BanService,
     CreatorService,
     PrismaService,
     ScreenshotService
-} from '../services';
+} from '../../services';
 
-@Controller('api/screenshot')
+@Controller('screenshot')
 export class ScreenshotController {
     /**
      * Regular expression to validate Creator or City names.

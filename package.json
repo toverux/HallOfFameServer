@@ -9,6 +9,8 @@
     "run:cli": "bun projects/server/cli/main.ts",
     "run:server": "bun projects/server/main.ts",
     "run:server:watch": "bun --watch --no-clear-screen --inspect projects/server/main.ts",
+    "// Useful when working on the mod with the editor and game open so the server does not consume too much memory": "",
+    "run:server:light": "bun --smol projects/server/main.ts",
     "serve:client": "ng serve",
     "build": "bun check && ng build"
   },

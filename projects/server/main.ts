@@ -81,7 +81,7 @@ async function bootstrap(): Promise<void> {
         )
     );
 
-    await app.listen(config.http.port);
+    await app.listen(config.http.port, config.http.address);
 
     logger.log(`Server is running on: ${await app.getUrl()}`);
 }

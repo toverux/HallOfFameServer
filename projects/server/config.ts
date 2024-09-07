@@ -13,6 +13,7 @@ export const config = {
     verbose: process.argv.includes('--verbose') || process.argv.includes('-v'),
 
     http: {
+        address: getString('HOF_HTTP_ADDRESS'),
         port: getNumber('HOF_HTTP_PORT')
     },
 

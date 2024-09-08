@@ -30,6 +30,7 @@ export const config = {
     },
 
     screenshots: {
+        jpegQuality: getNumber('HOF_SCREENSHOTS_JPEG_QUALITY'),
         recencyThresholdDays: getNumber(
             'HOF_SCREENSHOTS_RECENCY_THRESHOLD_DAYS'
         ),

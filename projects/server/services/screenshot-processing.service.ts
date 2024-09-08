@@ -41,10 +41,15 @@ export class ScreenshotProcessingService {
             // We want to minimize the size of the image as much as possible
             // while keeping the quality as high as possible.
             // The mozjpeg preset already does a very great job, and a quality
-            // of 70 seemed to be the threshold before the image really started
-            // to lose quality (especially the palette).
+            // of 85 seemed to be an acceptable tradeoff between quality and
+            // size (even 70 was fine on small display but on large displays,
+            // artifacts were too prominent).
             // mozjpeg also produces progressive JPEGs.
-            .jpeg({ force: true, quality: 70, mozjpeg: true });
+            .jpeg({
+                force: true,
+                quality: config.screenshots.jpegQuality,
+                mozjpeg: true
+            });
 
         // Resize to Thumbnail, 4K and Full HD-like resolutions but keep the
         // aspect ratio, allowing overflow so the dimensions specified are a

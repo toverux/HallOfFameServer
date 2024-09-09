@@ -303,9 +303,9 @@ export class ScreenshotController {
     private static validateMilestone(milestone: string): number {
         const parsed = Number.parseInt(milestone, 10);
 
-        if (Number.isNaN(parsed) || parsed < 1 || parsed > 20) {
+        if (Number.isNaN(parsed) || parsed < 0 || parsed > 20) {
             throw new InvalidPayloadError(
-                `Invalid milestone, it must be a positive integer between 1 and 20.`
+                `Invalid milestone, it must be a positive integer between 0 and 20.`
             );
         }
 

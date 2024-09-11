@@ -9,4 +9,5 @@
 /dist
 
 # Test files
+/test/http-client.env.json
 /test/screenshot-*.jpg

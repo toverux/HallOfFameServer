@@ -203,13 +203,11 @@ export class ScreenshotService {
     public async getWeightedRandomScreenshot(
         weights: RandomScreenshotWeights,
         markViewed: boolean,
-        ipAddress: IPAddress,
         creatorId: Creator['id'],
         alreadyViewedMaxAgeInDays: number | undefined
     ): Promise<Screenshot & { __algorithm: RandomScreenshotAlgorithm }> {
         const viewedScreenshotIds =
             await this.viewService.getViewedScreenshotIds(
-                ipAddress,
                 creatorId,
                 alreadyViewedMaxAgeInDays
             );
@@ -256,11 +254,7 @@ export class ScreenshotService {
         if (markViewed && !viewedScreenshotIds.includes(screenshot.id)) {
             // Do it asynchronously so the response is not delayed.
             timers.setImmediate(() => {
-                void this.viewService.markViewed(
-                    screenshot.id,
-                    ipAddress,
-                    creatorId
-                );
+                void this.viewService.markViewed(screenshot.id, creatorId);
             });
         }
 

@@ -2,7 +2,6 @@ import { Inject, Injectable } from '@nestjs/common';
 import { Creator, Screenshot } from '@prisma/client';
 import * as dateFns from 'date-fns';
 import { LRUCache } from 'lru-cache';
-import type { IPAddress } from '../common';
 import { PrismaService } from './prisma.service';
 
 @Injectable()
@@ -11,15 +10,15 @@ export class ViewService {
     private readonly prisma!: PrismaService;
 
     /**
-     * Cache of IP addresses to viewed screenshot IDs to avoid repeatedly
-     * querying the database for the same data when the user is browsing
-     * screenshots.
+     * Cache of Creator ID (database one, not the UUID v4) to viewed screenshot
+     * IDs to avoid repeatedly querying the database for the same data when the
+     * user is browsing screenshots.
      */
     private readonly viewsCache = new LRUCache<
-        IPAddress,
+        Creator['id'],
         { maxAge?: number; screenshotIds: Screenshot['id'][] }
     >({
-        // Allow a max of 100 IP addresses entries in the cache.
+        // Allow a max of 100 creator entries in the cache.
         max: 100,
         // Allow a max 10,000 view IDs in the cache.
         maxSize: 10000,
@@ -30,10 +29,8 @@ export class ViewService {
     });
 
     /**
-     * Returns the IDs of the screenshots viewed by the given IP address OR
-     * optionally by the given creator.
+     * Returns the IDs of the screenshots viewed by the given Creator.
      *
-     * @param ipAddress    IP address to filter by.
      * @param creatorId    Creator ID to filter by.
      * @param maxAgeInDays Max age of the views to consider, in days, so we can
      *                     repropose screenshots the user hasn't seen in a
@@ -41,18 +38,17 @@ export class ViewService {
      *                     (i.e. all past known views count).
      */
     public async getViewedScreenshotIds(
-        ipAddress: IPAddress,
         creatorId: Creator['id'],
         maxAgeInDays: number | undefined
     ): Promise<Screenshot['id'][]> {
-        if (this.viewsCache.has(ipAddress)) {
+        if (this.viewsCache.has(creatorId)) {
             // biome-ignore lint/style/noNonNullAssertion: cannot be null
-            const cache = this.viewsCache.get(ipAddress)!;
+            const cache = this.viewsCache.get(creatorId)!;
 
             if (cache.maxAge && cache.maxAge != maxAgeInDays) {
                 // If the max age has changed, we need to clear the cache entry
                 // to apply the new limit.
-                this.viewsCache.delete(ipAddress);
+                this.viewsCache.delete(creatorId);
             } else {
                 cache.maxAge = maxAgeInDays ?? 0;
 
@@ -65,15 +61,14 @@ export class ViewService {
             where: {
                 // biome-ignore lint/style/useNamingConvention: prisma
                 AND: [
+                    { creatorId },
                     maxAgeInDays
                         ? {
                               viewedAt: {
                                   gte: dateFns.subDays(new Date(), maxAgeInDays)
                               }
                           }
-                        : {},
-                    // biome-ignore lint/style/useNamingConvention: <explanation>
-                    { OR: [{ ipAddress }, { creatorId }] }
+                        : {}
                 ]
             }
         });
@@ -81,7 +76,7 @@ export class ViewService {
         const screenshotIds = screenshots.map(view => view.screenshotId);
 
         if (screenshotIds.length) {
-            this.viewsCache.set(ipAddress, {
+            this.viewsCache.set(creatorId, {
                 maxAge: maxAgeInDays ?? 0,
                 screenshotIds
             });
@@ -97,17 +92,16 @@ export class ViewService {
      */
     public async markViewed(
         screenshotId: Screenshot['id'],
-        ipAddress: IPAddress,
         creatorId: Creator['id']
     ): Promise<void> {
         // Add the view to the cache.
-        const cache = this.viewsCache.get(ipAddress) ?? {
+        const cache = this.viewsCache.get(creatorId) ?? {
             screenshotIds: []
         };
 
         cache.screenshotIds.push(screenshotId);
 
-        this.viewsCache.set(ipAddress, cache);
+        this.viewsCache.set(creatorId, cache);
 
         // Update the Screenshot view count and create a new View record.
         // No transaction, this is not critical data.
@@ -119,7 +113,7 @@ export class ViewService {
         });
 
         await this.prisma.view.create({
-            data: { screenshotId, ipAddress, creatorId }
+            data: { screenshotId, creatorId }
         });
     }
 }

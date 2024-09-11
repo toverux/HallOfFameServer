@@ -101,20 +101,14 @@ model View {
   id           String   @id @default(auto()) @map("_id") @db.ObjectId
   viewedAt     DateTime @default(now())
   screenshotId String   @db.ObjectId
-  /// IP address of the user who viewed the Screenshot.
-  /// This is our primary way to track views, as screenshots can be viewed
-  /// without a Creator ID.
-  ipAddress    String
   /// Creator ID of the user who viewed the Screenshot, if authenticated, to
   /// consolidate views across multiple IP addresses for the same Creator.
-  creatorId    String?  @db.ObjectId
+  creatorId    String   @db.ObjectId
 
   @@index([screenshotId])
-  @@index([ipAddress])
   @@index([creatorId])
-  // Composite indexes for querying with date bounds to propose again
-  // screenshots the user hasn't seen in a while.
-  @@index([ipAddress, viewedAt])
+  // Composite index for querying with date bounds to propose again screenshots
+  // the user hasn't seen in a while.
   @@index([creatorId, viewedAt])
   @@map("views")
 }

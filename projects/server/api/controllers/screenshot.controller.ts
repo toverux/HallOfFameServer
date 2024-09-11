@@ -53,7 +53,6 @@ export class ScreenshotController {
      * By default, all weights are zero and "random" is used.
      *
      * @param req           The request object.
-     * @param ipAddress     The IP address for view tracking.
      * @param random        Weight for the "random" algorithm, see
      *                      {@link ScreenshotService.getScreenshotRandom}.
      * @param recent        Weight for the "recent" algorithm, see
@@ -71,8 +70,6 @@ export class ScreenshotController {
     public async weighted(
         @Req()
         req: FastifyRequest,
-        @Ip()
-        ipAddress: IPAddress,
         @Query('random', new ParseIntPipe({ optional: true }))
         random = 0,
         @Query('recent', new ParseIntPipe({ optional: true }))
@@ -94,7 +91,6 @@ export class ScreenshotController {
             await this.screenshotService.getWeightedRandomScreenshot(
                 weights,
                 markViewed,
-                ipAddress,
                 creator.id,
                 viewMaxAge
             );

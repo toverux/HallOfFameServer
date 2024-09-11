@@ -55,7 +55,7 @@ model Screenshot {
   /// across multiple accounts.
   /// Null if the screenshot was created programmatically by an admin (ex.
   /// screenshots import via CLI).
-  ipAddress         String?
+  hwid              String?
   creatorId         String   @db.ObjectId
   creator           Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
   cityName          String
@@ -72,7 +72,7 @@ model Screenshot {
   @@index([views, isReported]) // for "low views" aggregation
   @@index([creatorId])
   @@index([creatorId, cityName])
-  @@index([ipAddress])
+  @@index([hwid])
   @@map("screenshots")
 }
 

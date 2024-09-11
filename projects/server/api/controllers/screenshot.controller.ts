@@ -83,7 +83,8 @@ export class ScreenshotController {
         @Query('viewMaxAge', new ParseIntPipe({ optional: true }))
         viewMaxAge = 60
     ) {
-        const creator = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
+        const { creator } =
+            CreatorAuthorizationGuard.getAuthenticatedCreator(req);
 
         const weights = { random, recent, archeologist, supporter };
 
@@ -194,7 +195,7 @@ export class ScreenshotController {
         );
 
         try {
-            const creator =
+            const { authorization, creator } =
                 CreatorAuthorizationGuard.getAuthenticatedCreator(req);
 
             await this.banService.ensureCreatorNotBanned(creator);
@@ -202,7 +203,7 @@ export class ScreenshotController {
             const fileBuffer = await multipart.toBuffer();
 
             const screenshot = await this.screenshotService.ingestScreenshot(
-                ipAddress,
+                authorization.hwid,
                 creator,
                 cityName,
                 cityMilestone,

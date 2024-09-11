@@ -6,6 +6,7 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { oneLine } from 'common-tags';
 import * as dateFns from 'date-fns';
 import {
+    HardwareID,
     IPAddress,
     JsonObject,
     Maybe,
@@ -67,7 +68,7 @@ export class ScreenshotService {
      * - Creating a {@link Screenshot} record in the database.
      */
     public async ingestScreenshot(
-        ipAddress: Maybe<IPAddress>,
+        hwid: Maybe<HardwareID>,
         creator: Pick<Creator, 'id' | 'creatorName'>,
         cityName: string,
         cityMilestone: number,
@@ -75,9 +76,9 @@ export class ScreenshotService {
         createdAt: Date,
         file: Buffer
     ): Promise<Screenshot> {
-        if (ipAddress) {
+        if (hwid) {
             // Check upload limit, throws if reached.
-            await this.checkUploadLimit(ipAddress, creator.id);
+            await this.checkUploadLimit(creator.id, hwid);
         }
 
         // Generate the two resized screenshot from the uploaded file.
@@ -95,7 +96,7 @@ export class ScreenshotService {
                 select: { id: true, cityName: true },
                 data: {
                     createdAt,
-                    ipAddress: ipAddress ?? null,
+                    hwid: hwid ?? null,
                     creatorId: creator.id,
                     cityName,
                     cityMilestone,
@@ -293,14 +294,15 @@ export class ScreenshotService {
     }
 
     /**
-     * Checks if the creator and/or the IP address has uploaded too many
-     * screenshots in the last 24 hours.
+     * Checks if a user has uploaded too many screenshots in the last 24 hours.
+     * A user is identified by their creator ID or hardware ID, meaning two
+     * Creator IDs with the same hardware ID will share the same quota.
      *
      * @throws ScreenshotRateLimitExceededError If the limit is reached.
      */
     private async checkUploadLimit(
-        ipAddress: IPAddress,
-        creatorId: Creator['id']
+        creatorId: Creator['id'],
+        hwid: HardwareID
     ): Promise<void> {
         // Let's find out by retrieving the screenshots uploaded in the last 24
         // hours, oldest first, so if the limit is reached, we can check based
@@ -310,7 +312,7 @@ export class ScreenshotService {
             orderBy: { createdAt: 'asc' },
             where: {
                 // biome-ignore lint/style/useNamingConvention: prisma
-                OR: [{ creatorId }, { ipAddress }],
+                OR: [{ creatorId }, { hwid }],
                 createdAt: { gt: dateFns.subDays(new Date(), 1) }
             }
         });
@@ -473,7 +475,7 @@ export class ScreenshotService {
             isReported: screenshot.isReported,
             reportedBy: screenshot.reportedBy,
             views: screenshot.views,
-            ipAddress: screenshot.ipAddress,
+            hwid: screenshot.hwid,
             creatorId: screenshot.creatorId.$oid,
             cityName: screenshot.cityName,
             cityMilestone: screenshot.cityMilestone,

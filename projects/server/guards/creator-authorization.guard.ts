@@ -6,18 +6,21 @@ import {
 } from '@nestjs/common';
 import { Creator } from '@prisma/client';
 import { FastifyRequest } from 'fastify';
-import { HardwareID, IPAddress } from '../common';
+import { CreatorID, HardwareID, IPAddress } from '../common';
 import { CreatorService } from '../services';
 
-interface CreatorAuthorization {
+export interface CreatorAuthorization {
     readonly creatorName: string;
-    readonly creatorId: string;
+    readonly creatorId: CreatorID;
     readonly hwid: HardwareID;
 }
 
 declare module 'fastify' {
     interface FastifyRequest {
-        [CreatorAuthorizationGuard.authenticatedCreatorKey]?: Creator;
+        [CreatorAuthorizationGuard.authenticatedCreatorKey]?: {
+            readonly authorization: CreatorAuthorization;
+            readonly creator: Creator;
+        };
     }
 }
 
@@ -29,32 +32,37 @@ export class CreatorAuthorizationGuard implements CanActivate {
     @Inject()
     private readonly creatorService!: CreatorService;
 
-    public static getAuthenticatedCreator(request: FastifyRequest): Creator {
-        const creator =
+    public static getAuthenticatedCreator(request: FastifyRequest): {
+        readonly authorization: CreatorAuthorization;
+        readonly creator: Creator;
+    } {
+        const authentication =
             request[CreatorAuthorizationGuard.authenticatedCreatorKey];
 
-        if (!creator) {
+        if (!authentication) {
             throw new ForbiddenException(`Creator is not authenticated.`);
         }
 
-        return creator;
+        return authentication;
     }
 
     public async canActivate(context: ExecutionContext): Promise<boolean> {
         const request = context.switchToHttp().getRequest<FastifyRequest>();
 
-        const { creatorId, creatorName, hwid } =
-            this.readAuthorizationHeader(request);
+        const authorization = this.readAuthorizationHeader(request);
 
         // noinspection UnnecessaryLocalVariableJS
         const creator = await this.creatorService.authenticateCreator(
-            creatorId,
-            creatorName,
+            authorization.creatorId,
+            authorization.creatorName,
             request.ip as IPAddress,
-            hwid
+            authorization.hwid
         );
 
-        request[CreatorAuthorizationGuard.authenticatedCreatorKey] = creator;
+        request[CreatorAuthorizationGuard.authenticatedCreatorKey] = {
+            authorization,
+            creator
+        };
 
         return true;
     }
@@ -81,6 +89,10 @@ export class CreatorAuthorizationGuard implements CanActivate {
             string
         ];
 
-        return { creatorName, creatorId, hwid: hwid as HardwareID };
+        return {
+            creatorName,
+            creatorId: creatorId as CreatorID,
+            hwid: hwid as HardwareID
+        };
     }
 }

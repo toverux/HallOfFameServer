@@ -1,8 +1,7 @@
 ### Get random screenshot
 
 GET {{url}}/api/v1/screenshot/weighted?markViewed={{markViewed}}
-Authorization: CreatorID {{creatorId}}
-X-Forwarded-For: ::1
+Authorization: Creator {{creatorName}};{{creatorId}};{{hwid}}
 
 > {%
     client.global.set("screenshot", response.body);
@@ -17,8 +16,7 @@ GET {{url}}/api/v1/screenshot/weighted
     &supporter=10
     &markViewed={{markViewed}}
     &viewMaxAge=1
-Authorization: CreatorID {{creatorId}}
-X-Forwarded-For: ::1
+Authorization: Creator {{creatorName}};{{creatorId}};{{hwid}}
 
 > {%
     client.global.set("screenshot", response.body);
@@ -27,6 +25,7 @@ X-Forwarded-For: ::1
 ### Report a screenshot
 
 POST {{url}}/api/v1/screenshot/report
+Authorization: Creator {{creatorName}};{{creatorId}};{{hwid}}
 Content-Type: application/json
 
 {
@@ -36,9 +35,8 @@ Content-Type: application/json
 ### Upload a screenshot
 
 POST {{url}}/api/v1/screenshot/upload
-Authorization: CreatorID {{creatorId}}
+Authorization: Creator {{creatorName}};{{creatorId}};{{hwid}}
 Content-Type: multipart/form-data; boundary=WebAppBoundary
-X-Forwarded-For: ::1
 
 --WebAppBoundary
 Content-Disposition: form-data; name="creatorName"

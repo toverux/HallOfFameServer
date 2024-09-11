@@ -1,39 +1,36 @@
-import assert from 'node:assert/strict';
 import { Multipart } from '@fastify/multipart';
 import {
     BadRequestException,
     Body,
     Controller,
     Get,
-    Headers,
     Inject,
     Ip,
     ParseBoolPipe,
     ParseIntPipe,
     Post,
     Query,
-    Req
+    Req,
+    UseGuards
 } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { oneLine } from 'common-tags';
 import type { FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import type { CreatorID } from '../../common';
 import { type IPAddress, type JsonObject, StandardError } from '../../common';
+import { CreatorAuthorizationGuard } from '../../guards';
 import { ZodParsePipe } from '../../pipes';
-import {
-    BanService,
-    CreatorService,
-    PrismaService,
-    ScreenshotService
-} from '../../services';
+import { BanService, ScreenshotService } from '../../services';
 
 @Controller('screenshot')
+@UseGuards(CreatorAuthorizationGuard)
 export class ScreenshotController {
     /**
-     * Regular expression to validate Creator or City names.
+     * Regular expression to validate a city name:
+     * - Must contain only letters, numbers, spaces, hyphens and apostrophes.
+     * - Must be between 2 and 25 characters long.
      */
-    private static readonly nameRegex = /^[\p{L}\p{N}\- ']{2,25}$/u;
+    private static readonly cityNameRegex = /^[\p{L}\- ']{2,25}$/u;
 
     /** @see report */
     private static readonly postReportBodySchema = z
@@ -41,12 +38,6 @@ export class ScreenshotController {
             screenshotId: z.string().length(24)
         })
         .required();
-
-    @Inject(PrismaService)
-    private readonly prisma!: PrismaService;
-
-    @Inject(CreatorService)
-    private readonly creatorService!: CreatorService;
 
     @Inject(ScreenshotService)
     private readonly screenshotService!: ScreenshotService;
@@ -61,11 +52,8 @@ export class ScreenshotController {
      * See {@link ScreenshotService} for the description of the algorithms.
      * By default, all weights are zero and "random" is used.
      *
+     * @param req           The request object.
      * @param ipAddress     The IP address for view tracking.
-     * @param authorization The CreatorID Authorization header for more accurate
-     *                      view tracking. Optional, its role is to avoid
-     *                      creating an account for people who have never posted
-     *                      and are just browsing.
      * @param random        Weight for the "random" algorithm, see
      *                      {@link ScreenshotService.getScreenshotRandom}.
      * @param recent        Weight for the "recent" algorithm, see
@@ -81,10 +69,10 @@ export class ScreenshotController {
      */
     @Get('weighted')
     public async weighted(
+        @Req()
+        req: FastifyRequest,
         @Ip()
         ipAddress: IPAddress,
-        @Headers('Authorization')
-        authorization: string | undefined,
         @Query('random', new ParseIntPipe({ optional: true }))
         random = 0,
         @Query('recent', new ParseIntPipe({ optional: true }))
@@ -98,26 +86,18 @@ export class ScreenshotController {
         @Query('viewMaxAge', new ParseIntPipe({ optional: true }))
         viewMaxAge = 60
     ) {
-        const weights = { random, recent, archeologist, supporter };
+        const creator = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
 
-        const creatorId = authorization
-            ? ScreenshotController.getCreatorId(authorization)
-            : undefined;
+        const weights = { random, recent, archeologist, supporter };
 
         const screenshot =
             await this.screenshotService.getWeightedRandomScreenshot(
                 weights,
                 markViewed,
                 ipAddress,
-                creatorId,
+                creator.id,
                 viewMaxAge
             );
-
-        const creator = await this.prisma.creator.findFirst({
-            where: { id: screenshot.creatorId }
-        });
-
-        assert(creator);
 
         return {
             __algorithm: screenshot.__algorithm,
@@ -181,9 +161,7 @@ export class ScreenshotController {
         @Req()
         req: FastifyRequest,
         @Ip()
-        ipAddress: IPAddress,
-        @Headers('Authorization')
-        authorization: string | undefined
+        ipAddress: IPAddress
     ): Promise<JsonObject> {
         await this.banService.ensureIpAddressNotBanned(ipAddress);
 
@@ -202,18 +180,12 @@ export class ScreenshotController {
             );
         }
 
-        const creatorId = ScreenshotController.getCreatorId(authorization);
-
         const getString = ScreenshotController.getMultipartString.bind(
             this,
             multipart
         );
 
-        const creatorName = ScreenshotController.validateName(
-            getString('creatorName')
-        );
-
-        const cityName = ScreenshotController.validateName(
+        const cityName = ScreenshotController.validateCityName(
             getString('cityName')
         );
 
@@ -226,12 +198,8 @@ export class ScreenshotController {
         );
 
         try {
-            // Get or create the creator.
-            const creator = await this.creatorService.getOrCreateCreator(
-                creatorId,
-                creatorName,
-                ipAddress
-            );
+            const creator =
+                CreatorAuthorizationGuard.getAuthenticatedCreator(req);
 
             await this.banService.ensureCreatorNotBanned(creator);
 
@@ -257,18 +225,6 @@ export class ScreenshotController {
         }
     }
 
-    private static getCreatorId(authorization: string | undefined): CreatorID {
-        const [scheme, creatorId, rest] = authorization?.split(' ') ?? [];
-
-        if (scheme?.toLowerCase() != 'creatorid' || !creatorId || rest) {
-            throw new InvalidPayloadError(
-                `Expected an Authorization header of format CreatorID YOUR-UUID`
-            );
-        }
-
-        return CreatorService.validateCreatorId(creatorId);
-    }
-
     private static getMultipartString(
         multipart: Multipart,
         fieldName: string
@@ -292,9 +248,9 @@ export class ScreenshotController {
         return value;
     }
 
-    private static validateName(name: string): string {
-        if (!name.match(ScreenshotController.nameRegex)) {
-            throw new InvalidNameError(name);
+    private static validateCityName(name: string): string {
+        if (!name.match(ScreenshotController.cityNameRegex)) {
+            throw new InvalidCityNameError(name);
         }
 
         return name;
@@ -335,12 +291,12 @@ abstract class UploadError extends StandardError {}
  */
 class InvalidPayloadError extends UploadError {}
 
-class InvalidNameError extends UploadError {
+class InvalidCityNameError extends UploadError {
     public constructor(public readonly incorrectName: string) {
         super(oneLine`
-            Name "${incorrectName}" is invalid, it must contain only letters,
-            numbers, spaces, hyphens and apostrophes, and be between 2 and 25
-            characters long.`);
+            City name "${incorrectName}" is invalid, it must contain only
+            letters, numbers, spaces, hyphens and apostrophes, and be between 2
+            and 25 characters long.`);
     }
 }
 

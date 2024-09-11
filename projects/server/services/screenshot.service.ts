@@ -6,7 +6,6 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { oneLine } from 'common-tags';
 import * as dateFns from 'date-fns';
 import {
-    CreatorID,
     IPAddress,
     JsonObject,
     Maybe,
@@ -205,7 +204,7 @@ export class ScreenshotService {
         weights: RandomScreenshotWeights,
         markViewed: boolean,
         ipAddress: IPAddress,
-        creatorId: CreatorID | undefined,
+        creatorId: Creator['id'],
         alreadyViewedMaxAgeInDays: number | undefined
     ): Promise<Screenshot & { __algorithm: RandomScreenshotAlgorithm }> {
         const viewedScreenshotIds =

@@ -7,6 +7,7 @@ import { LRUCache } from 'lru-cache';
 import * as uuid from 'uuid';
 import {
     CreatorID,
+    HardwareID,
     type IPAddress,
     type JsonObject,
     StandardError
@@ -19,6 +20,16 @@ import { PrismaService } from './prisma.service';
  */
 @Injectable()
 export class CreatorService {
+    /**
+     * Regular expression to validate a Creator Name:
+     * - Must contain only letters, numbers, spaces, hyphens and apostrophes.
+     * - Must be between 2 and 25 characters long.
+     *
+     * @see validateCreatorName
+     * @see InvalidCreatorNameError
+     */
+    private static readonly nameRegex = /^[\p{L}\p{N}\- ']{2,25}$/u;
+
     @Inject(PrismaService)
     private readonly prisma!: PrismaService;
 
@@ -43,9 +54,9 @@ export class CreatorService {
     /**
      * Validates that a string is a valid UUID v4 Creator ID.
      *
-     * @throws InvalidCreatorIDError If the string is not a valid UUID v4.
+     * @throws InvalidCreatorIDError If it is not a valid UUID v4.
      */
-    public static validateCreatorId(creatorId: string): CreatorID {
+    private static validateCreatorId(creatorId: string): CreatorID {
         if (uuid.validate(creatorId) && uuid.version(creatorId) == 4) {
             return creatorId as CreatorID;
         }
@@ -54,16 +65,17 @@ export class CreatorService {
     }
 
     /**
-     * Retrieves a Creator by their Creator ID.
+     * Validates that a string is a valid Creator Name according to
+     * {@link CreatorService.nameRegex}
      *
-     * @returns The Creator if found, otherwise null.
+     * @throws InvalidCreatorNameError If it is not a valid Creator Name.
      */
-    public getCreator(creatorId: CreatorID): Promise<Creator | null> {
-        const hashedCreatorId = this.hashCreatorId(creatorId);
+    private static validateCreatorName(name: string): string {
+        if (!name.match(CreatorService.nameRegex)) {
+            throw new InvalidCreatorNameError(name);
+        }
 
-        return this.prisma.creator.findFirst({
-            where: { hashedCreatorId }
-        });
+        return name;
     }
 
     /**
@@ -83,12 +95,15 @@ export class CreatorService {
      * @throws IncorrectCreatorIDError If the Creator ID is incorrect for the
      *         provided Creator Name.
      */
-    public async getOrCreateCreator(
-        creatorId: CreatorID,
+    public async authenticateCreator(
+        creatorId: string | CreatorID,
         creatorName: string,
-        ipAddress: IPAddress
+        ipAddress: IPAddress,
+        hwid: HardwareID
     ): Promise<Creator> {
-        const hashedCreatorId = this.hashCreatorId(creatorId);
+        const hashedCreatorId = this.hashCreatorId(
+            CreatorService.validateCreatorId(creatorId)
+        );
 
         // Find the creator by either the Creator ID or the Creator Name.
         // If we find a match,
@@ -111,6 +126,7 @@ export class CreatorService {
                     hashedCreatorId,
                     creatorName,
                     ipAddress,
+                    hwid,
                     creator
                 );
 
@@ -124,8 +140,10 @@ export class CreatorService {
             creator = await this.prisma.creator.create({
                 data: {
                     hashedCreatorId,
-                    creatorName,
-                    ipAddresses: [ipAddress]
+                    creatorName:
+                        CreatorService.validateCreatorName(creatorName),
+                    ipAddresses: [ipAddress],
+                    hwids: [hwid]
                 }
             });
 
@@ -238,6 +256,7 @@ export class CreatorService {
         hashedCreatorId: string,
         creatorName: string,
         ipAddress: IPAddress,
+        hwid: HardwareID,
         creator: Creator
     ): Promise<{ creator: Creator; modified: boolean }> {
         // Check if the Creator ID hashes match.
@@ -280,6 +299,7 @@ export class CreatorService {
         if (
             creator.creatorName == creatorName &&
             creator.ipAddresses.includes(ipAddress) &&
+            creator.hwids.includes(hwid) &&
             creator.hashedCreatorId == hashedCreatorId
         ) {
             return { creator, modified: false };
@@ -291,8 +311,12 @@ export class CreatorService {
                 ? { hashedCreatorId }
                 : { creatorName },
             data: {
-                creatorName,
+                creatorName:
+                    creator.creatorName == creatorName
+                        ? creatorName
+                        : CreatorService.validateCreatorName(creatorName),
                 hashedCreatorId,
+                hwids: Array.from(new Set([hwid, ...creator.hwids])),
                 ipAddresses: Array.from(
                     new Set([ipAddress, ...creator.ipAddresses])
                 )
@@ -310,6 +334,15 @@ export class InvalidCreatorIDError extends CreatorError {
         super(
             `Invalid Creator ID "${creatorId}", an UUID v4 sequence was expected.`
         );
+    }
+}
+
+export class InvalidCreatorNameError extends CreatorError {
+    public constructor(public readonly incorrectName: string) {
+        super(oneLine`
+            Creator Name "${incorrectName}" is invalid, it must contain only
+            letters, numbers, spaces, hyphens and apostrophes, and be between 2
+            and 25 characters long.`);
     }
 }
 

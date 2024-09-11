@@ -23,8 +23,11 @@ model Creator {
   /// Currently this only means they sent screenshots before public release.
   isSupporter     Boolean      @default(false)
   /// All unique IP addresses used by this Creator, used to ban an Creator and
-  /// mitigate multi-accounting.
+  /// mitigate hostile multi-accounting.
   ipAddresses     String[]
+  /// All unique hardware IDs used by this Creator, used to ban an Creator and
+  /// mitigate hostile multi-accounting.
+  hwids           String[]
   /// One to many relationship with Screenshot.
   screenshots     Screenshot[]
 

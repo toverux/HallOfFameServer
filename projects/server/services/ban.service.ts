@@ -2,12 +2,12 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Ban, Creator } from '@prisma/client';
 import { oneLine } from 'common-tags';
 import { LRUCache } from 'lru-cache';
-import { type IPAddress, StandardError } from '../common';
+import { HardwareID, StandardError } from '../common';
 import { config } from '../config';
 import { PrismaService } from './prisma.service';
 
 /**
- * Service to manage Creator and IP address bans.
+ * Service to manage Creator and Hardware ID bans.
  */
 @Injectable()
 export class BanService {
@@ -17,35 +17,45 @@ export class BanService {
     private readonly logger = new Logger(BanService.name);
 
     /**
-     * Cache to store the ban status of IP addresses and creators.
+     * Cache to store the ban status of hardware IDs and creators.
      * Entries expire after 5 minutes.
      *
-     * The key is the IP address or creator ID, and the value is either
-     *  - `false` if the IP address or creator is *not* banned,
-     *  - A {@link BanError} if the IP address or creator is banned.
+     * The key is the hwid or Creator ID, and the value is either
+     *  - `false` if the hwid or creator is *not* banned,
+     *  - A {@link BanError} if the hwid or creator is banned.
      *
      * @see checkBanCache
      */
-    private readonly banCache = new LRUCache<string, BanError | false>({
+    private readonly banCache = new LRUCache<
+        HardwareID | Creator['id'],
+        BanError | false
+    >({
         max: 200,
         ttl: 5 * 60 * 1000
     });
 
     /**
-     * Ensures the IP address is not banned.
+     * Checks whether the given hardware ID and/or creator are banned.
      *
-     * @throws BannedIpAddressError If the IP address is banned.
-     * @throws BannedCreatorError If the ban was a general ban on a creator.
+     * @throws BanError If the hwid or creator is banned.
      */
-    public async ensureIpAddressNotBanned(ipAddress: IPAddress): Promise<void> {
-        if (this.checkBanCache(ipAddress)) {
+    public async ensureNotBanned(
+        hwid: HardwareID,
+        creatorId: Creator['id']
+    ): Promise<void> {
+        if (this.checkBanCache(hwid) && this.checkBanCache(creatorId)) {
             return;
         }
 
-        const ban = await this.prisma.ban.findFirst({
-            where: { ipAddress }
+        const bans = await this.prisma.ban.findMany({
+            // biome-ignore lint/style/useNamingConvention: prisma
+            where: { OR: [{ hwid }, { creatorId }] }
         });
 
+        // If there are multiple bans, prefer using a creator-based ban.
+        const ban = bans.find(ban => !!ban.creatorId) ?? bans[0];
+
+        // If the ban is creator-based, throw a banned creator error.
         if (ban?.creatorId) {
             const creator = await this.prisma.creator.findUnique({
                 where: { id: ban.creatorId },
@@ -60,64 +70,24 @@ export class BanService {
             }
         }
 
+        // Otherwise, throw a banned hardware ID error.
         if (ban) {
             throw this.cacheBanError(
-                ipAddress,
-                new BannedIpAddressError(ban, config.supportContact)
+                hwid,
+                new BannedHardwareIdError(hwid, ban, config.supportContact)
             );
         }
 
-        this.banCache.set(ipAddress, false);
+        // If there is no ban, cache it too.
+        this.banCache.set(hwid, false);
+        this.banCache.set(creatorId, false);
     }
 
     /**
-     * Bans a specific IP address.
-     */
-    public async banIp(ipAddress: IPAddress, reason: string): Promise<void> {
-        this.banCache.delete(ipAddress);
-
-        const reasonFormatted = BanService.fmtReason(reason);
-
-        await this.prisma.ban.create({
-            data: { ipAddress, reason: reasonFormatted }
-        });
-
-        this.logger.warn(
-            `Banned IP address "${ipAddress}" for: ${reasonFormatted}.`
-        );
-    }
-
-    /**
-     * Ensures the creator is not banned.
-     *
-     * @throws BannedCreatorError If the creator is banned.
-     */
-    public async ensureCreatorNotBanned(
-        creator: Pick<Creator, 'id' | 'creatorName'>
-    ): Promise<void> {
-        if (this.checkBanCache(creator.id)) {
-            return;
-        }
-
-        const ban = await this.prisma.ban.findFirst({
-            where: { creatorId: creator.id }
-        });
-
-        if (ban) {
-            throw this.cacheBanError(
-                creator.id,
-                new BannedCreatorError(ban, creator, config.supportContact)
-            );
-        }
-
-        this.banCache.set(creator.id, false);
-    }
-
-    /**
-     * Bans a creator and all IP addresses historically associated with them.
+     * Bans a creator and all hardware IDs historically associated with them.
      */
     public async banCreator(
-        creator: Pick<Creator, 'id' | 'creatorName' | 'ipAddresses'>,
+        creator: Pick<Creator, 'id' | 'creatorName' | 'hwids'>,
         reason: string
     ): Promise<void> {
         this.banCache.delete(creator.id);
@@ -127,8 +97,8 @@ export class BanService {
         await this.prisma.ban.createMany({
             data: [
                 { creatorId: creator.id, reason: reasonFormatted },
-                ...creator.ipAddresses.map(ipAddress => ({
-                    ipAddress,
+                ...creator.hwids.map(hwid => ({
+                    hwid,
                     creatorId: creator.id,
                     reason: reasonFormatted
                 }))
@@ -137,21 +107,23 @@ export class BanService {
 
         this.logger.warn(oneLine`
             Banned creator #${creator.id} "${creator.creatorName}"
-            and IP addresses ${creator.ipAddresses.join(', ')}
+            and Hardware IDs ${creator.hwids.join(', ')}
             for: ${reasonFormatted}.`);
     }
 
     /**
-     * Checks whether the given IP address or creator ID is banned or not, using
-     * the ban cache {@link banCache}.
+     * Checks whether the given hardware ID or creator ID is banned or not,
+     * using the ban cache {@link banCache}.
      *
-     * @throws BanError If the IP address or creator is banned.
+     * @throws BanError If the hwid or creator is banned.
      *
-     * @returns `true` if the IP address or creator is *NOT* banned,
+     * @returns `true` if the hwid or creator is *NOT* banned,
      *          `false` if the status must be verified with the database.
      */
-    private checkBanCache(ipOrCreatorId: IPAddress | Creator['id']): boolean {
-        const cachedError = this.banCache.get(ipOrCreatorId);
+    private checkBanCache(
+        hwidOrCreatorId: HardwareID | Creator['id']
+    ): boolean {
+        const cachedError = this.banCache.get(hwidOrCreatorId);
 
         if (cachedError) {
             throw cachedError;
@@ -164,10 +136,10 @@ export class BanService {
      * Returns the given ban error after having cached it in {@link banCache}.
      */
     private cacheBanError(
-        ipOrCreatorId: IPAddress | Creator['id'],
+        hwidOrCreatorId: HardwareID | Creator['id'],
         error: BanError
     ): BanError {
-        this.banCache.set(ipOrCreatorId, error);
+        this.banCache.set(hwidOrCreatorId, error);
 
         return error;
     }
@@ -186,18 +158,19 @@ export class BanService {
 
 export abstract class BanError extends StandardError {}
 
-export class BannedIpAddressError extends BanError {
+export class BannedHardwareIdError extends BanError {
     public override kind = 'forbidden' as const;
 
     public constructor(
-        public readonly ban: Ban,
+        public readonly hardwareId: HardwareID,
+        public readonly ban: Pick<Ban, 'reason' | 'bannedAt'>,
         public readonly supportContact: string
     ) {
         super(oneLine`
-            Your IP address "${ban.ipAddress}" is banned
-            for the following reason: ${ban.reason}
+            You are banned for the following reason: ${ban.reason}
             (${ban.bannedAt.toLocaleString()} UTC).
-            Please contact support to appeal (${supportContact}).`);
+            Please contact support to appeal (${supportContact}),
+            communicate identifier ${hardwareId}.`);
     }
 }
 
@@ -205,7 +178,7 @@ export class BannedCreatorError extends BanError {
     public override kind = 'forbidden' as const;
 
     public constructor(
-        public readonly ban: Ban,
+        public readonly ban: Pick<Ban, 'reason' | 'bannedAt'>,
         public readonly creator: Pick<Creator, 'creatorName'>,
         public readonly supportContact: string
     ) {

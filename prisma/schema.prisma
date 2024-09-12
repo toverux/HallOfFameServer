@@ -22,9 +22,6 @@ model Creator {
   /// Whether the Creator is a supporter of the project.
   /// Currently this only means they sent screenshots before public release.
   isSupporter     Boolean      @default(false)
-  /// All unique IP addresses used by this Creator, used to ban an Creator and
-  /// mitigate hostile multi-accounting.
-  ipAddresses     String[]
   /// All unique hardware IDs used by this Creator, used to ban an Creator and
   /// mitigate hostile multi-accounting.
   hwids           String[]
@@ -49,7 +46,7 @@ model Screenshot {
   reportedBy        String?
   /// Number of views the Screenshot has received.
   views             Int      @default(0)
-  /// IP address of the user who uploaded the Screenshot.
+  /// Hardware ID of the user who uploaded the Screenshot.
   /// Used in case a user is multi-accounting (which is allowed), to keep track
   /// of all the screenshots uploaded by a same person to apply quota even
   /// across multiple accounts.
@@ -76,22 +73,22 @@ model Screenshot {
   @@map("screenshots")
 }
 
-/// Ban for a Creator and/or an IP address.
+/// Ban for a Creator and/or an Hardware ID.
 model Ban {
   id       String   @id @default(auto()) @map("_id") @db.ObjectId
   bannedAt DateTime @default(now())
   reason   String
 
-  /// Either a Creator or an IP address can be banned.
-  /// If creatorId is set, ipAddress is set too and there is a Ban record for
-  /// each IP address used by the Creator.
+  /// Either a Creator or an Hardware ID (hwid) can be banned.
+  /// If creatorId is set, hwid is set too and there is a Ban record for each
+  /// hwid used by the Creator.
   creatorId String? @db.ObjectId
-  /// If ipAddress is set, creatorId is null unless the creator was banned and
-  /// all their associated IP addresses were banned too.
-  ipAddress String?
+  /// If hwid is set, creatorId is null unless the creator was banned and
+  /// all their associated hwids were banned too.
+  hwid      String?
 
   @@index([creatorId])
-  @@index([ipAddress])
+  @@index([hwid])
   @@map("bans")
 }
 
@@ -101,8 +98,6 @@ model View {
   id           String   @id @default(auto()) @map("_id") @db.ObjectId
   viewedAt     DateTime @default(now())
   screenshotId String   @db.ObjectId
-  /// Creator ID of the user who viewed the Screenshot, if authenticated, to
-  /// consolidate views across multiple IP addresses for the same Creator.
   creatorId    String   @db.ObjectId
 
   @@index([screenshotId])

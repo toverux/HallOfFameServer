@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import { Multipart } from '@fastify/multipart';
 import {
     BadRequestException,
@@ -20,7 +21,7 @@ import { z } from 'zod';
 import { type IPAddress, type JsonObject, StandardError } from '../../common';
 import { CreatorAuthorizationGuard } from '../../guards';
 import { ZodParsePipe } from '../../pipes';
-import { BanService, ScreenshotService } from '../../services';
+import { PrismaService, ScreenshotService } from '../../services';
 
 @Controller('screenshot')
 @UseGuards(CreatorAuthorizationGuard)
@@ -39,11 +40,11 @@ export class ScreenshotController {
         })
         .required();
 
+    @Inject(PrismaService)
+    private readonly prisma!: PrismaService;
+
     @Inject(ScreenshotService)
     private readonly screenshotService!: ScreenshotService;
-
-    @Inject(BanService)
-    private readonly banService!: BanService;
 
     /**
      * Returns a random screenshot.
@@ -96,9 +97,18 @@ export class ScreenshotController {
                 viewMaxAge
             );
 
+        const createdBy = await this.prisma.creator.findFirst({
+            where: { id: screenshot.creatorId }
+        });
+
+        assert(createdBy);
+
         return {
             __algorithm: screenshot.__algorithm,
-            ...this.screenshotService.serialize({ ...screenshot, creator })
+            ...this.screenshotService.serialize({
+                ...screenshot,
+                creator: createdBy
+            })
         };
     }
 
@@ -154,13 +164,9 @@ export class ScreenshotController {
      * Response will be 201 with serialized Screenshot.
      */
     @Post('upload')
-    public async upload(
-        @Req()
-        req: FastifyRequest,
-        @Ip()
-        ipAddress: IPAddress
-    ): Promise<JsonObject> {
-        await this.banService.ensureIpAddressNotBanned(ipAddress);
+    public async upload(@Req() req: FastifyRequest): Promise<JsonObject> {
+        const { authorization, creator } =
+            CreatorAuthorizationGuard.getAuthenticatedCreator(req);
 
         const multipart = await req.file({
             isPartAFile: fieldName => fieldName == 'screenshot',
@@ -195,11 +201,6 @@ export class ScreenshotController {
         );
 
         try {
-            const { authorization, creator } =
-                CreatorAuthorizationGuard.getAuthenticatedCreator(req);
-
-            await this.banService.ensureCreatorNotBanned(creator);
-
             const fileBuffer = await multipart.toBuffer();
 
             const screenshot = await this.screenshotService.ingestScreenshot(

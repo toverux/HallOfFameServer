@@ -3,16 +3,13 @@ import type { Creator } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import Bun from 'bun';
 import { oneLine } from 'common-tags';
-import { LRUCache } from 'lru-cache';
 import * as uuid from 'uuid';
 import {
     CreatorID,
     HardwareID,
-    type IPAddress,
     type JsonObject,
     StandardError
 } from '../common';
-import { BanService } from './ban.service';
 import { PrismaService } from './prisma.service';
 
 /**
@@ -33,23 +30,7 @@ export class CreatorService {
     @Inject(PrismaService)
     private readonly prisma!: PrismaService;
 
-    @Inject(BanService)
-    private readonly banService!: BanService;
-
     private readonly logger = new Logger(CreatorService.name);
-
-    /**
-     * Maximum number of failed login attempts before an IP is permanently
-     * banned.
-     */
-    private readonly maxFailedLoginAttempts = 4;
-
-    /**
-     * Tracks failed login attempts by IP address.
-     */
-    private readonly failedLoginAttempts = new LRUCache<IPAddress, number>({
-        max: 200
-    });
 
     /**
      * Validates that a string is a valid UUID v4 Creator ID.
@@ -98,7 +79,6 @@ export class CreatorService {
     public async authenticateCreator(
         creatorId: string | CreatorID,
         creatorName: string,
-        ipAddress: IPAddress,
         hwid: HardwareID
     ): Promise<Creator> {
         const hashedCreatorId = this.hashCreatorId(
@@ -125,7 +105,6 @@ export class CreatorService {
                 await this.authenticateAndUpdateCreator(
                     hashedCreatorId,
                     creatorName,
-                    ipAddress,
                     hwid,
                     creator
                 );
@@ -142,7 +121,6 @@ export class CreatorService {
                     hashedCreatorId,
                     creatorName:
                         CreatorService.validateCreatorName(creatorName),
-                    ipAddresses: [ipAddress],
                     hwids: [hwid]
                 }
             });
@@ -255,7 +233,6 @@ export class CreatorService {
     private async authenticateAndUpdateCreator(
         hashedCreatorId: string,
         creatorName: string,
-        ipAddress: IPAddress,
         hwid: HardwareID,
         creator: Creator
     ): Promise<{ creator: Creator; modified: boolean }> {
@@ -265,47 +242,19 @@ export class CreatorService {
             creator.hashedCreatorId &&
             creator.hashedCreatorId != hashedCreatorId
         ) {
-            let failedLoginAttempts =
-                this.failedLoginAttempts.get(ipAddress) ?? 0;
-
-            this.failedLoginAttempts.set(ipAddress, ++failedLoginAttempts);
-
-            if (failedLoginAttempts >= this.maxFailedLoginAttempts) {
-                await this.banService.banIp(
-                    ipAddress,
-                    'too many failed login attempts'
-                );
-
-                this.failedLoginAttempts.delete(ipAddress);
-
-                // This will throw a more specific error than the one below
-                // indicating "0 attempts left".
-                await this.banService.ensureIpAddressNotBanned(ipAddress);
-            }
-
-            const remainingAttempts =
-                this.maxFailedLoginAttempts - failedLoginAttempts;
-
-            throw new IncorrectCreatorIDError(
-                creator.creatorName,
-                remainingAttempts
-            );
+            throw new IncorrectCreatorIDError(creator.creatorName);
         }
-
-        // Reset failed login attempts if the login was successful.
-        this.failedLoginAttempts.delete(ipAddress);
 
         // If no changes are needed, return the creator as is.
         if (
             creator.creatorName == creatorName &&
-            creator.ipAddresses.includes(ipAddress) &&
             creator.hwids.includes(hwid) &&
             creator.hashedCreatorId == hashedCreatorId
         ) {
             return { creator, modified: false };
         }
 
-        // Update the Creator Name and IP addresses, and hash if it was reset.
+        // Update the Creator Name and Hardware IDs, and hash if it was reset.
         const updatedCreator = await this.prisma.creator.update({
             where: creator.hashedCreatorId
                 ? { hashedCreatorId }
@@ -316,10 +265,7 @@ export class CreatorService {
                         ? creatorName
                         : CreatorService.validateCreatorName(creatorName),
                 hashedCreatorId,
-                hwids: Array.from(new Set([hwid, ...creator.hwids])),
-                ipAddresses: Array.from(
-                    new Set([ipAddress, ...creator.ipAddresses])
-                )
+                hwids: Array.from(new Set([hwid, ...creator.hwids]))
             }
         });
 
@@ -358,13 +304,9 @@ export class IncorrectCreatorNameError extends CreatorError {
 export class IncorrectCreatorIDError extends CreatorError {
     public override kind = 'forbidden' as const;
 
-    public constructor(
-        public readonly creatorName: string,
-        public readonly remainingAttempts: number
-    ) {
+    public constructor(public readonly creatorName: string) {
         super(oneLine`
-            Incorrect Creator ID for user "${creatorName}",
-            ${remainingAttempts} attempt(s) remaining before ban.
+            Incorrect Creator ID for user "${creatorName}".
             If you've never used HallOfFame before, this means this Creator Name
             is already claimed, choose another!`);
     }

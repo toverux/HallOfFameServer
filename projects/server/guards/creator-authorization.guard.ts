@@ -6,8 +6,8 @@ import {
 } from '@nestjs/common';
 import { Creator } from '@prisma/client';
 import { FastifyRequest } from 'fastify';
-import { CreatorID, HardwareID, IPAddress } from '../common';
-import { CreatorService } from '../services';
+import { CreatorID, HardwareID } from '../common';
+import { BanService, CreatorService } from '../services';
 
 export interface CreatorAuthorization {
     readonly creatorName: string;
@@ -28,6 +28,9 @@ export class CreatorAuthorizationGuard implements CanActivate {
     public static readonly authenticatedCreatorKey = Symbol(
         `${CreatorAuthorizationGuard.name}#authenticatedCreator`
     );
+
+    @Inject()
+    private readonly ban!: BanService;
 
     @Inject()
     private readonly creatorService!: CreatorService;
@@ -55,9 +58,10 @@ export class CreatorAuthorizationGuard implements CanActivate {
         const creator = await this.creatorService.authenticateCreator(
             authorization.creatorId,
             authorization.creatorName,
-            request.ip as IPAddress,
             authorization.hwid
         );
+
+        await this.ban.ensureNotBanned(authorization.hwid, creator.id);
 
         request[CreatorAuthorizationGuard.authenticatedCreatorKey] = {
             authorization,

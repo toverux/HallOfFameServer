@@ -6,7 +6,6 @@ import {
     Controller,
     Get,
     Inject,
-    Ip,
     ParseBoolPipe,
     ParseIntPipe,
     Post,
@@ -18,7 +17,7 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { oneLine } from 'common-tags';
 import type { FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { type IPAddress, type JsonObject, StandardError } from '../../common';
+import { type JsonObject, StandardError } from '../../common';
 import { CreatorAuthorizationGuard } from '../../guards';
 import { ZodParsePipe } from '../../pipes';
 import { PrismaService, ScreenshotService } from '../../services';
@@ -122,15 +121,18 @@ export class ScreenshotController {
      */
     @Post('report')
     public async report(
-        @Ip()
-        ipAddress: IPAddress,
+        @Req()
+        req: FastifyRequest,
         @Body(new ZodParsePipe(ScreenshotController.postReportBodySchema))
         body: z.infer<typeof ScreenshotController.postReportBodySchema>
     ): Promise<JsonObject> {
         try {
+            const { creator } =
+                CreatorAuthorizationGuard.getAuthenticatedCreator(req);
+
             const screenshot = await this.screenshotService.markReported(
                 body.screenshotId,
-                ipAddress
+                creator.id
             );
 
             return this.screenshotService.serialize(screenshot);

@@ -7,7 +7,6 @@ import { oneLine } from 'common-tags';
 import * as dateFns from 'date-fns';
 import {
     HardwareID,
-    IPAddress,
     JsonObject,
     Maybe,
     StandardError,
@@ -138,18 +137,18 @@ export class ScreenshotService {
      * Marks a screenshot as reported by a user.
      *
      * @param screenshotId Screenshot to mark as reported.
-     * @param reportedBy   The IP address of the user who made the report.
+     * @param reportedById The Creator OID of the user who made the report.
      *                     Useful to reset a bunch of reports if the report
      *                     feature is abused.
      */
     public async markReported(
         screenshotId: Screenshot['id'],
-        reportedBy: IPAddress
+        reportedById: Creator['id']
     ): Promise<Screenshot> {
         try {
             return await this.prisma.screenshot.update({
                 where: { id: screenshotId },
-                data: { isReported: true, reportedBy },
+                data: { isReported: true, reportedById },
                 include: { creator: true }
             });
         } catch (error) {
@@ -175,7 +174,7 @@ export class ScreenshotService {
         try {
             return await this.prisma.screenshot.update({
                 where: { id: screenshotId },
-                data: { isReported: false, reportedBy: null },
+                data: { isReported: false, reportedById: null },
                 include: { creator: true }
             });
         } catch (error) {
@@ -473,7 +472,7 @@ export class ScreenshotService {
             id: screenshot._id.$oid,
             createdAt: new Date(screenshot.createdAt.$date),
             isReported: screenshot.isReported,
-            reportedBy: screenshot.reportedBy,
+            reportedById: screenshot.reportedById,
             views: screenshot.views,
             hwid: screenshot.hwid,
             creatorId: screenshot.creatorId.$oid,

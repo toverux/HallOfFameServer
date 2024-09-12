@@ -16,11 +16,6 @@ export type Branded<Type, Brand> = Type & { [brand]: Brand };
 export type CreatorID = Branded<string, 'Creator ID'>;
 
 /**
- * An IP address, in IPv4 or IPv6 format.
- */
-export type IPAddress = Branded<string, 'IP Address'>;
-
-/**
  * A hardware ID, a unique identifier for a hardware device.
  */
 export type HardwareID = Branded<string, 'Hardware ID'>;

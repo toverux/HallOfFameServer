@@ -74,7 +74,7 @@ class ModerateCommand extends CommandRunner {
         while (true) {
             const screenshot = await this.prisma.screenshot.findFirst({
                 where: { isReported: true },
-                include: { creator: true }
+                include: { creator: true, reportedBy: true }
             });
 
             if (!screenshot) {
@@ -93,7 +93,8 @@ class ModerateCommand extends CommandRunner {
 
             console.info(oneLine`
                 Screenshot: City "${screenshot.cityName}",
-                Creator "${screenshot.creator.creatorName}"`);
+                Creator "${screenshot.creator.creatorName}"
+                (reported by "${screenshot.reportedBy?.creatorName ?? 'unknown'}")`);
 
             console.info(
                 `URL: ${this.screenshotService.getBlobUrl(screenshot.imageUrlFHD)}`

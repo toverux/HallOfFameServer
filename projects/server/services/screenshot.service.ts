@@ -270,7 +270,7 @@ export class ScreenshotService {
         return {
             id: screenshot.id,
             isReported: screenshot.isReported,
-            views: screenshot.views,
+            viewsCount: screenshot.viewsCount,
             cityName: screenshot.cityName,
             cityMilestone: screenshot.cityMilestone,
             cityPopulation: screenshot.cityPopulation,
@@ -363,7 +363,7 @@ export class ScreenshotService {
                     createdAt: { $gt: { $date } }
                 }
             },
-            { $sort: { views: 1, createdAt: 1 } },
+            { $sort: { viewsCount: 1, createdAt: 1 } },
             { $limit: 1 }
         ]);
     }
@@ -404,7 +404,7 @@ export class ScreenshotService {
                     createdAt: { $lt: { $date } }
                 }
             },
-            { $sort: { views: 1, createdAt: 1 } },
+            { $sort: { viewsCount: 1, createdAt: 1 } },
             { $limit: 1 }
         ]);
     }
@@ -444,7 +444,7 @@ export class ScreenshotService {
                     creatorId: supporter._id
                 }
             },
-            { $sort: { views: 1, createdAt: 1 } },
+            { $sort: { viewsCount: 1, createdAt: 1 } },
             { $limit: 1 }
         ]);
     }
@@ -473,7 +473,7 @@ export class ScreenshotService {
             createdAt: new Date(screenshot.createdAt.$date),
             isReported: screenshot.isReported,
             reportedById: screenshot.reportedById,
-            views: screenshot.views,
+            viewsCount: screenshot.views,
             hwid: screenshot.hwid,
             creatorId: screenshot.creatorId.$oid,
             cityName: screenshot.cityName,

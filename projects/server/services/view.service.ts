@@ -109,7 +109,7 @@ export class ViewService {
         await this.prisma.screenshot.update({
             select: { id: true },
             where: { id: screenshotId },
-            data: { views: { increment: 1 } }
+            data: { viewsCount: { increment: 1 } }
         });
 
         await this.prisma.view.create({

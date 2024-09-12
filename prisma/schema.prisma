@@ -29,6 +29,10 @@ model Creator {
   screenshots         Screenshot[] @relation("screenshots")
   /// One to many relationship with reported Screenshots.
   reportedScreenshots Screenshot[] @relation("reports")
+  /// One to many relationship with Bans targeting the Creator.
+  bans                Ban[]
+  /// One to many relationship with Views, the screenshots the Creator has seen.
+  viewedScreenshots   View[]
 
   @@index([isSupporter])
   @@map("creators")
@@ -48,7 +52,7 @@ model Screenshot {
   reportedById      String?  @db.ObjectId
   reportedBy        Creator? @relation("reports", fields: [reportedById], references: [id], onDelete: SetNull)
   /// Number of views the Screenshot has received.
-  views             Int      @default(0)
+  viewsCount        Int      @default(0)
   /// Hardware ID of the user who uploaded the Screenshot.
   /// Used in case a user is multi-accounting (which is allowed), to keep track
   /// of all the screenshots uploaded by a same person to apply quota even
@@ -64,12 +68,14 @@ model Screenshot {
   imageUrlThumbnail String
   imageUrlFHD       String
   imageUrl4K        String
+  /// One to many relationship with Views.
+  views             View[]
 
   @@index([createdAt])
   @@index([isReported])
   @@index([createdAt, isReported]) // for "recent" aggregation
-  @@index([views])
-  @@index([views, isReported]) // for "low views" aggregation
+  @@index([viewsCount])
+  @@index([viewsCount, isReported]) // for "low views" aggregation
   @@index([creatorId])
   @@index([creatorId, cityName])
   @@index([hwid])
@@ -85,7 +91,8 @@ model Ban {
   /// Either a Creator or an Hardware ID (hwid) can be banned.
   /// If creatorId is set, hwid is set too and there is a Ban record for each
   /// hwid used by the Creator.
-  creatorId String? @db.ObjectId
+  creatorId String?  @db.ObjectId
+  creator   Creator? @relation(fields: [creatorId], references: [id], onDelete: Cascade)
   /// If hwid is set, creatorId is null unless the creator was banned and
   /// all their associated hwids were banned too.
   hwid      String?
@@ -98,10 +105,12 @@ model Ban {
 /// Record of a view of a Screenshot, so that we can track views and avoid
 /// showing the same screenshot to the same user multiple times.
 model View {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
-  viewedAt     DateTime @default(now())
-  screenshotId String   @db.ObjectId
-  creatorId    String   @db.ObjectId
+  id           String     @id @default(auto()) @map("_id") @db.ObjectId
+  viewedAt     DateTime   @default(now())
+  screenshotId String     @db.ObjectId
+  screenshot   Screenshot @relation(fields: [screenshotId], references: [id], onDelete: Cascade)
+  creatorId    String     @db.ObjectId
+  creator      Creator    @relation(fields: [creatorId], references: [id], onDelete: Cascade)
 
   @@index([screenshotId])
   @@index([creatorId])

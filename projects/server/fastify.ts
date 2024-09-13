@@ -49,7 +49,15 @@ export class FastifyLoggerMiddleware implements NestMiddleware {
 
             const resContentLength = res.getHeader('content-length') || 0;
 
-            httpLogger.log(
+            const logFn = (
+                res.statusCode >= 500
+                    ? httpLogger.error
+                    : res.statusCode >= 400
+                      ? httpLogger.warn
+                      : httpLogger.log
+            ).bind(httpLogger);
+
+            logFn(
                 `[RESPONSE/${req.id}] ${method} ${originalUrl} status=${res.statusCode} len=${resContentLength} ip=${ip} elapsed=${elapsedTime}ms`
             );
         });

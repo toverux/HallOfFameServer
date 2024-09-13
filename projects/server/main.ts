@@ -1,6 +1,6 @@
 import './sentry';
 
-import fastifyMultipart from '@fastify/multipart';
+import * as path from 'node:path';
 import {
     type ArgumentsHost,
     BadRequestException,
@@ -8,37 +8,26 @@ import {
     ForbiddenException,
     HttpException,
     type HttpServer,
-    Logger,
     NotFoundException
 } from '@nestjs/common';
 import { BaseExceptionFilter, NestFactory } from '@nestjs/core';
-import {
-    FastifyAdapter,
-    type NestFastifyApplication
-} from '@nestjs/platform-fastify';
+import { type NestFastifyApplication } from '@nestjs/platform-fastify';
 import * as sentry from '@sentry/bun';
-import type { FastifyReply, FastifyRequest } from 'fastify';
-
-import * as path from 'node:path';
-// @ts-expect-error We can't import JS (allowJs: false) and can't declare a d.ts
-import { ssrRender } from '../../dist/server/server.mjs';
+import { FastifyReply, FastifyRequest } from 'fastify';
 import { AppModule } from './app.module';
 import { StandardError } from './common';
 import { config } from './config';
+import { fastify } from './fastify';
 import type { ssrRender as ssrRenderType } from './ssr';
+
+// @ts-expect-error We can't import JS (allowJs: false) and can't declare a d.ts
+import { ssrRender } from '../../dist/server/server.mjs';
 
 void linkEnvFilesForWatchMode();
 
 void bootstrap();
 
 async function bootstrap(): Promise<void> {
-    const fastify = new FastifyAdapter({ trustProxy: true });
-    const logger = new Logger(bootstrap.name);
-
-    // @ts-expect-error
-    // Errors due to our strict config on types we don't control.
-    fastify.register(fastifyMultipart);
-
     const app = await NestFactory.create<NestFastifyApplication>(
         AppModule,
         fastify,
@@ -82,8 +71,6 @@ async function bootstrap(): Promise<void> {
     );
 
     await app.listen(config.http.port, config.http.address);
-
-    logger.log(`Server is running on: ${await app.getUrl()}`);
 }
 
 /**

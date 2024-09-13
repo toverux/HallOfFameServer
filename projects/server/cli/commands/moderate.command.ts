@@ -123,9 +123,9 @@ class ModerateCommand extends CommandRunner {
                     break;
                 }
                 case 'delete': {
-                    await this.prisma.screenshot.delete({
-                        where: { id: screenshot.id }
-                    });
+                    await this.screenshotService.deleteScreenshot(
+                        screenshot.id
+                    );
 
                     console.info(`DELETED screenshot.`);
                     break;
@@ -157,7 +157,7 @@ class ModerateCommand extends CommandRunner {
             reported and judged to be inappropriate by our moderation team`
         );
 
-        await this.prisma.screenshot.delete({ where: { id: screenshot.id } });
+        await this.screenshotService.deleteScreenshot(screenshot.id);
     }
 }
 

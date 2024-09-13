@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { Creator, Screenshot } from '@prisma/client';
 import * as dateFns from 'date-fns';
 import slug from 'slug';
+import { allFulfilled } from '../common';
 import { config } from '../config';
 import { AzureService } from './azure.service';
 
@@ -42,23 +43,13 @@ export class ScreenshotStorageService {
 
         const blobNameBase = `${creator.id}/${screenshot.id}/${blobSlug}`;
 
-        const blobNameThumbnail = `${blobNameBase}-thumbnail.jpg`;
-        const blobNameFHD = `${blobNameBase}-fhd.jpg`;
-        const blobName4K = `${blobNameBase}-4k.jpg`;
-
-        const results = await Promise.allSettled([
-            upload(blobNameThumbnail, bufferThumbnail),
-            upload(blobNameFHD, bufferFHD),
-            upload(blobName4K, buffer4K)
-        ]);
-
-        const firstFailedResult = results.find(
-            result => result.status == 'rejected'
+        const [blobNameThumbnail, blobNameFHD, blobName4K] = await allFulfilled(
+            [
+                upload(`${blobNameBase}-thumbnail.jpg`, bufferThumbnail),
+                upload(`${blobNameBase}-fhd.jpg`, bufferFHD),
+                upload(`${blobNameBase}-4k.jpg`, buffer4K)
+            ]
         );
-
-        if (firstFailedResult) {
-            throw firstFailedResult.reason;
-        }
 
         return {
             blobThumbnail: blobNameThumbnail,
@@ -83,6 +74,27 @@ export class ScreenshotStorageService {
             );
 
             return blockBlobClient.name;
+        }
+    }
+
+    public async deleteScreenshots(
+        screenshot: Pick<
+            Screenshot,
+            'imageUrlThumbnail' | 'imageUrlFHD' | 'imageUrl4K'
+        >
+    ): Promise<void> {
+        const containerClient = this.containerClient;
+
+        await allFulfilled([
+            deleteBlob(screenshot.imageUrlThumbnail),
+            deleteBlob(screenshot.imageUrlFHD),
+            deleteBlob(screenshot.imageUrl4K)
+        ]);
+
+        function deleteBlob(blobName: string) {
+            return containerClient
+                .getBlobClient(blobName)
+                .delete({ deleteSnapshots: 'include' });
         }
     }
 }

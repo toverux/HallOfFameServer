@@ -133,6 +133,35 @@ export class ScreenshotService {
         });
     }
 
+    public async deleteScreenshot(
+        screenshotId: Screenshot['id']
+    ): Promise<Screenshot> {
+        try {
+            const screenshot = await this.prisma.screenshot.delete({
+                where: { id: screenshotId }
+            });
+
+            await this.screenshotStorage.deleteScreenshots(screenshot);
+
+            this.logger.log(
+                `Deleted screenshot #${screenshot.id} "${screenshot.cityName}".`
+            );
+
+            return screenshot;
+        } catch (error) {
+            if (
+                error instanceof PrismaClientKnownRequestError &&
+                error.code == 'P2025'
+            ) {
+                throw new ScreenshotNotFoundError(screenshotId, {
+                    cause: error
+                });
+            }
+
+            throw error;
+        }
+    }
+
     /**
      * Marks a screenshot as reported by a user.
      *

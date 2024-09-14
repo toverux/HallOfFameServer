@@ -100,7 +100,7 @@ export class ScreenshotController {
             where: { id: screenshot.creatorId }
         });
 
-        assert(createdBy);
+        assert(createdBy, `Could not find Creator #${screenshot.creatorId}`);
 
         return {
             __algorithm: screenshot.__algorithm,

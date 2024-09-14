@@ -1,6 +1,6 @@
+import assert from 'node:assert/strict';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { Creator } from '@prisma/client';
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import Bun from 'bun';
 import { oneLine } from 'common-tags';
 import * as uuid from 'uuid';
@@ -51,7 +51,11 @@ export class CreatorService {
      *
      * @throws InvalidCreatorNameError If it is not a valid Creator Name.
      */
-    private static validateCreatorName(name: string): string {
+    private static validateCreatorName(name: string | null): string | null {
+        if (!name?.trim()) {
+            return null;
+        }
+
         if (!name.match(CreatorService.nameRegex)) {
             throw new InvalidCreatorNameError(name);
         }
@@ -64,21 +68,15 @@ export class CreatorService {
      * This method is intended to be used as authentication and account creation
      * as it performs Creator Name/Creator ID validation and updates.
      *
-     * There are three possible outcomes:
-     * - If the Creator ID and Creator Name don't match any record, a new
-     *   Creator is created with the provided credentials.
+     * There are two possible outcomes:
+     * - If the Creator ID doesn't match any record, a new Creator is created
+     *   with the provided credentials.
      * - If the Creator ID matches a record, the request is authenticated, and
      *   the Creator Name is updated if it changed.
-     * - If the Creator ID doesn't match a record, but the Creator Name does,
-     *   then the person has the wrong Creator ID and an authentication error is
-     *   thrown.
-     *
-     * @throws IncorrectCreatorIDError If the Creator ID is incorrect for the
-     *         provided Creator Name.
      */
     public async authenticateCreator(
         creatorId: string | CreatorID,
-        creatorName: string,
+        creatorName: string | null,
         hwid: HardwareID
     ): Promise<Creator> {
         const hashedCreatorId = this.hashCreatorId(
@@ -87,16 +85,41 @@ export class CreatorService {
 
         // Find the creator by either the Creator ID or the Creator Name.
         // If we find a match,
-        // - If the Creator ID is incorrect, reject request.
+        // - If the Creator ID is incorrect (not a UUID), reject request.
         // - If the Creator ID is correct, we'll update the Creator Name if it
         //   changed.
         // If we don't find a match, create a new account.
-        let creator = await this.prisma.creator.findFirst({
-            where: {
-                // biome-ignore lint/style/useNamingConvention: lib
-                OR: [{ hashedCreatorId }, { creatorName }]
-            }
+        const creators = await this.prisma.creator.findMany({
+            where: creatorName
+                ? {
+                      // biome-ignore lint/style/useNamingConvention: lib
+                      OR: [{ hashedCreatorId }, { creatorName }]
+                  }
+                : { hashedCreatorId }
         });
+
+        // This can happen if we matched an existing Creator ID (so far so good)
+        // but that the Creator Name is being changed to a name that is already
+        // taken.
+        // This returns two creators, one matching the Creator ID and one
+        // matching the Creator Name.
+        if (creators.length > 1) {
+            assert(
+                creators.length == 2,
+                `Only two creators are returned, otherwise there are non-unique Creator Names.`
+            );
+
+            assert(
+                creatorName,
+                `Creator Name can only be non-null if >1 creators are found.`
+            );
+
+            throw new IncorrectCreatorIDError(creatorName);
+        }
+
+        // After this previous check we know that the first and only creator is
+        // the one we want to authenticate or create.
+        let creator = creators[0];
 
         if (creator) {
             // Check if the Creator ID and Creator Name are correct and update
@@ -129,73 +152,6 @@ export class CreatorService {
         }
 
         return creator;
-    }
-
-    /**
-     * Creates a new Creator with the provided Creator Name and Creator ID.
-     * This method is intended to be used internally as there are no checks for
-     * authentication.
-     */
-    public async createCreator(
-        creatorName: string,
-        creatorId: string | CreatorID = uuid.v4()
-    ): Promise<{ creator: Creator; creatorId: CreatorID }> {
-        const validCreatorId = CreatorService.validateCreatorId(creatorId);
-
-        const hashedCreatorId = this.hashCreatorId(validCreatorId);
-
-        const creator = await this.prisma.creator.create({
-            data: {
-                hashedCreatorId,
-                creatorName
-            }
-        });
-
-        this.logger.log(`Created creator "${creator.creatorName}".`);
-
-        return { creator, creatorId: validCreatorId };
-    }
-
-    /**
-     * Resets the Creator ID for a given Creator Name.
-     * This method is intended to be used internally as there are no checks for
-     * authentication.
-     * If no Creator ID is provided, a new UUID v4 string will be generated.
-     *
-     * @throws IncorrectCreatorNameError If no match is found for
-     *         {@link creatorName}
-     */
-    public async resetCreatorId(
-        creatorName: string,
-        creatorId: string | CreatorID = uuid.v4()
-    ): Promise<{ creator: Creator; creatorId: CreatorID }> {
-        const validCreatorId = CreatorService.validateCreatorId(creatorId);
-
-        const hashedCreatorId = this.hashCreatorId(validCreatorId);
-
-        try {
-            const creator = await this.prisma.creator.update({
-                where: { creatorName },
-                data: {
-                    hashedCreatorId
-                }
-            });
-
-            this.logger.log(`Reset Creator ID for "${creator.creatorName}".`);
-
-            return { creator, creatorId: validCreatorId };
-        } catch (error) {
-            if (
-                error instanceof PrismaClientKnownRequestError &&
-                error.code == 'P2025'
-            ) {
-                throw new IncorrectCreatorNameError(creatorId, {
-                    cause: error
-                });
-            }
-
-            throw error;
-        }
     }
 
     /**
@@ -232,16 +188,21 @@ export class CreatorService {
      */
     private async authenticateAndUpdateCreator(
         hashedCreatorId: string,
-        creatorName: string,
+        creatorName: string | null,
         hwid: HardwareID,
         creator: Creator
     ): Promise<{ creator: Creator; modified: boolean }> {
         // Check if the Creator ID hashes match.
-        // Check if the database hash is non-null to allow for creator ID reset.
+        // Check if the database hash is non-null to allow for legacy Creator ID
+        // reset to Paradox account ID.
         if (
             creator.hashedCreatorId &&
             creator.hashedCreatorId != hashedCreatorId
         ) {
+            // This should never happen, as when we enter this condition, it
+            // means that we matched on the Creator Name and not the Creator ID.
+            assert(creator.creatorName);
+
             throw new IncorrectCreatorIDError(creator.creatorName);
         }
 
@@ -256,11 +217,10 @@ export class CreatorService {
 
         // Update the Creator Name and Hardware IDs, and hash if it was reset.
         const updatedCreator = await this.prisma.creator.update({
-            where: creator.hashedCreatorId
-                ? { hashedCreatorId }
-                : { creatorName },
+            where: { id: creator.id },
             data: {
                 creatorName:
+                    // Validate the Creator Name if it changed.
                     creator.creatorName == creatorName
                         ? creatorName
                         : CreatorService.validateCreatorName(creatorName),
@@ -292,22 +252,15 @@ export class InvalidCreatorNameError extends CreatorError {
     }
 }
 
-export class IncorrectCreatorNameError extends CreatorError {
-    public constructor(
-        public readonly creatorName: string,
-        options: ErrorOptions
-    ) {
-        super(`Creator "${creatorName}" does not exist.`, options);
-    }
-}
-
 export class IncorrectCreatorIDError extends CreatorError {
     public override kind = 'forbidden' as const;
 
     public constructor(public readonly creatorName: string) {
         super(oneLine`
             Incorrect Creator ID for user "${creatorName}".
-            If you've never used HallOfFame before, this means this Creator Name
-            is already claimed, choose another!`);
+            If you've never used HallOfFame before or just changed your Creator
+            Name, this means this username is already claimed, choose another!
+            Otherwise, check that you are logged in with the correct Paradox
+            account.`);
     }
 }

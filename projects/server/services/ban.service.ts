@@ -106,7 +106,7 @@ export class BanService {
         });
 
         this.logger.warn(oneLine`
-            Banned creator #${creator.id} "${creator.creatorName}"
+            Banned creator #${creator.id} "${creator.creatorName ?? '<anonymous>'}"
             and Hardware IDs ${creator.hwids.join(', ')}
             for: ${reasonFormatted}.`);
     }
@@ -183,7 +183,7 @@ export class BannedCreatorError extends BanError {
         public readonly supportContact: string
     ) {
         super(oneLine`
-            Creator "${creator.creatorName}" is banned
+            Creator "${creator.creatorName ?? '<anonymous>'}" is banned
             for the following reason: ${ban.reason}
             (${ban.bannedAt.toLocaleString()} UTC).
             Please contact support to appeal (${supportContact}).`);

@@ -93,8 +93,8 @@ class ModerateCommand extends CommandRunner {
 
             console.info(oneLine`
                 Screenshot: City "${screenshot.cityName}",
-                Creator "${screenshot.creator.creatorName}"
-                (reported by "${screenshot.reportedBy?.creatorName ?? 'unknown'}")`);
+                Creator "${screenshot.creator.creatorName ?? '<anonymous>'}"
+                (reported by "${screenshot.reportedBy?.creatorName ?? '<anonymous>'}")`);
 
             console.info(
                 `URL: ${this.screenshotService.getBlobUrl(screenshot.imageUrlFHD)}`

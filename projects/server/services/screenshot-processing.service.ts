@@ -3,7 +3,7 @@ import { Injectable } from '@nestjs/common';
 import Bun from 'bun';
 import * as dateFns from 'date-fns';
 import sharp from 'sharp';
-import { allFulfilled } from '../common';
+import { Maybe, allFulfilled } from '../common';
 import { config } from '../config';
 
 @Injectable()
@@ -15,7 +15,7 @@ export class ScreenshotProcessingService {
 
     public async resizeScreenshots(
         buffer: Buffer,
-        metadata: { creatorName: string; cityName: string }
+        metadata: { creatorName: Maybe<string>; cityName: string }
     ): Promise<{
         imageThumbnailBuffer: Buffer;
         imageFHDBuffer: Buffer;
@@ -30,7 +30,7 @@ export class ScreenshotProcessingService {
                     // biome-ignore lint/style/useNamingConvention: EXIF Standard
                     Software: 'Cities: Skylines II, Hall of Fame Mod',
                     // biome-ignore lint/style/useNamingConvention: EXIF Standard
-                    Artist: metadata.creatorName,
+                    Artist: metadata.creatorName ?? 'Anonymous',
                     // biome-ignore lint/style/useNamingConvention: EXIF Standard
                     ImageDescription: metadata.cityName,
                     // Must respect a specific format for EXIF dates.

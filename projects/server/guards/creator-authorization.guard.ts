@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import {
     CanActivate,
     ExecutionContext,
@@ -10,7 +11,7 @@ import { CreatorID, HardwareID } from '../common';
 import { BanService, CreatorService } from '../services';
 
 export interface CreatorAuthorization {
-    readonly creatorName: string;
+    readonly creatorName: string | null;
     readonly creatorId: CreatorID;
     readonly hwid: HardwareID;
 }
@@ -79,24 +80,43 @@ export class CreatorAuthorizationGuard implements CanActivate {
             throw new ForbiddenException(`Authorization header is missing.`);
         }
 
-        const [scheme, partsString] = header.split(' ');
+        try {
+            const firstSpace = header.indexOf(' ');
+            const scheme = header.slice(0, firstSpace);
+            const partsString = header.slice(firstSpace + 1);
 
-        const parts = partsString?.split(';');
+            const parts = partsString?.split(';');
 
-        if (scheme?.toLowerCase() != 'creator' || parts?.length != 3) {
-            throw new ForbiddenException(`Invalid Authorization header.`);
+            assert(parts?.length == 3);
+
+            const creatorName = parts[0]?.trim() || null;
+            const creatorId = parts[1]?.trim();
+            const hwid = parts[2]?.trim();
+
+            assert(scheme?.toLowerCase() == 'creator', `Scheme is "Creator"`);
+
+            assert(
+                creatorName?.length || creatorName === null,
+                `Creator Name must be either an empty string, or a string.`
+            );
+
+            assert(creatorId?.length, `Creator ID must be a non-empty string.`);
+
+            assert(hwid?.length, `HWID must be a non-empty string.`);
+
+            return {
+                creatorName,
+                creatorId: creatorId as CreatorID,
+                hwid: hwid as HardwareID
+            };
+        } catch (error) {
+            if (error instanceof assert.AssertionError) {
+                throw new ForbiddenException(
+                    `Invalid Authorization header (${error.message}).`
+                );
+            }
+
+            throw error;
         }
-
-        const [creatorName, creatorId, hwid] = parts as [
-            string,
-            string,
-            string
-        ];
-
-        return {
-            creatorName,
-            creatorId: creatorId as CreatorID,
-            hwid: hwid as HardwareID
-        };
     }
 }

@@ -12,6 +12,7 @@ export type Branded<Type, Brand> = Type & { [brand]: Brand };
 /**
  * A "Creator ID", the UUID v4 string that identifies and authorizes a creator.
  * It is *not* the database `Creator.id`.
+ * It is the Paradox Account ID, although before that the mod used its own UUID.
  */
 export type CreatorID = Branded<string, 'Creator ID'>;
 

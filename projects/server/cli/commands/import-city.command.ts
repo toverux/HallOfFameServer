@@ -13,11 +13,7 @@ import {
     QuestionSet
 } from 'nest-commander';
 import { Maybe } from '../../common';
-import {
-    CreatorService,
-    PrismaService,
-    ScreenshotService
-} from '../../services'; // https://cs2.paradoxwikis.com/Progression#Milestones
+import { PrismaService, ScreenshotService } from '../../services';
 
 // https://cs2.paradoxwikis.com/Progression#Milestones
 const milestones = [
@@ -57,9 +53,6 @@ class ImportCityCommand extends CommandRunner {
     @Inject(PrismaService)
     private readonly prisma!: PrismaService;
 
-    @Inject(CreatorService)
-    private readonly creatorService!: CreatorService;
-
     @Inject(ScreenshotService)
     private readonly screenshotService!: ScreenshotService;
 
@@ -82,27 +75,29 @@ class ImportCityCommand extends CommandRunner {
             assert(cityInfo);
 
             // Check if the creator already exists.
-            const existingCreator = await this.prisma.creator.findFirst({
-                where: { creatorName: cityInfo.creatorName }
+            const creator = await this.prisma.creator.findFirst({
+                where: { id: cityInfo.creatorId }
             });
+
+            if (!creator) {
+                console.error(`Creator "${cityInfo.creatorId}" not found.`);
+                continue;
+            }
 
             // Check if the creator already has screenshots for a city that has
             // the same name. Helps to avoid accidental re-imports.
-            const existingCity =
-                existingCreator &&
-                (await this.prisma.screenshot.findFirst({
-                    where: {
-                        creatorId: existingCreator.id,
-                        cityName: {
-                            mode: 'insensitive',
-                            equals: cityInfo.cityName
-                        }
+            const existingCity = await this.prisma.screenshot.findFirst({
+                where: {
+                    creatorId: creator.id,
+                    cityName: {
+                        mode: 'insensitive',
+                        equals: cityInfo.cityName
                     }
-                }));
+                }
+            });
 
             // Ask the user to confirm the changes.
             confirm = await this.confirmChanges(
-                existingCreator,
                 existingCity,
                 cityInfo,
                 filePaths
@@ -112,27 +107,8 @@ class ImportCityCommand extends CommandRunner {
                 continue;
             }
 
-            // Create the creator if it doesn't exist.
-            let creator = existingCreator;
-            if (!creator) {
-                const { creatorId, creator: createdCreator } =
-                    await this.creatorService.createCreator(
-                        cityInfo.creatorName
-                    );
-
-                console.info(oneLine`
-                    Created Creator "${createdCreator.creatorName}",
-                    Creator ID ${creatorId}.`);
-
-                creator = createdCreator;
-            }
-
             // Make the creator a supporter if requested.
-            await this.maybeMakeCreatorSupporter(
-                creator,
-                existingCreator,
-                cityInfo
-            );
+            await this.maybeMakeCreatorSupporter(creator, creator, cityInfo);
 
             // Import the screenshots.
             await this.ingestScreenshots(
@@ -183,18 +159,11 @@ class ImportCityCommand extends CommandRunner {
     }
 
     private async confirmChanges(
-        existingCreator: Maybe<Creator>,
         existingCity: Maybe<Screenshot>,
         cityInfo: CityInfoQuestionsResult,
         filePaths: readonly string[]
     ): Promise<boolean> {
         console.info(`\nPlease review this carefully:`);
-
-        existingCreator
-            ? console.info(
-                  ` - Use EXISTING Creator "${existingCreator.creatorName}" #${existingCreator.id}.`
-              )
-            : console.info(` - Create NEW Creator "${cityInfo.creatorName}".`);
 
         existingCity
             ? console.info(
@@ -225,7 +194,9 @@ class ImportCityCommand extends CommandRunner {
                 data: { isSupporter: true }
             });
 
-            console.info(`Made Creator "${creator.creatorName}" a supporter.`);
+            console.info(
+                `Made Creator "${creator.creatorName ?? '<anonymous>'}" a supporter.`
+            );
         }
     }
 
@@ -259,7 +230,7 @@ class ImportCityCommand extends CommandRunner {
 }
 
 interface CityInfoQuestionsResult {
-    creatorName: string;
+    creatorId: string;
     cityName: string;
     cityPopulation: number;
     cityMilestone: number;
@@ -270,16 +241,16 @@ interface CityInfoQuestionsResult {
 @QuestionSet({ name: 'city-info' })
 class CityInfoQuestions {
     @Question({
-        name: 'creatorName',
-        message: `What is the creator's name?`
+        name: 'creatorId',
+        message: `What is the Creator's Paradox Account ID?`
     })
-    public parseCreatorName(val: string): string {
-        const name = val.trim();
-        if (!name) {
-            throw `Creator name must not be empty.`;
+    public parseCreatorId(val: string): string {
+        const id = val.trim();
+        if (!id) {
+            throw `Creator ID must not be empty.`;
         }
 
-        return name;
+        return id;
     }
 
     @Question({

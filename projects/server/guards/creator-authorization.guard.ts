@@ -25,6 +25,13 @@ declare module 'fastify' {
     }
 }
 
+/**
+ * Guard that handles Creator authentication and authorization.
+ * It ALLOWS anonymous requests (empty Authorization header), it is to the
+ * guarded consumer to finally decide if the Creator is required or not by
+ * calling {@link getAuthenticatedCreator}, which will throw a
+ * {@link ForbiddenException} if the request is not authenticated.
+ */
 export class CreatorAuthorizationGuard implements CanActivate {
     public static readonly authenticatedCreatorKey = Symbol(
         `${CreatorAuthorizationGuard.name}#authenticatedCreator`
@@ -54,6 +61,9 @@ export class CreatorAuthorizationGuard implements CanActivate {
         const request = context.switchToHttp().getRequest<FastifyRequest>();
 
         const authorization = this.readAuthorizationHeader(request);
+        if (!authorization) {
+            return true;
+        }
 
         // noinspection UnnecessaryLocalVariableJS
         const creator = await this.creatorService.authenticateCreator(
@@ -74,10 +84,10 @@ export class CreatorAuthorizationGuard implements CanActivate {
 
     private readAuthorizationHeader(
         request: FastifyRequest
-    ): CreatorAuthorization {
+    ): CreatorAuthorization | undefined {
         const header = request.headers.authorization;
         if (!header) {
-            throw new ForbiddenException(`Authorization header is missing.`);
+            return undefined;
         }
 
         try {

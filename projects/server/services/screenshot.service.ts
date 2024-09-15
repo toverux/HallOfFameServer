@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import * as timers from 'node:timers';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Creator, Prisma, Screenshot } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
@@ -231,15 +230,15 @@ export class ScreenshotService {
      */
     public async getWeightedRandomScreenshot(
         weights: RandomScreenshotWeights,
-        markViewed: boolean,
-        creatorId: Creator['id'],
+        creatorId: Maybe<Creator['id']>,
         alreadyViewedMaxAgeInDays: number | undefined
     ): Promise<Screenshot & { __algorithm: RandomScreenshotAlgorithm }> {
-        const viewedScreenshotIds =
-            await this.viewService.getViewedScreenshotIds(
-                creatorId,
-                alreadyViewedMaxAgeInDays
-            );
+        const viewedScreenshotIds = creatorId
+            ? await this.viewService.getViewedScreenshotIds(
+                  creatorId,
+                  alreadyViewedMaxAgeInDays
+              )
+            : [];
 
         // Get the total weight.
         const totalWeight = Object.values(weights).reduce(
@@ -279,14 +278,6 @@ export class ScreenshotService {
         // database is empty or we have a bug.
         assert(screenshot, `Not a single screenshot found. Empty database?`);
 
-        // noinspection JSObjectNullOrUndefined False positive
-        if (markViewed && !viewedScreenshotIds.includes(screenshot.id)) {
-            // Do it asynchronously so the response is not delayed.
-            timers.setImmediate(() => {
-                void this.viewService.markViewed(screenshot.id, creatorId);
-            });
-        }
-
         return { ...screenshot, __algorithm: algorithm };
     }
 
@@ -307,6 +298,7 @@ export class ScreenshotService {
             imageUrlFHD: this.getBlobUrl(screenshot.imageUrlFHD),
             imageUrl4K: this.getBlobUrl(screenshot.imageUrl4K),
             createdAt: screenshot.createdAt.toISOString(),
+            creatorId: screenshot.creatorId,
             creator: optionallySerialized(
                 screenshot.creator &&
                     this.creatorService.serialize(screenshot.creator)

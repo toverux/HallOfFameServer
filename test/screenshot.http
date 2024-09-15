@@ -1,6 +1,14 @@
+### Get random screenshot (anonymous)
+
+GET {{url}}/api/v1/screenshots/weighted
+
+> {%
+    client.global.set("screenshot", response.body);
+%}
+
 ### Get random screenshot
 
-GET {{url}}/api/v1/screenshot/weighted?markViewed={{markViewed}}
+GET {{url}}/api/v1/screenshots/weighted
 Authorization: Creator {{creatorName}};{{creatorId}};{{hwid}}
 
 > {%
@@ -9,12 +17,11 @@ Authorization: Creator {{creatorName}};{{creatorId}};{{hwid}}
 
 ### Get random screenshot weighted algorithms
 
-GET {{url}}/api/v1/screenshot/weighted
+GET {{url}}/api/v1/screenshots/weighted
     ?random=10
     &recent=10
     &archeologist=10
     &supporter=10
-    &markViewed={{markViewed}}
     &viewMaxAge=1
 Authorization: Creator {{creatorName}};{{creatorId}};{{hwid}}
 
@@ -22,19 +29,19 @@ Authorization: Creator {{creatorName}};{{creatorId}};{{hwid}}
     client.global.set("screenshot", response.body);
 %}
 
+### Mark a screenshot as viewed
+
+POST {{url}}/api/v1/screenshots/{{screenshot.id}}/views
+Authorization: Creator {{creatorName}};{{creatorId}};{{hwid}}
+
 ### Report a screenshot
 
-POST {{url}}/api/v1/screenshot/report
+POST {{url}}/api/v1/screenshots/{{screenshot.id}}/reports
 Authorization: Creator {{creatorName}};{{creatorId}};{{hwid}}
-Content-Type: application/json
-
-{
-    "screenshotId": "{{screenshot.id}}"
-}
 
 ### Upload a screenshot
 
-POST {{url}}/api/v1/screenshot/upload
+POST {{url}}/api/v1/screenshots
 Authorization: Creator {{creatorName}};{{creatorId}};{{hwid}}
 Content-Type: multipart/form-data; boundary=WebAppBoundary
 

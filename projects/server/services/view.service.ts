@@ -1,7 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { Creator, Screenshot } from '@prisma/client';
+import { Creator, Screenshot, View } from '@prisma/client';
 import * as dateFns from 'date-fns';
 import { LRUCache } from 'lru-cache';
+import { JsonObject } from '../common';
 import { PrismaService } from './prisma.service';
 
 @Injectable()
@@ -93,8 +94,17 @@ export class ViewService {
     public async markViewed(
         screenshotId: Screenshot['id'],
         creatorId: Creator['id']
-    ): Promise<void> {
-        // Add the view to the cache.
+    ): Promise<View> {
+        // Update the Screenshot view count and create a new View record.
+        // No transaction with the View record creation, this is not critical
+        // data & we can reconstruct it.
+        await this.prisma.screenshot.update({
+            select: { id: true },
+            where: { id: screenshotId },
+            data: { viewsCount: { increment: 1 } }
+        });
+
+        // Add the view to the cache once we recorded it in the database.
         const cache = this.viewsCache.get(creatorId) ?? {
             screenshotIds: []
         };
@@ -103,17 +113,21 @@ export class ViewService {
 
         this.viewsCache.set(creatorId, cache);
 
-        // Update the Screenshot view count and create a new View record.
-        // No transaction, this is not critical data.
-
-        await this.prisma.screenshot.update({
-            select: { id: true },
-            where: { id: screenshotId },
-            data: { viewsCount: { increment: 1 } }
-        });
-
-        await this.prisma.view.create({
+        // Create the View record.
+        return this.prisma.view.create({
             data: { screenshotId, creatorId }
         });
+    }
+
+    /**
+     * Serializes a {@link View} to a JSON object for API responses.
+     */
+    public serialize(view: View): JsonObject {
+        return {
+            id: view.id,
+            creatorId: view.creatorId,
+            screenshotId: view.screenshotId,
+            viewedAt: view.viewedAt.toISOString()
+        };
     }
 }

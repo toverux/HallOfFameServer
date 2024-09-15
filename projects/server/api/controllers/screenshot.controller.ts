@@ -2,11 +2,10 @@ import assert from 'node:assert/strict';
 import { Multipart } from '@fastify/multipart';
 import {
     BadRequestException,
-    Body,
     Controller,
     Get,
     Inject,
-    ParseBoolPipe,
+    Param,
     ParseIntPipe,
     Post,
     Query,
@@ -16,13 +15,11 @@ import {
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { oneLine } from 'common-tags';
 import type { FastifyRequest } from 'fastify';
-import { z } from 'zod';
 import { type JsonObject, StandardError } from '../../common';
 import { CreatorAuthorizationGuard } from '../../guards';
-import { ZodParsePipe } from '../../pipes';
-import { PrismaService, ScreenshotService } from '../../services';
+import { PrismaService, ScreenshotService, ViewService } from '../../services';
 
-@Controller('screenshot')
+@Controller('screenshots')
 @UseGuards(CreatorAuthorizationGuard)
 export class ScreenshotController {
     /**
@@ -32,18 +29,14 @@ export class ScreenshotController {
      */
     private static readonly cityNameRegex = /^[\p{L}\- ']{2,25}$/u;
 
-    /** @see report */
-    private static readonly postReportBodySchema = z
-        .object({
-            screenshotId: z.string().length(24)
-        })
-        .required();
-
     @Inject(PrismaService)
     private readonly prisma!: PrismaService;
 
     @Inject(ScreenshotService)
     private readonly screenshotService!: ScreenshotService;
+
+    @Inject(ViewService)
+    private readonly viewService!: ViewService;
 
     /**
      * Returns a random screenshot.
@@ -61,8 +54,6 @@ export class ScreenshotController {
      *                      {@link ScreenshotService.getScreenshotArcheologist}.
      * @param supporter     Weight for the "supporter" algorithm, see
      *                      {@link ScreenshotService.getScreenshotSupporter}.
-     * @param markViewed    Whether to mark the screenshot as viewed: increment
-     *                      view count and add a View record. Default is true.
      * @param viewMaxAge    Min time in days before showing a screenshot the
      *                      user has already seen. Default is 60, 0 is no limit.
      */
@@ -78,21 +69,17 @@ export class ScreenshotController {
         archeologist = 0,
         @Query('supporter', new ParseIntPipe({ optional: true }))
         supporter = 0,
-        @Query('markViewed', new ParseBoolPipe({ optional: true }))
-        markViewed = true,
         @Query('viewMaxAge', new ParseIntPipe({ optional: true }))
         viewMaxAge = 60
     ) {
-        const { creator } =
-            CreatorAuthorizationGuard.getAuthenticatedCreator(req);
+        const authed = req[CreatorAuthorizationGuard.authenticatedCreatorKey];
 
         const weights = { random, recent, archeologist, supporter };
 
         const screenshot =
             await this.screenshotService.getWeightedRandomScreenshot(
                 weights,
-                markViewed,
-                creator.id,
+                authed?.creator.id,
                 viewMaxAge
             );
 
@@ -112,6 +99,25 @@ export class ScreenshotController {
     }
 
     /**
+     * Marks a screenshot as viewed by the authenticated creator.
+     */
+    @Post(':id/views')
+    public async markViewed(
+        @Req() req: FastifyRequest,
+        @Param('id') screenshotId: string
+    ): Promise<JsonObject> {
+        const { creator } =
+            CreatorAuthorizationGuard.getAuthenticatedCreator(req);
+
+        const view = await this.viewService.markViewed(
+            screenshotId,
+            creator.id
+        );
+
+        return this.viewService.serialize(view);
+    }
+
+    /**
      * Reports a screenshot as inappropriate.
      *
      * ###### Implementation notes
@@ -119,19 +125,17 @@ export class ScreenshotController {
      * field, but we will probably have more fields in the future (ex. what is
      * the nature of the issue, a comment, etc.), so the groundwork is there.
      */
-    @Post('report')
+    @Post(':id/reports')
     public async report(
-        @Req()
-        req: FastifyRequest,
-        @Body(new ZodParsePipe(ScreenshotController.postReportBodySchema))
-        body: z.infer<typeof ScreenshotController.postReportBodySchema>
+        @Req() req: FastifyRequest,
+        @Param('id') screenshotId: string
     ): Promise<JsonObject> {
         try {
             const { creator } =
                 CreatorAuthorizationGuard.getAuthenticatedCreator(req);
 
             const screenshot = await this.screenshotService.markReported(
-                body.screenshotId,
+                screenshotId,
                 creator.id
             );
 
@@ -142,7 +146,7 @@ export class ScreenshotController {
                 error.code == 'P2025'
             ) {
                 throw new BadRequestException(
-                    `Could not find screenshot #${body.screenshotId}.`,
+                    `Could not find screenshot #${screenshotId}.`,
                     { cause: error }
                 );
             }
@@ -165,7 +169,7 @@ export class ScreenshotController {
      *
      * Response will be 201 with serialized Screenshot.
      */
-    @Post('upload')
+    @Post()
     public async upload(@Req() req: FastifyRequest): Promise<JsonObject> {
         const { authorization, creator } =
             CreatorAuthorizationGuard.getAuthenticatedCreator(req);

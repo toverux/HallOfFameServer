@@ -27,7 +27,7 @@ export class ScreenshotController {
      * - Must contain only letters, numbers, spaces, hyphens and apostrophes.
      * - Must be between 2 and 25 characters long.
      */
-    private static readonly cityNameRegex = /^[\p{L}\- ']{2,25}$/u;
+    private static readonly cityNameRegex = /^[\p{L}\p{N}\- ']{2,25}$/u;
 
     @Inject(PrismaService)
     private readonly prisma!: PrismaService;

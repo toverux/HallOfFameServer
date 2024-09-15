@@ -27,7 +27,7 @@ export class ScreenshotStorageService {
     }
 
     public async uploadScreenshots(
-        creator: Pick<Creator, 'id' | 'creatorName'>,
+        creator: Pick<Creator, 'id' | 'creatorNameSlug'>,
         screenshot: Pick<Screenshot, 'id' | 'cityName'>,
         bufferThumbnail: Buffer,
         bufferFHD: Buffer,
@@ -38,7 +38,7 @@ export class ScreenshotStorageService {
         const date = dateFns.format(new Date(), 'yyyy-MM-dd-HH-mm-ss');
 
         const blobSlug = slug(
-            `${screenshot.cityName} by ${creator.creatorName} ${date}`
+            `${screenshot.cityName} by ${creator.creatorNameSlug} ${date}`
         );
 
         const blobNameBase = `${creator.id}/${screenshot.id}/${blobSlug}`;

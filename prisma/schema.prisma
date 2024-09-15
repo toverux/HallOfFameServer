@@ -18,10 +18,15 @@ model Creator {
   /// Normally this should be `@unique` but MongoDB doesn't support sparse
   /// unique indexes so we have to enforce this in the application instead.
   creatorName         String?
-  /// Blake2b256 hash of the Creator ID (not the database Creator.id) used for
-  /// authentication. Stakes are low so this is not salted or anything, but the
-  /// Creator ID is our only secret so we'd rather not store it in plain text.
-  hashedCreatorId     String       @unique
+  /// Slug version of `Creator.creatorName`, used for efficient case-insensitive
+  /// searches, to enforce uniqueness in all cases.
+  /// Also could be used for vanity URLs in the future.
+  creatorNameSlug     String?
+  /// This is our "Creator ID" and also the Paradox account ID.
+  /// This is how users are identified and authenticated, and plays the role of
+  /// a password or API token, as this account ID is only known to an
+  /// authenticated Paradox user.
+  creatorId           String       @unique
   /// Whether the Creator is a supporter of the project.
   /// Currently this only means they sent screenshots before public release.
   isSupporter         Boolean      @default(false)
@@ -42,6 +47,7 @@ model Creator {
   viewedScreenshots   View[]
 
   @@index([creatorName])
+  @@index([creatorNameSlug])
   @@index([isSupporter])
   @@map("creators")
 }

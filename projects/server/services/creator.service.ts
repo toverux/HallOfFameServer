@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { Creator } from '@prisma/client';
-import Bun from 'bun';
 import { oneLine } from 'common-tags';
 import * as uuid from 'uuid';
 import {
@@ -24,27 +23,15 @@ export class CreatorService {
      * - Must be between 2 and 25 characters long.
      *
      * @see validateCreatorName
+     * @see getCreatorNameSlug
      * @see InvalidCreatorNameError
      */
-    private static readonly nameRegex = /^[\p{L}\p{N}\- ']{2,25}$/u;
+    private static readonly nameRegex = /^[\p{L}\p{N}\- '’]{2,25}$/u;
 
     @Inject(PrismaService)
     private readonly prisma!: PrismaService;
 
     private readonly logger = new Logger(CreatorService.name);
-
-    /**
-     * Validates that a string is a valid UUID v4 Creator ID.
-     *
-     * @throws InvalidCreatorIDError If it is not a valid UUID v4.
-     */
-    private static validateCreatorId(creatorId: string): CreatorID {
-        if (uuid.validate(creatorId) && uuid.version(creatorId) == 4) {
-            return creatorId as CreatorID;
-        }
-
-        throw new InvalidCreatorIDError(creatorId);
-    }
 
     /**
      * Validates that a string is a valid Creator Name according to
@@ -61,7 +48,29 @@ export class CreatorService {
             throw new InvalidCreatorNameError(name);
         }
 
-        return name;
+        // Normalize multiple spaces to a single space.
+        return name.replace(/\s+/g, ' ');
+    }
+
+    /**
+     * Transforms a Creator Name to a slug-style one used to check for username
+     * collisions or future URL routing.
+     */
+    private static getCreatorNameSlug(name: string | null): string | null {
+        if (!name?.trim()) {
+            return null;
+        }
+
+        return (
+            name
+                .replaceAll("'", '')
+                .replaceAll('’', '')
+                // Replace consecutive spaces or hyphens by a single hyphen.
+                .replace(/\s+|-+/g, '-')
+                // Remove leading and trailing hyphens.
+                .replace(/^-+|-+$/g, '')
+                .toLowerCase()
+        );
     }
 
     /**
@@ -81,9 +90,14 @@ export class CreatorService {
         hwid: HardwareID,
         ip: IPAddress
     ): Promise<Creator> {
-        const hashedCreatorId = this.hashCreatorId(
-            CreatorService.validateCreatorId(creatorId)
-        );
+        // Validate the Creator ID.
+        if (!uuid.validate(creatorId) || uuid.version(creatorId) != 4) {
+            throw new InvalidCreatorIDError(creatorId);
+        }
+
+        // Note: we do NOT validate the Creator Name immediately, as we need to
+        // support legacy Creator Names that were validated with a different
+        // regex. We validate it only when an account is created or updated.
 
         // Find the creator by either the Creator ID or the Creator Name.
         // If we find a match,
@@ -91,13 +105,15 @@ export class CreatorService {
         // - If the Creator ID is correct, we'll update the Creator Name if it
         //   changed.
         // If we don't find a match, create a new account.
+        const creatorNameSlug = CreatorService.getCreatorNameSlug(creatorName);
+
         const creators = await this.prisma.creator.findMany({
             where: creatorName
                 ? {
                       // biome-ignore lint/style/useNamingConvention: lib
-                      OR: [{ hashedCreatorId }, { creatorName }]
+                      OR: [{ creatorId }, { creatorName }, { creatorNameSlug }]
                   }
-                : { hashedCreatorId }
+                : { creatorId }
         });
 
         // This can happen if we matched an existing Creator ID (so far so good)
@@ -128,8 +144,9 @@ export class CreatorService {
             // info if needed.
             const { creator: updatedCreator, modified } =
                 await this.authenticateAndUpdateCreator(
-                    hashedCreatorId,
+                    creatorId,
                     creatorName,
+                    creatorNameSlug,
                     hwid,
                     ip,
                     creator
@@ -144,9 +161,10 @@ export class CreatorService {
             // Create a new creator.
             creator = await this.prisma.creator.create({
                 data: {
-                    hashedCreatorId,
+                    creatorId,
                     creatorName:
                         CreatorService.validateCreatorName(creatorName),
+                    creatorNameSlug,
                     hwids: [hwid],
                     ips: [ip]
                 }
@@ -165,45 +183,26 @@ export class CreatorService {
         return {
             id: creator.id,
             creatorName: creator.creatorName,
+            creatorNameSlug: creator.creatorNameSlug,
             createdAt: creator.createdAt.toISOString()
         };
-    }
-
-    /**
-     * Hashes the Creator ID for storage in the database.
-     */
-    private hashCreatorId(creatorId: CreatorID): string {
-        // Use a repeatable hash function instead of a salted hash to allow for
-        // finding the creator by either the Creator ID or the Creator Name, a
-        // specific requirement due to how account creation and identification
-        // is done in Hall of Fame.
-        // This is not top-tier security, but it's good enough for Hall of Fame
-        // where I decided to prioritize ease of use.
-        const hasher = new Bun.CryptoHasher('blake2b256');
-
-        return hasher
-            .update(creatorId.toLowerCase())
-            .digest()
-            .toString('base64');
     }
 
     /**
      * Verifies that the Creator ID and Creator Name are correct and updates
      */
     private async authenticateAndUpdateCreator(
-        hashedCreatorId: string,
+        creatorId: string,
         creatorName: string | null,
+        creatorNameSlug: string | null,
         hwid: HardwareID,
         ip: IPAddress,
         creator: Creator
     ): Promise<{ creator: Creator; modified: boolean }> {
-        // Check if the Creator ID hashes match.
-        // Check if the database hash is non-null to allow for legacy Creator ID
-        // reset to Paradox account ID.
-        if (
-            creator.hashedCreatorId &&
-            creator.hashedCreatorId != hashedCreatorId
-        ) {
+        // Check if the Creator ID match.
+        // Check if the database Creator ID is non-null to allow for legacy
+        // Creator ID reset to Paradox account ID.
+        if (creator.creatorId && creator.creatorId != creatorId) {
             // This should never happen, as when we enter this condition, it
             // means that we matched on the Creator Name and not the Creator ID.
             assert(creator.creatorName);
@@ -214,14 +213,16 @@ export class CreatorService {
         // If no changes are needed, return the creator as is.
         if (
             creator.creatorName == creatorName &&
+            creator.creatorNameSlug == creatorNameSlug &&
             creator.hwids.includes(hwid) &&
             creator.ips.includes(ip) &&
-            creator.hashedCreatorId == hashedCreatorId
+            creator.creatorId == creatorId
         ) {
             return { creator, modified: false };
         }
 
-        // Update the Creator Name and Hardware IDs, and hash if it was reset.
+        // Update the Creator Name and Hardware IDs, and Creator ID if it was
+        // reset.
         const updatedCreator = await this.prisma.creator.update({
             where: { id: creator.id },
             data: {
@@ -230,7 +231,8 @@ export class CreatorService {
                     creator.creatorName == creatorName
                         ? creatorName
                         : CreatorService.validateCreatorName(creatorName),
-                hashedCreatorId,
+                creatorNameSlug,
+                creatorId,
                 hwids: Array.from(new Set([hwid, ...creator.hwids])),
                 ips: Array.from(new Set([ip, ...creator.ips]))
             }

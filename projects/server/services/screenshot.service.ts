@@ -69,7 +69,7 @@ export class ScreenshotService {
     public async ingestScreenshot(
         hwid: Maybe<HardwareID>,
         ip: Maybe<IPAddress>,
-        creator: Pick<Creator, 'id' | 'creatorName'>,
+        creator: Pick<Creator, 'id' | 'creatorName' | 'creatorNameSlug'>,
         cityName: string,
         cityMilestone: number,
         cityPopulation: number,

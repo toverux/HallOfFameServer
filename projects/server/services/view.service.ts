@@ -75,7 +75,7 @@ export class ViewService {
 
         const screenshotIds = screenshots.map(view => view.screenshotId);
 
-        if (screenshotIds.length) {
+        if (screenshotIds.length > 0) {
             this.viewsCache.set(creatorId, {
                 maxAge: maxAgeInDays ?? 0,
                 screenshotIds

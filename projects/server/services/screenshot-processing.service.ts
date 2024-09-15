@@ -87,7 +87,7 @@ export class ScreenshotProcessingService {
                         `screenshot-${name}.jpg`
                     );
 
-                    return Bun.write(imagePath, buffer);
+                    return Bun.write(imagePath, buffer.buffer);
                 })
             );
         }

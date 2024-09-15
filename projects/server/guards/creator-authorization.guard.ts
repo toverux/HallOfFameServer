@@ -110,6 +110,7 @@ export class CreatorAuthorizationGuard implements CanActivate {
                 hwid: hwid as HardwareID
             };
         } catch (error) {
+            // biome-ignore lint/suspicious/noMisplacedAssertion: false positive
             if (error instanceof assert.AssertionError) {
                 throw new ForbiddenException(
                     `Invalid Authorization header (${error.message}).`

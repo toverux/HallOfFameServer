@@ -13,7 +13,13 @@
       // Enable ALL by default (not just recommended), disable as-needed.
       "all": true,
       "nursery": {
-        "recommended": true
+        "recommended": true,
+        "useConsistentMemberAccessibility": {
+          "level": "warn",
+          "options": {
+            "accessibility": "explicit"
+          }
+        }
       },
       "complexity": {
         // Learn the language.
@@ -22,8 +28,12 @@
       "correctness": {
         // I generally know what I'm doing.
         "noNodejsModules": "off",
+        // I'd like to use it but with an ignore list, which is not possible atm.
+        "noUndeclaredDependencies": "off",
         // PROJECT-SPECIFIC: We do not use React and this rule gives false positives on NestJS.
-        "useHookAtTopLevel": "off"
+        "useHookAtTopLevel": "off",
+        // PROJECT-SPECIFIC: We do not use a runtime/bundler that necessitates this.
+        "useImportExtensions": "off"
       },
       "performance": {
         // Virtually not an issue with modern bundlers.
@@ -48,6 +58,11 @@
         // exception error messages. This makes spotting them easier and also it
         // makes it easier to use double or single quotes.
         "noUnusedTemplateLiteral": "off",
+        // I don't like that it forces "===" over "==" on 0, and it doesn't
+        // support undefined values well, i.e. it thinks `arr?.length > 0` is
+        // valid, while in TS it is not, so a simple `arr?.length` would need
+        // to be rewritten to `(arr?.length ?? 0) > 0`.
+        "useExplicitLengthCheck": "off",
         "useFilenamingConvention": {
           "level": "error",
           "options": {
@@ -67,6 +82,13 @@
         }
       },
       "suspicious": {
+        // If I use any level above ".log()", I know what I'm doing.
+        "noConsole": {
+          "level": "warn",
+          "options": {
+            "allow": ["info", "warn", "error"]
+          }
+        },
         // Double equals is not THAT bad, although I understand why the rule
         // exists. If you know the language you can avoid the pitfalls and even
         // enjoy the benefits of loose equality.

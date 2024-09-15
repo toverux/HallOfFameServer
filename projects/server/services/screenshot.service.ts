@@ -6,6 +6,7 @@ import { oneLine } from 'common-tags';
 import * as dateFns from 'date-fns';
 import {
     HardwareID,
+    IPAddress,
     JsonObject,
     Maybe,
     StandardError,
@@ -67,6 +68,7 @@ export class ScreenshotService {
      */
     public async ingestScreenshot(
         hwid: Maybe<HardwareID>,
+        ip: Maybe<IPAddress>,
         creator: Pick<Creator, 'id' | 'creatorName'>,
         cityName: string,
         cityMilestone: number,
@@ -74,9 +76,9 @@ export class ScreenshotService {
         createdAt: Date,
         file: Buffer
     ): Promise<Screenshot> {
-        if (hwid) {
+        if (hwid && ip) {
             // Check upload limit, throws if reached.
-            await this.checkUploadLimit(creator.id, hwid);
+            await this.checkUploadLimit(creator.id, hwid, ip);
         }
 
         // Generate the two resized screenshot from the uploaded file.
@@ -95,6 +97,7 @@ export class ScreenshotService {
                 data: {
                     createdAt,
                     hwid: hwid ?? null,
+                    ip: ip ?? null,
                     creatorId: creator.id,
                     cityName,
                     cityMilestone,
@@ -322,7 +325,8 @@ export class ScreenshotService {
      */
     private async checkUploadLimit(
         creatorId: Creator['id'],
-        hwid: HardwareID
+        hwid: HardwareID,
+        ip: IPAddress
     ): Promise<void> {
         // Let's find out by retrieving the screenshots uploaded in the last 24
         // hours, oldest first, so if the limit is reached, we can check based
@@ -332,7 +336,7 @@ export class ScreenshotService {
             orderBy: { createdAt: 'asc' },
             where: {
                 // biome-ignore lint/style/useNamingConvention: prisma
-                OR: [{ creatorId }, { hwid }],
+                OR: [{ creatorId }, { hwid }, { ip }],
                 createdAt: { gt: dateFns.subDays(new Date(), 1) }
             }
         });
@@ -496,6 +500,7 @@ export class ScreenshotService {
             reportedById: screenshot.reportedById,
             viewsCount: screenshot.views,
             hwid: screenshot.hwid,
+            ip: screenshot.ip,
             creatorId: screenshot.creatorId.$oid,
             cityName: screenshot.cityName,
             cityMilestone: screenshot.cityMilestone,

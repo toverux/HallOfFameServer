@@ -26,8 +26,12 @@ model Creator {
   /// Currently this only means they sent screenshots before public release.
   isSupporter         Boolean      @default(false)
   /// All unique hardware IDs used by this Creator, used to ban an Creator and
-  /// mitigate hostile multi-accounting.
+  /// mitigate hostile multi-accounting, along with `Creator.ips`.
   hwids               String[]
+  /// Same purpose as `Creator.hwids`, but for the IP addresses.
+  /// Contrarily to hardware IDs, IPs are harder to spoof so this adds as an
+  /// additional layer of security.
+  ips                 String[]
   /// One to many relationship with posted Screenshots.
   screenshots         Screenshot[] @relation("screenshots")
   /// One to many relationship with reported Screenshots.
@@ -64,6 +68,8 @@ model Screenshot {
   /// Null if the screenshot was created programmatically by an admin (ex.
   /// screenshots import via CLI).
   hwid              String?
+  /// Same purpose as `Screenshot.hwid`, but for the IP address.
+  ip                String?
   creatorId         String   @db.ObjectId
   creator           Creator  @relation("screenshots", fields: [creatorId], references: [id], onDelete: Cascade)
   cityName          String
@@ -83,26 +89,31 @@ model Screenshot {
   @@index([creatorId])
   @@index([creatorId, cityName])
   @@index([hwid])
+  @@index([ip])
   @@map("screenshots")
 }
 
-/// Ban for a Creator and/or an Hardware ID.
+/// Ban for a Creator and/or an Hardware ID and/or an IP address.
 model Ban {
   id       String   @id @default(auto()) @map("_id") @db.ObjectId
   bannedAt DateTime @default(now())
   reason   String
 
-  /// Either a Creator or an Hardware ID (hwid) can be banned.
-  /// If creatorId is set, hwid is set too and there is a Ban record for each
-  /// hwid used by the Creator.
+  /// Either a Creator, an Hardware ID (hwid) or an IP address can be banned.
+  /// If creatorId is set, hwid and ip is set too and there is a Ban record for
+  /// each of those hwids/ips used by the Creator.
   creatorId String?  @db.ObjectId
   creator   Creator? @relation(fields: [creatorId], references: [id], onDelete: Cascade)
-  /// If hwid is set, creatorId is null unless the creator was banned and
-  /// all their associated hwids were banned too.
+  /// If hwid is set, `creatorId` is null unless the creator was banned and
+  /// all their associated hardware IDs were banned too.
   hwid      String?
+  /// If the IP address is set, `creatorId` is null unless the creator was
+  /// banned and all their associated IP addresses were banned too.
+  ip        String?
 
   @@index([creatorId])
   @@index([hwid])
+  @@index([ip])
   @@map("bans")
 }
 

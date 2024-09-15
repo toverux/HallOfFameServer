@@ -1,6 +1,7 @@
 ### Get random screenshot (anonymous)
 
 GET {{url}}/api/v1/screenshots/weighted
+X-Forwarded-For: {{ip}}
 
 > {%
     client.global.set("screenshot", response.body);
@@ -10,6 +11,7 @@ GET {{url}}/api/v1/screenshots/weighted
 
 GET {{url}}/api/v1/screenshots/weighted
 Authorization: Creator {{creatorName}};{{creatorId}};{{hwid}}
+X-Forwarded-For: {{ip}}
 
 > {%
     client.global.set("screenshot", response.body);
@@ -24,6 +26,7 @@ GET {{url}}/api/v1/screenshots/weighted
     &supporter=10
     &viewMaxAge=1
 Authorization: Creator {{creatorName}};{{creatorId}};{{hwid}}
+X-Forwarded-For: {{ip}}
 
 > {%
     client.global.set("screenshot", response.body);
@@ -33,22 +36,20 @@ Authorization: Creator {{creatorName}};{{creatorId}};{{hwid}}
 
 POST {{url}}/api/v1/screenshots/{{screenshot.id}}/views
 Authorization: Creator {{creatorName}};{{creatorId}};{{hwid}}
+X-Forwarded-For: {{ip}}
 
 ### Report a screenshot
 
 POST {{url}}/api/v1/screenshots/{{screenshot.id}}/reports
 Authorization: Creator {{creatorName}};{{creatorId}};{{hwid}}
+X-Forwarded-For: {{ip}}
 
 ### Upload a screenshot
 
 POST {{url}}/api/v1/screenshots
 Authorization: Creator {{creatorName}};{{creatorId}};{{hwid}}
 Content-Type: multipart/form-data; boundary=WebAppBoundary
-
---WebAppBoundary
-Content-Disposition: form-data; name="creatorName"
-
-toverux
+X-Forwarded-For: {{ip}}
 
 --WebAppBoundary
 Content-Disposition: form-data; name="cityName"
@@ -70,3 +71,7 @@ Content-Disposition: form-data; name="screenshot"; filename="screenshot.jpg"
 
 < screenshot.jpg
 --WebAppBoundary--
+
+> {%
+    client.global.set("screenshot", response.body);
+%}

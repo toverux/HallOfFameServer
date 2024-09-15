@@ -5,6 +5,7 @@ import {
     Controller,
     Get,
     Inject,
+    Ip,
     Param,
     ParseIntPipe,
     Post,
@@ -15,7 +16,7 @@ import {
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { oneLine } from 'common-tags';
 import type { FastifyRequest } from 'fastify';
-import { type JsonObject, StandardError } from '../../common';
+import { type IPAddress, JsonObject, StandardError } from '../../common';
 import { CreatorAuthorizationGuard } from '../../guards';
 import { PrismaService, ScreenshotService, ViewService } from '../../services';
 
@@ -161,7 +162,6 @@ export class ScreenshotController {
      *
      * Expects a multipart request with the following fields:
      * - `creatorId`: The Creator ID.
-     * - `creatorName`: The Creator Name.
      * - `cityName`: The name of the city.
      * - `cityMilestone`: The milestone reached by the city.
      * - `cityPopulation`: The population of the city.
@@ -170,7 +170,10 @@ export class ScreenshotController {
      * Response will be 201 with serialized Screenshot.
      */
     @Post()
-    public async upload(@Req() req: FastifyRequest): Promise<JsonObject> {
+    public async upload(
+        @Ip() ip: IPAddress,
+        @Req() req: FastifyRequest
+    ): Promise<JsonObject> {
         const { authorization, creator } =
             CreatorAuthorizationGuard.getAuthenticatedCreator(req);
 
@@ -211,6 +214,7 @@ export class ScreenshotController {
 
             const screenshot = await this.screenshotService.ingestScreenshot(
                 authorization.hwid,
+                ip,
                 creator,
                 cityName,
                 cityMilestone,

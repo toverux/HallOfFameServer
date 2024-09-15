@@ -7,7 +7,8 @@ import * as uuid from 'uuid';
 import {
     CreatorID,
     HardwareID,
-    type JsonObject,
+    IPAddress,
+    JsonObject,
     StandardError
 } from '../common';
 import { PrismaService } from './prisma.service';
@@ -77,7 +78,8 @@ export class CreatorService {
     public async authenticateCreator(
         creatorId: string | CreatorID,
         creatorName: string | null,
-        hwid: HardwareID
+        hwid: HardwareID,
+        ip: IPAddress
     ): Promise<Creator> {
         const hashedCreatorId = this.hashCreatorId(
             CreatorService.validateCreatorId(creatorId)
@@ -129,6 +131,7 @@ export class CreatorService {
                     hashedCreatorId,
                     creatorName,
                     hwid,
+                    ip,
                     creator
                 );
 
@@ -144,7 +147,8 @@ export class CreatorService {
                     hashedCreatorId,
                     creatorName:
                         CreatorService.validateCreatorName(creatorName),
-                    hwids: [hwid]
+                    hwids: [hwid],
+                    ips: [ip]
                 }
             });
 
@@ -190,6 +194,7 @@ export class CreatorService {
         hashedCreatorId: string,
         creatorName: string | null,
         hwid: HardwareID,
+        ip: IPAddress,
         creator: Creator
     ): Promise<{ creator: Creator; modified: boolean }> {
         // Check if the Creator ID hashes match.
@@ -210,6 +215,7 @@ export class CreatorService {
         if (
             creator.creatorName == creatorName &&
             creator.hwids.includes(hwid) &&
+            creator.ips.includes(ip) &&
             creator.hashedCreatorId == hashedCreatorId
         ) {
             return { creator, modified: false };
@@ -225,7 +231,8 @@ export class CreatorService {
                         ? creatorName
                         : CreatorService.validateCreatorName(creatorName),
                 hashedCreatorId,
-                hwids: Array.from(new Set([hwid, ...creator.hwids]))
+                hwids: Array.from(new Set([hwid, ...creator.hwids])),
+                ips: Array.from(new Set([ip, ...creator.ips]))
             }
         });
 

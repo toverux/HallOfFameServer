@@ -214,6 +214,7 @@ class ImportCityCommand extends CommandRunner {
 
             const screenshot = await this.screenshotService.ingestScreenshot(
                 undefined,
+                undefined,
                 creator,
                 cityInfo.cityName,
                 cityInfo.cityMilestone,

@@ -20,3 +20,8 @@ export type CreatorID = Branded<string, 'Creator ID'>;
  * A hardware ID, a unique identifier for a hardware device.
  */
 export type HardwareID = Branded<string, 'Hardware ID'>;
+
+/**
+ * An IP address, in IPv4 or IPv6 format.
+ */
+export type IPAddress = Branded<string, 'IP Address'>;

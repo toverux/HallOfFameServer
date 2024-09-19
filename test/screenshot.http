@@ -10,7 +10,7 @@ X-Forwarded-For: {{ip}}
 ### Get random screenshot
 
 GET {{url}}/api/v1/screenshots/weighted
-Authorization: Creator {{creatorName}};{{creatorId}};{{hwid}}
+Authorization: Creator name={{creatorName}}&id={{creatorId}}&provider=paradox&hwid={{hwid}}
 X-Forwarded-For: {{ip}}
 
 > {%
@@ -25,7 +25,7 @@ GET {{url}}/api/v1/screenshots/weighted
     &archeologist=10
     &supporter=10
     &viewMaxAge=1
-Authorization: Creator {{creatorName}};{{creatorId}};{{hwid}}
+Authorization: Creator name={{creatorName}}&id={{creatorId}}&provider=paradox&hwid={{hwid}}
 X-Forwarded-For: {{ip}}
 
 > {%
@@ -35,19 +35,19 @@ X-Forwarded-For: {{ip}}
 ### Mark a screenshot as viewed
 
 POST {{url}}/api/v1/screenshots/{{screenshot.id}}/views
-Authorization: Creator {{creatorName}};{{creatorId}};{{hwid}}
+Authorization: Creator name={{creatorName}}&id={{creatorId}}&provider=paradox&hwid={{hwid}}
 X-Forwarded-For: {{ip}}
 
 ### Report a screenshot
 
 POST {{url}}/api/v1/screenshots/{{screenshot.id}}/reports
-Authorization: Creator {{creatorName}};{{creatorId}};{{hwid}}
+Authorization: Creator name={{creatorName}}&id={{creatorId}}&provider=paradox&hwid={{hwid}}
 X-Forwarded-For: {{ip}}
 
 ### Upload a screenshot
 
 POST {{url}}/api/v1/screenshots
-Authorization: Creator {{creatorName}};{{creatorId}};{{hwid}}
+Authorization: Creator name={{creatorName}}&id={{creatorId}}&provider=paradox&hwid={{hwid}}
 Content-Type: multipart/form-data; boundary=WebAppBoundary
 X-Forwarded-For: {{ip}}
 

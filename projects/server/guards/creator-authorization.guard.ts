@@ -10,12 +10,6 @@ import { FastifyRequest } from 'fastify';
 import { CreatorID, HardwareID, IPAddress } from '../common';
 import { BanService, CreatorService } from '../services';
 
-export interface CreatorAuthorization {
-    readonly creatorName: string | null;
-    readonly creatorId: CreatorID;
-    readonly hwid: HardwareID;
-}
-
 declare module 'fastify' {
     interface FastifyRequest {
         [CreatorAuthorizationGuard.authenticatedCreatorKey]?: {
@@ -23,6 +17,14 @@ declare module 'fastify' {
             readonly creator: Creator;
         };
     }
+}
+
+export interface CreatorAuthorization {
+    readonly creatorName: Creator['creatorName'];
+    readonly creatorId: CreatorID;
+    readonly creatorIdProvider: Creator['creatorIdProvider'];
+    readonly hwid: HardwareID;
+    readonly ip: IPAddress;
 }
 
 /**
@@ -60,22 +62,16 @@ export class CreatorAuthorizationGuard implements CanActivate {
     public async canActivate(context: ExecutionContext): Promise<boolean> {
         const request = context.switchToHttp().getRequest<FastifyRequest>();
 
-        const authorization = this.readAuthorizationHeader(request);
+        const authorization = this.getAuthorizationFromRequest(request);
         if (!authorization) {
             return true;
         }
 
-        const ip = request.ip as IPAddress;
-
-        await this.ban.ensureNotBanned(ip, authorization.hwid);
+        await this.ban.ensureNotBanned(authorization.ip, authorization.hwid);
 
         // noinspection UnnecessaryLocalVariableJS
-        const creator = await this.creatorService.authenticateCreator(
-            authorization.creatorId,
-            authorization.creatorName,
-            authorization.hwid,
-            ip
-        );
+        const creator =
+            await this.creatorService.authenticateCreator(authorization);
 
         await this.ban.ensureCreatorNotBanned(creator);
 
@@ -87,7 +83,7 @@ export class CreatorAuthorizationGuard implements CanActivate {
         return true;
     }
 
-    private readAuthorizationHeader(
+    private getAuthorizationFromRequest(
         request: FastifyRequest
     ): CreatorAuthorization | undefined {
         const header = request.headers.authorization;
@@ -95,18 +91,19 @@ export class CreatorAuthorizationGuard implements CanActivate {
             return undefined;
         }
 
+        const ip = request.ip as IPAddress;
+
         try {
             const firstSpace = header.indexOf(' ');
             const scheme = header.slice(0, firstSpace);
             const partsString = header.slice(firstSpace + 1);
 
-            const parts = partsString?.split(';');
+            const params = new URLSearchParams(partsString);
 
-            assert(parts?.length == 3);
-
-            const creatorName = parts[0]?.trim() || null;
-            const creatorId = parts[1]?.trim();
-            const hwid = parts[2]?.trim();
+            const creatorName = params.get('name')?.trim() || null;
+            const creatorId = params.get('id');
+            const provider = params.get('provider');
+            const hwid = params.get('hwid');
 
             assert(scheme?.toLowerCase() == 'creator', `Scheme is "Creator"`);
 
@@ -117,12 +114,19 @@ export class CreatorAuthorizationGuard implements CanActivate {
 
             assert(creatorId?.length, `Creator ID must be a non-empty string.`);
 
+            assert(
+                provider == 'paradox' || provider == 'local',
+                `Provider must be either "paradox" or "local".`
+            );
+
             assert(hwid?.length, `HWID must be a non-empty string.`);
 
             return {
                 creatorName,
                 creatorId: creatorId as CreatorID,
-                hwid: hwid as HardwareID
+                creatorIdProvider: provider,
+                hwid: hwid as HardwareID,
+                ip
             };
         } catch (error) {
             // biome-ignore lint/suspicious/noMisplacedAssertion: false positive

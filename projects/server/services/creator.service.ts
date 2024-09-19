@@ -3,13 +3,8 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { Creator } from '@prisma/client';
 import { oneLine } from 'common-tags';
 import * as uuid from 'uuid';
-import {
-    CreatorID,
-    HardwareID,
-    IPAddress,
-    JsonObject,
-    StandardError
-} from '../common';
+import { HardwareID, IPAddress, JsonObject, StandardError } from '../common';
+import { CreatorAuthorization } from '../guards';
 import { PrismaService } from './prisma.service';
 
 /**
@@ -84,12 +79,13 @@ export class CreatorService {
      * - If the Creator ID matches a record, the request is authenticated, and
      *   the Creator Name is updated if it changed.
      */
-    public async authenticateCreator(
-        creatorId: string | CreatorID,
-        creatorName: string | null,
-        hwid: HardwareID,
-        ip: IPAddress
-    ): Promise<Creator> {
+    public async authenticateCreator({
+        creatorId,
+        creatorIdProvider,
+        creatorName,
+        hwid,
+        ip
+    }: CreatorAuthorization): Promise<Creator> {
         // Validate the Creator ID.
         if (!uuid.validate(creatorId) || uuid.version(creatorId) != 4) {
             throw new InvalidCreatorIDError(creatorId);
@@ -145,6 +141,7 @@ export class CreatorService {
             const { creator: updatedCreator, modified } =
                 await this.authenticateAndUpdateCreator(
                     creatorId,
+                    creatorIdProvider,
                     creatorName,
                     creatorNameSlug,
                     hwid,
@@ -162,6 +159,7 @@ export class CreatorService {
             creator = await this.prisma.creator.create({
                 data: {
                     creatorId,
+                    creatorIdProvider,
                     creatorName:
                         CreatorService.validateCreatorName(creatorName),
                     creatorNameSlug,
@@ -192,9 +190,10 @@ export class CreatorService {
      * Verifies that the Creator ID and Creator Name are correct and updates
      */
     private async authenticateAndUpdateCreator(
-        creatorId: string,
-        creatorName: string | null,
-        creatorNameSlug: string | null,
+        creatorId: Creator['creatorId'],
+        creatorIdProvider: Creator['creatorIdProvider'],
+        creatorName: Creator['creatorName'],
+        creatorNameSlug: Creator['creatorNameSlug'],
         hwid: HardwareID,
         ip: IPAddress,
         creator: Creator
@@ -233,6 +232,7 @@ export class CreatorService {
                         : CreatorService.validateCreatorName(creatorName),
                 creatorNameSlug,
                 creatorId,
+                creatorIdProvider,
                 hwids: Array.from(new Set([hwid, ...creator.hwids])),
                 ips: Array.from(new Set([ip, ...creator.ips]))
             }

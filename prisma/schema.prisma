@@ -9,8 +9,8 @@ datasource db {
 
 /// An user/account, needed to view and upload screenshots.
 model Creator {
-  id                  String       @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt           DateTime     @default(now())
+  id                  String            @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt           DateTime          @default(now())
   /// Creator's name, public.
   /// Can contain only unicode letters, numbers, spaces, hyphens, apostrophes,
   /// and be between 2 and 20 characters long.
@@ -26,10 +26,13 @@ model Creator {
   /// This is how users are identified and authenticated, and plays the role of
   /// a password or API token, as this account ID is only known to an
   /// authenticated Paradox user.
-  creatorId           String       @unique
+  creatorId           String            @unique
+  /// The provider of the `Creator.creatorId`, either local (random ID generated
+  /// by the mod and managed by the user) or Paradox account GUID.
+  creatorIdProvider   CreatorIdProvider
   /// Whether the Creator is a supporter of the project.
   /// Currently this only means they sent screenshots before public release.
-  isSupporter         Boolean      @default(false)
+  isSupporter         Boolean           @default(false)
   /// All unique hardware IDs used by this Creator, used to ban an Creator and
   /// mitigate hostile multi-accounting, along with `Creator.ips`.
   hwids               String[]
@@ -38,9 +41,9 @@ model Creator {
   /// additional layer of security.
   ips                 String[]
   /// One to many relationship with posted Screenshots.
-  screenshots         Screenshot[] @relation("screenshots")
+  screenshots         Screenshot[]      @relation("screenshots")
   /// One to many relationship with reported Screenshots.
-  reportedScreenshots Screenshot[] @relation("reports")
+  reportedScreenshots Screenshot[]      @relation("reports")
   /// One to many relationship with Bans targeting the Creator.
   bans                Ban[]
   /// One to many relationship with Views, the screenshots the Creator has seen.
@@ -48,8 +51,14 @@ model Creator {
 
   @@index([creatorName])
   @@index([creatorNameSlug])
+  @@index([creatorIdProvider])
   @@index([isSupporter])
   @@map("creators")
+}
+
+enum CreatorIdProvider {
+  local
+  paradox
 }
 
 /// A screenshot uploaded by a Creator.

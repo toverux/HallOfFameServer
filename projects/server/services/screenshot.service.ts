@@ -319,7 +319,9 @@ export class ScreenshotService {
                 locale: dfnsLocale
             }),
             createdAtFormattedDistance: dfns.formatDistanceToNowStrict(
-                createdAtAdjusted,
+                // Not a mistake, do not use createdAtAdjusted here, we
+                // calculate the difference between two UTC dates.
+                screenshot.createdAt,
                 { locale: dfnsLocale, addSuffix: true }
             ),
             creatorId: screenshot.creatorId,

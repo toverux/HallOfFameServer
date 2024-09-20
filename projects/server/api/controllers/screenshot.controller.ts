@@ -92,10 +92,13 @@ export class ScreenshotController {
 
         return {
             __algorithm: screenshot.__algorithm,
-            ...this.screenshotService.serialize({
-                ...screenshot,
-                creator: createdBy
-            })
+            ...this.screenshotService.serialize(
+                {
+                    ...screenshot,
+                    creator: createdBy
+                },
+                req
+            )
         };
     }
 
@@ -140,7 +143,7 @@ export class ScreenshotController {
                 creator.id
             );
 
-            return this.screenshotService.serialize(screenshot);
+            return this.screenshotService.serialize(screenshot, req);
         } catch (error) {
             if (
                 error instanceof PrismaClientKnownRequestError &&
@@ -223,7 +226,10 @@ export class ScreenshotController {
                 fileBuffer
             );
 
-            return this.screenshotService.serialize({ ...screenshot, creator });
+            return this.screenshotService.serialize(
+                { ...screenshot, creator },
+                req
+            );
         } catch (error) {
             if (error instanceof Error && error.message.includes('format')) {
                 throw new InvalidImageFormatError(error);

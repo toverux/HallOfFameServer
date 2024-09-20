@@ -1,6 +1,8 @@
 ### Get random screenshot (anonymous)
 
 GET {{url}}/api/v1/screenshots/weighted
+Accept-Language: {{locale}}
+X-Timezone-Offset: {{utcOffset}}
 X-Forwarded-For: {{ip}}
 
 > {%
@@ -11,6 +13,8 @@ X-Forwarded-For: {{ip}}
 
 GET {{url}}/api/v1/screenshots/weighted
 Authorization: Creator name={{creatorName}}&id={{creatorId}}&provider=paradox&hwid={{hwid}}
+Accept-Language: {{locale}}
+X-Timezone-Offset: {{utcOffset}}
 X-Forwarded-For: {{ip}}
 
 > {%
@@ -26,6 +30,8 @@ GET {{url}}/api/v1/screenshots/weighted
     &supporter=10
     &viewMaxAge=1
 Authorization: Creator name={{creatorName}}&id={{creatorId}}&provider=paradox&hwid={{hwid}}
+Accept-Language: {{locale}}
+X-Timezone-Offset: {{utcOffset}}
 X-Forwarded-For: {{ip}}
 
 > {%
@@ -36,18 +42,24 @@ X-Forwarded-For: {{ip}}
 
 POST {{url}}/api/v1/screenshots/{{screenshot.id}}/views
 Authorization: Creator name={{creatorName}}&id={{creatorId}}&provider=paradox&hwid={{hwid}}
+Accept-Language: {{locale}}
+X-Timezone-Offset: {{utcOffset}}
 X-Forwarded-For: {{ip}}
 
 ### Report a screenshot
 
 POST {{url}}/api/v1/screenshots/{{screenshot.id}}/reports
 Authorization: Creator name={{creatorName}}&id={{creatorId}}&provider=paradox&hwid={{hwid}}
+Accept-Language: {{locale}}
+X-Timezone-Offset: {{utcOffset}}
 X-Forwarded-For: {{ip}}
 
 ### Upload a screenshot
 
 POST {{url}}/api/v1/screenshots
 Authorization: Creator name={{creatorName}}&id={{creatorId}}&provider=paradox&hwid={{hwid}}
+Accept-Language: {{locale}}
+X-Timezone-Offset: {{utcOffset}}
 Content-Type: multipart/form-data; boundary=WebAppBoundary
 X-Forwarded-For: {{ip}}
 

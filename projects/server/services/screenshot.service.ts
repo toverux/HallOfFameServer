@@ -3,7 +3,8 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Creator, Prisma, Screenshot } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { oneLine } from 'common-tags';
-import * as dateFns from 'date-fns';
+import * as dfns from 'date-fns';
+import { FastifyRequest } from 'fastify';
 import {
     HardwareID,
     IPAddress,
@@ -14,6 +15,7 @@ import {
 } from '../common';
 import { config } from '../config';
 import { CreatorService } from './creator.service';
+import { DateFnsLocalizationService } from './date-fns-localization.service';
 import { PrismaService } from './prisma.service';
 import { ScreenshotProcessingService } from './screenshot-processing.service';
 import { ScreenshotStorageService } from './screenshot-storage.service';
@@ -36,6 +38,9 @@ type RandomScreenshotFunctions = Record<
 export class ScreenshotService {
     @Inject(PrismaService)
     private readonly prisma!: PrismaService;
+
+    @Inject(DateFnsLocalizationService)
+    private readonly dateFnsLocalization!: DateFnsLocalizationService;
 
     @Inject(CreatorService)
     private readonly creatorService!: CreatorService;
@@ -288,8 +293,17 @@ export class ScreenshotService {
      * Serializes a {@link Screenshot} to a JSON object for API responses.
      */
     public serialize(
-        screenshot: Screenshot & { creator?: Creator }
+        screenshot: Screenshot & { creator?: Creator },
+        req: FastifyRequest
     ): JsonObject {
+        const dfnsLocale = this.dateFnsLocalization.getLocaleForRequest(req);
+
+        const createdAtAdjusted =
+            this.dateFnsLocalization.applyTimezoneOffsetOnDateForRequest(
+                req,
+                screenshot.createdAt
+            );
+
         return {
             id: screenshot.id,
             isReported: screenshot.isReported,
@@ -301,6 +315,13 @@ export class ScreenshotService {
             imageUrlFHD: this.getBlobUrl(screenshot.imageUrlFHD),
             imageUrl4K: this.getBlobUrl(screenshot.imageUrl4K),
             createdAt: screenshot.createdAt.toISOString(),
+            createdAtFormatted: dfns.format(createdAtAdjusted, 'Pp', {
+                locale: dfnsLocale
+            }),
+            createdAtFormattedDistance: dfns.formatDistanceToNowStrict(
+                createdAtAdjusted,
+                { locale: dfnsLocale, addSuffix: true }
+            ),
             creatorId: screenshot.creatorId,
             creator: optionallySerialized(
                 screenshot.creator &&
@@ -337,7 +358,7 @@ export class ScreenshotService {
             where: {
                 // biome-ignore lint/style/useNamingConvention: prisma
                 OR: [{ creatorId }, { hwid }, { ip }],
-                createdAt: { gt: dateFns.subDays(new Date(), 1) }
+                createdAt: { gt: dfns.subDays(new Date(), 1) }
             }
         });
 
@@ -346,7 +367,7 @@ export class ScreenshotService {
             throw new ScreenshotRateLimitExceededError(
                 config.screenshots.limitPer24h,
                 // biome-ignore lint/style/noNonNullAssertion: cannot be null
-                dateFns.addDays(latestScreenshots[0]!.createdAt, 1)
+                dfns.addDays(latestScreenshots[0]!.createdAt, 1)
             );
         }
     }
@@ -375,7 +396,7 @@ export class ScreenshotService {
     private getScreenshotRecent(
         nin: readonly Screenshot['id'][] = []
     ): Promise<Screenshot | null> {
-        const $date = dateFns.subDays(
+        const $date = dfns.subDays(
             new Date(),
             config.screenshots.recencyThresholdDays
         );
@@ -416,7 +437,7 @@ export class ScreenshotService {
     private getScreenshotArcheologist(
         nin: readonly Screenshot['id'][] = []
     ): Promise<Screenshot | null> {
-        const $date = dateFns.subDays(
+        const $date = dfns.subDays(
             new Date(),
             config.screenshots.recencyThresholdDays
         );

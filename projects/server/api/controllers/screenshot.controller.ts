@@ -124,10 +124,9 @@ export class ScreenshotController {
     /**
      * Reports a screenshot as inappropriate.
      *
-     * ###### Implementation notes
-     * The body is a zod-validated object, this might seem overkill for just one
-     * field, but we will probably have more fields in the future (ex. what is
-     * the nature of the issue, a comment, etc.), so the groundwork is there.
+     * Note: the request body is empty as of now as there are no other
+     * information to transmit. This could change if we allow users to provide
+     * a reason for the report.
      */
     @Post(':id/reports')
     public async report(

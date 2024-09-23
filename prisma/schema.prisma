@@ -13,7 +13,7 @@ model Creator {
   createdAt           DateTime          @default(now())
   /// Creator's name, public.
   /// Can contain only unicode letters, numbers, spaces, hyphens, apostrophes,
-  /// and be between 2 and 20 characters long.
+  /// and be between 1 and 20 characters long.
   /// It can otherwise be null and then UIs should display "Anonymous".
   /// Normally this should be `@unique` but MongoDB doesn't support sparse
   /// unique indexes so we have to enforce this in the application instead.
@@ -87,6 +87,9 @@ model Screenshot {
   ip                String?
   creatorId         String   @db.ObjectId
   creator           Creator  @relation("screenshots", fields: [creatorId], references: [id], onDelete: Cascade)
+  /// Name of the city.
+  /// Can contain only unicode letters, numbers, spaces, hyphens, apostrophes,
+  /// commas, and be between 1 and 20 characters long.
   cityName          String
   cityMilestone     Int
   cityPopulation    Int

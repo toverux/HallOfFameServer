@@ -15,13 +15,14 @@ export class CreatorService {
     /**
      * Regular expression to validate a Creator Name:
      * - Must contain only letters, numbers, spaces, hyphens and apostrophes.
-     * - Must be between 2 and 25 characters long.
+     * - Must be between 1 and 25 characters long. 1-character-long names are
+     *   for languages like Chinese.
      *
      * @see validateCreatorName
      * @see getCreatorNameSlug
      * @see InvalidCreatorNameError
      */
-    private static readonly nameRegex = /^[\p{L}\p{N}\- '’]{2,25}$/u;
+    private static readonly nameRegex = /^[\p{L}\p{N}\- '’]{1,25}$/u;
 
     @Inject(PrismaService)
     private readonly prisma!: PrismaService;
@@ -256,7 +257,7 @@ export class InvalidCreatorNameError extends CreatorError {
     public constructor(public readonly incorrectName: string) {
         super(oneLine`
             Creator Name "${incorrectName}" is invalid, it must contain only
-            letters, numbers, spaces, hyphens and apostrophes, and be between 2
+            letters, numbers, spaces, hyphens and apostrophes, and be between 1
             and 25 characters long.`);
     }
 }

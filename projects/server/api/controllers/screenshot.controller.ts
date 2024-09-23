@@ -27,9 +27,10 @@ export class ScreenshotController {
      * Regular expression to validate a city name:
      * - Must contain only letters, numbers, spaces, hyphens, apostrophes and
      *   commas.
-     * - Must be between 2 and 25 characters long.
+     * - Must be between 1 and 25 characters long. 1-character-long names are
+     *   for languages like Chinese.
      */
-    private static readonly cityNameRegex = /^[\p{L}\p{N}\- ',]{2,25}$/u;
+    private static readonly cityNameRegex = /^[\p{L}\p{N}\- ',]{1,25}$/u;
 
     @Inject(PrismaService)
     private readonly prisma!: PrismaService;
@@ -309,7 +310,7 @@ class InvalidCityNameError extends UploadError {
     public constructor(public readonly incorrectName: string) {
         super(oneLine`
             City name "${incorrectName}" is invalid, it must contain only
-            letters, numbers, spaces, hyphens and apostrophes, and be between 2
+            letters, numbers, spaces, hyphens and apostrophes, and be between 1
             and 25 characters long.`);
     }
 }

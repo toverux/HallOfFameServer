@@ -22,14 +22,15 @@ export class DateFnsLocalizationService {
      */
     public getLocaleForRequest(req: FastifyRequest): dfns.Locale {
         // If the request does not specify a locale, return the default locale.
-        const accepted = req.headers['accept-language'];
+        let accepted = req.headers['accept-language'];
         if (!accepted) {
             return this.defaultLocale;
         }
 
         // Remap some locale codes used by the game to the standard we use.
-        accepted.replace('zh-HANS', 'zh-CN');
-        accepted.replace('zh-HANT', 'zh-TW');
+        accepted = accepted
+            .replace('zh-HANS', 'zh-CN')
+            .replace('zh-HANT', 'zh-TW');
 
         // Resolve the locale based on the accepted languages.
         const locale = resolveAcceptLanguage(

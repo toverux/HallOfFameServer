@@ -100,7 +100,9 @@ export class CreatorAuthorizationGuard implements CanActivate {
 
             const params = new URLSearchParams(partsString);
 
-            const creatorName = params.get('name')?.trim() || null;
+            const creatorName =
+                decodeURIComponent(params.get('name') ?? '').trim() || null;
+
             const creatorId = params.get('id');
             const provider = params.get('provider');
             const hwid = params.get('hwid');

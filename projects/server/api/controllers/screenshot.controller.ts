@@ -25,10 +25,11 @@ import { PrismaService, ScreenshotService, ViewService } from '../../services';
 export class ScreenshotController {
     /**
      * Regular expression to validate a city name:
-     * - Must contain only letters, numbers, spaces, hyphens and apostrophes.
+     * - Must contain only letters, numbers, spaces, hyphens, apostrophes and
+     *   commas.
      * - Must be between 2 and 25 characters long.
      */
-    private static readonly cityNameRegex = /^[\p{L}\p{N}\- ']{2,25}$/u;
+    private static readonly cityNameRegex = /^[\p{L}\p{N}\- ',]{2,25}$/u;
 
     @Inject(PrismaService)
     private readonly prisma!: PrismaService;

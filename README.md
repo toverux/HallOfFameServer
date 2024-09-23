@@ -1,7 +1,7 @@
 # <img src="logo.png" alt="Hall of Fame logo" align="right" style="width: 256px">Hall of Fame Server
 
 [![Discord](https://img.shields.io/badge/Discord-@toverux-5865f2?logo=discord&logoColor=white&style=flat-square)](https://discord.gg/SsshDVq2Zj)
-[![Paradox Mods](https://img.shields.io/badge/Paradox_Mods-Unreleased_yet-5abe41?style=flat-square)](https://mods.paradoxplaza.com/games/cities_skylines_2)
+[![Paradox Mods](https://img.shields.io/badge/Paradox_Mods-Hall_of_Fame-5abe41?style=flat-square)](https://mods.paradoxplaza.com/mods/90641/Windows)
 
 Server part of the [Hall of Fame](https://github.com/toverux/HallOfFame) mod for
 Cities: Skylines II.

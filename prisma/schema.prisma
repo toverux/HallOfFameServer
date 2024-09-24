@@ -26,7 +26,7 @@ model Creator {
   /// This is how users are identified and authenticated, and plays the role of
   /// a password or API token, as this account ID is only known to an
   /// authenticated Paradox user.
-  creatorId           String            @unique
+  creatorId           String
   /// The provider of the `Creator.creatorId`, either local (random ID generated
   /// by the mod and managed by the user) or Paradox account GUID.
   creatorIdProvider   CreatorIdProvider
@@ -51,6 +51,7 @@ model Creator {
 
   @@index([creatorName])
   @@index([creatorNameSlug])
+  @@index([creatorId])
   @@index([creatorIdProvider])
   @@index([isSupporter])
   @@map("creators")

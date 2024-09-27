@@ -27,12 +27,20 @@ type RandomScreenshotAlgorithm =
     | 'archeologist'
     | 'supporter';
 
-type RandomScreenshotWeights = Record<RandomScreenshotAlgorithm, number>;
-
-type RandomScreenshotFunctions = Record<
-    RandomScreenshotAlgorithm,
-    (nin: readonly Screenshot['id'][]) => Promise<Screenshot | null>
+type RandomScreenshotWeights = Readonly<
+    Record<RandomScreenshotAlgorithm, number>
 >;
+
+type RandomScreenshotFunctions = Readonly<
+    Record<
+        RandomScreenshotAlgorithm,
+        (nin: readonly Screenshot['id'][]) => Promise<Screenshot | null>
+    >
+>;
+
+type ScreenshotWithAlgo = Screenshot & {
+    __algorithm: RandomScreenshotAlgorithm | 'random_default';
+};
 
 @Injectable()
 export class ScreenshotService {
@@ -240,53 +248,55 @@ export class ScreenshotService {
         weights: RandomScreenshotWeights,
         creatorId: Maybe<Creator['id']>,
         alreadyViewedMaxAgeInDays: number | undefined
-    ): Promise<Screenshot & { __algorithm: RandomScreenshotAlgorithm }> {
-        const viewedScreenshotIds = creatorId
+    ): Promise<ScreenshotWithAlgo> {
+        // Get the IDs of the screenshots viewed by the user, to avoid showing
+        // them screenshots they have already seen.
+        const viewedIds = creatorId
             ? await this.viewService.getViewedScreenshotIds(
                   creatorId,
                   alreadyViewedMaxAgeInDays
               )
             : [];
 
-        // Get the total weight.
-        const totalWeight = Object.values(weights).reduce(
-            (total, weight) => total + weight,
-            0
+        this.logger.debug(`Attempt to find screenshot starting.`);
+
+        // Try to get a screenshot using the weighted random selection and
+        // taking in account the viewed screenshots.
+        let screenshot = await this.tryGetWeightedRandomScreenshot(
+            weights,
+            viewedIds
         );
 
-        // Generate a random number between 0 and the total weight.
-        let random = Math.random() * totalWeight;
+        // If we did not find a screenshot here, it might be because the user
+        // has viewed all the screenshots for their weight preferences.
+        // Try again without taking into account the viewed screenshots, but
+        // still respecting the user's weights.
+        if (!screenshot && viewedIds.length > 0) {
+            this.logger.debug(
+                `No screenshot found, retrying without taking into account viewed screenshots.`
+            );
 
-        // Find the screenshot based on the random number.
-        let screenshot: Screenshot | null = null;
-        let algorithm: RandomScreenshotAlgorithm = 'random';
-
-        for (const [algo, weight] of Object.entries(weights)) {
-            if (random < weight) {
-                screenshot =
-                    await this.randomScreenshotFunctions[
-                        algo as RandomScreenshotAlgorithm
-                    ](viewedScreenshotIds);
-
-                if (screenshot) {
-                    algorithm = algo as RandomScreenshotAlgorithm;
-                }
-
-                break;
-            }
-
-            random -= weight;
+            screenshot = await this.tryGetWeightedRandomScreenshot(weights, []);
         }
 
-        // If no screenshot was found by an algorithm other than random,
-        // fallback to a random screenshot.
-        screenshot ??= await this.getScreenshotRandom();
+        // If we still did not find a screenshot, fall back to a completely
+        // random screenshot. This is very unlikely at this point.
+        if (!screenshot) {
+            this.logger.debug(`No screenshot found, falling back to random.`);
 
-        // We should always have a screenshot at this point, if not either the
-        // database is empty or we have a bug.
+            const random = await this.getScreenshotRandom();
+
+            if (random) {
+                screenshot = { ...random, __algorithm: 'random_default' };
+            }
+        }
+
+        // At this point we have a screenshot or the database is empty.
         assert(screenshot, `Not a single screenshot found. Empty database?`);
 
-        return { ...screenshot, __algorithm: algorithm };
+        this.logger.debug(`We have a screenshot!`);
+
+        return screenshot;
     }
 
     /**
@@ -337,6 +347,89 @@ export class ScreenshotService {
      */
     public getBlobUrl(blobName: string): string {
         return `${config.azure.cdn}/${config.azure.screenshotsContainer}/${blobName}`;
+    }
+
+    /**
+     * Used by {@link getWeightedRandomScreenshot}.
+     *
+     * Given a set of weights for each algorithm:
+     *  - Selects an algorithm based on the weights.
+     *  - Tries to get a screenshot using the selected algorithm.
+     *  - If no screenshot is found using the selected algorithm, removes it
+     *    from the candidate algorithms so it is not selected again.
+     *  - Repeats the process until a screenshot is found or all algorithms
+     *    have been tried.
+     */
+    private async tryGetWeightedRandomScreenshot(
+        weights: RandomScreenshotWeights,
+        viewedIds: readonly Screenshot['id'][]
+    ): Promise<ScreenshotWithAlgo | undefined> {
+        // Get a mutable copy of the weights.
+        const currentWeights = { ...weights };
+
+        // Loop until we find a screenshot or all algorithms have been tried,
+        // at which point it returns undefined.
+        while (true) {
+            // Get the total weight of the remaining algorithms.
+            const totalWeight = Object.values(currentWeights).reduce(
+                (total, weight) => total + weight,
+                0
+            );
+
+            // If the total weight is 0, we have tried all algorithms, bail out.
+            if (totalWeight == 0) {
+                return undefined;
+            }
+
+            // Get a random number between 0 and the total weight.
+            // This number will evolve as we iterate through the algorithms
+            // until we find one that has a weight higher than the random
+            // number. This is a weighted random selection, a classic algorithm.
+            let random = Math.random() * totalWeight;
+
+            // Algorithm-to-weight pairs to iterate through.
+            const algoWeightsKeyPairs = Object.entries(currentWeights) as [
+                RandomScreenshotAlgorithm,
+                number
+            ][];
+
+            // Iterate through the algorithms and their weights until we find
+            // a winner for the running random number.
+            // Remember: this loop does not iterate through algorithms to call
+            // each one until a screenshot is found, it just selects a random
+            // algorithm; the former is the role of the outer loop.
+            for (const [algorithm, weight] of algoWeightsKeyPairs) {
+                // If the random number is higher than the weight of the current
+                // algorithm, subtract the weight from the random number and try
+                // the next algorithm.
+                if (random >= weight) {
+                    random -= weight;
+                    continue;
+                }
+
+                this.logger.debug(
+                    `Try screenshot selection algorithm: ${algorithm}`
+                );
+
+                // We found a winner, try to get a screenshot!
+                const screenshot =
+                    await this.randomScreenshotFunctions[algorithm](viewedIds);
+
+                // If we found a screenshot, return it with the algorithm name.
+                if (screenshot) {
+                    return { ...screenshot, __algorithm: algorithm };
+                }
+
+                // If we did not find a screenshot, remove the algorithm from
+                // the list of candidates so it is not selected again, assigning
+                // a weight of 0 would work too.
+                delete currentWeights[algorithm];
+
+                // Break the for loop, we tried this algorithm, the outer loop
+                // will call us again to try another one, if there are any left.
+                break;
+            }
+        }
     }
 
     /**

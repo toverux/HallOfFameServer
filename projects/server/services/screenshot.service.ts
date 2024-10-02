@@ -189,6 +189,26 @@ export class ScreenshotService {
         screenshotId: Screenshot['id'],
         reportedById: Creator['id']
     ): Promise<Screenshot> {
+        const screenshot = await this.prisma.screenshot.findUnique({
+            where: { id: screenshotId },
+            select: {
+                isApproved: true,
+                cityName: true,
+                creator: { select: { creatorName: true } }
+            }
+        });
+
+        if (!screenshot) {
+            throw new ScreenshotNotFoundError(screenshotId);
+        }
+
+        if (screenshot.isApproved) {
+            throw new ScreenshotApprovedError(
+                screenshot,
+                config.supportContact
+            );
+        }
+
         try {
             return await this.prisma.screenshot.update({
                 where: { id: screenshotId },
@@ -218,7 +238,11 @@ export class ScreenshotService {
         try {
             return await this.prisma.screenshot.update({
                 where: { id: screenshotId },
-                data: { isReported: false, reportedById: null },
+                data: {
+                    isApproved: true,
+                    isReported: false,
+                    reportedById: null
+                },
                 include: { creator: true }
             });
         } catch (error) {
@@ -316,6 +340,7 @@ export class ScreenshotService {
 
         return {
             id: screenshot.id,
+            isApproved: screenshot.isApproved,
             isReported: screenshot.isReported,
             viewsCount: screenshot.viewsCount,
             cityName: screenshot.cityName,
@@ -612,6 +637,7 @@ export class ScreenshotService {
         return {
             id: screenshot._id.$oid,
             createdAt: new Date(screenshot.createdAt.$date),
+            isApproved: screenshot.isApproved,
             isReported: screenshot.isReported,
             reportedById: screenshot.reportedById,
             viewsCount: screenshot.views,
@@ -631,8 +657,31 @@ export class ScreenshotService {
 export abstract class ScreenshotError extends StandardError {}
 
 export class ScreenshotNotFoundError extends ScreenshotError {
-    public constructor(id: Screenshot['id'], options?: ErrorOptions) {
-        super(oneLine`Could not find screenshot #${id}.`, options);
+    public constructor(
+        public readonly id: Screenshot['id'],
+        options?: ErrorOptions
+    ) {
+        super(`Could not find screenshot #${id}.`, options);
+    }
+}
+
+export class ScreenshotApprovedError extends ScreenshotError {
+    public constructor(
+        public readonly screenshot: Pick<Screenshot, 'cityName'> & {
+            creator: Pick<Creator, 'creatorName'>;
+        },
+        public readonly supportContact: string,
+        options?: ErrorOptions
+    ) {
+        super(
+            oneLine`
+            Screenshot "${screenshot.cityName}" by
+            ${screenshot.creator.creatorName} has already been approved manually
+            by an administrator, and hence can't be reported.
+            If you think this is a mistake, please contact support
+            (${supportContact}).`,
+            options
+        );
     }
 }
 

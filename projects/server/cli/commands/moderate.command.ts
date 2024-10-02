@@ -22,9 +22,9 @@ import {
 } from '../../services';
 
 const moderationActions = {
-    approve: 'Approve Screenshot (ignore report)',
-    delete: 'Delete Screenshot',
-    ban: 'Delete Screenshot & Ban Creator'
+    approve: 'APPROVE Screenshot (discard report, mark approved)',
+    delete: 'DELETE Screenshot',
+    ban: 'DELETE Screenshot & Ban Creator'
 };
 
 type ModerationAction = keyof typeof moderationActions;

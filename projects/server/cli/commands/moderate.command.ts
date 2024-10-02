@@ -83,8 +83,7 @@ class ModerateCommand extends CommandRunner {
             }
 
             const reportedCount = await this.prisma.screenshot.count({
-                where: { isReported: true },
-                take: 1
+                where: { isReported: true }
             });
 
             console.info(

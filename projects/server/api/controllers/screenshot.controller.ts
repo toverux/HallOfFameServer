@@ -3,6 +3,7 @@ import { Multipart } from '@fastify/multipart';
 import {
     BadRequestException,
     Controller,
+    Delete,
     Get,
     Inject,
     Ip,
@@ -18,7 +19,12 @@ import { oneLine } from 'common-tags';
 import type { FastifyRequest } from 'fastify';
 import { type IPAddress, JsonObject, StandardError } from '../../common';
 import { CreatorAuthorizationGuard } from '../../guards';
-import { PrismaService, ScreenshotService, ViewService } from '../../services';
+import {
+    FavoriteService,
+    PrismaService,
+    ScreenshotService,
+    ViewService
+} from '../../services';
 
 @Controller('screenshots')
 @UseGuards(CreatorAuthorizationGuard)
@@ -34,6 +40,9 @@ export class ScreenshotController {
 
     @Inject(PrismaService)
     private readonly prisma!: PrismaService;
+
+    @Inject(FavoriteService)
+    private readonly favoriteService!: FavoriteService;
 
     @Inject(ScreenshotService)
     private readonly screenshotService!: ScreenshotService;
@@ -92,16 +101,70 @@ export class ScreenshotController {
 
         assert(createdBy, `Could not find Creator #${screenshot.creatorId}`);
 
-        return {
-            __algorithm: screenshot.__algorithm,
-            ...this.screenshotService.serialize(
-                {
-                    ...screenshot,
-                    creator: createdBy
-                },
-                req
-            )
-        };
+        const payload = this.screenshotService.serialize(
+            {
+                ...screenshot,
+                creator: createdBy
+            },
+            req
+        );
+
+        payload.__algorithm = screenshot.__algorithm;
+
+        // If the user is authenticated, we check if the screenshot is already
+        // in their favorites. Otherwise, just set it to false.
+        payload.__liked =
+            !!authed &&
+            (await this.favoriteService.isFavorite(
+                screenshot.id,
+                authed.creator.id,
+                authed.authorization.ip,
+                authed.authorization.hwid
+            ));
+
+        return payload;
+    }
+
+    /**
+     * Adds the screenshot to the authenticated creator's favorites.
+     * We also verify that the screenshot was not already favorites using a same
+     * IP or HWID, as multi-accounting on favorites is not allowed.
+     */
+    @Post(':id/favorites')
+    public async addToFavorites(
+        @Req() req: FastifyRequest,
+        @Param('id') screenshotId: string
+    ): Promise<JsonObject> {
+        const authed = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
+
+        const favorite = await this.favoriteService.addFavorite(
+            screenshotId,
+            authed.creator.id,
+            authed.authorization.ip,
+            authed.authorization.hwid
+        );
+
+        return this.favoriteService.serialize(favorite);
+    }
+
+    /**
+     * Deletes the screenshot from the authenticated creator's favorites.
+     */
+    @Delete(':id/favorites/mine')
+    public async removeFromFavorites(
+        @Req() req: FastifyRequest,
+        @Param('id') screenshotId: string
+    ): Promise<JsonObject> {
+        const authed = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
+
+        const favorite = await this.favoriteService.removeFavorite(
+            screenshotId,
+            authed.creator.id,
+            authed.authorization.ip,
+            authed.authorization.hwid
+        );
+
+        return this.favoriteService.serialize(favorite);
     }
 
     /**

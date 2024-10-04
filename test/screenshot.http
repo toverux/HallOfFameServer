@@ -38,6 +38,22 @@ X-Forwarded-For: {{ip}}
     client.global.set("screenshot", response.body);
 %}
 
+### Add a screenshot to favorites
+
+POST {{url}}/api/v1/screenshots/{{screenshot.id}}/favorites
+Authorization: Creator name={{creatorName}}&id={{creatorId}}&provider=paradox&hwid={{hwid}}
+Accept-Language: {{locale}}
+X-Timezone-Offset: {{utcOffset}}
+X-Forwarded-For: {{ip}}
+
+### Remove a screenshot from favorites
+
+DELETE {{url}}/api/v1/screenshots/{{screenshot.id}}/favorites/mine
+Authorization: Creator name={{creatorName}}&id={{creatorId}}&provider=paradox&hwid={{hwid}}
+Accept-Language: {{locale}}
+X-Timezone-Offset: {{utcOffset}}
+X-Forwarded-For: {{ip}}
+
 ### Mark a screenshot as viewed
 
 POST {{url}}/api/v1/screenshots/{{screenshot.id}}/views

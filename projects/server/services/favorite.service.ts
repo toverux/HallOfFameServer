@@ -53,8 +53,8 @@ export class FavoriteService {
                 // biome-ignore lint/style/useNamingConvention: prisma
                 OR: [
                     { screenshotId, creatorId },
-                    { screenshotId, ip },
-                    { screenshotId, hwid }
+                    { screenshotId, hwid },
+                    ...(ip.startsWith('172') ? [] : [{ screenshotId, ip }])
                 ]
             }
         });
@@ -101,8 +101,8 @@ export class FavoriteService {
                 // biome-ignore lint/style/useNamingConvention: prisma
                 OR: [
                     { screenshotId, creatorId },
-                    { screenshotId, ip },
-                    { screenshotId, hwid }
+                    { screenshotId, hwid },
+                    ...(ip.startsWith('172') ? [] : [{ screenshotId, ip }])
                 ]
             }
         });

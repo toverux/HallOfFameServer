@@ -7,6 +7,7 @@ X-Forwarded-For: {{ip}}
 
 > {%
     client.global.set("screenshot", response.body);
+    client.global.set("creator", response.body.creator);
 %}
 
 ### Get random screenshot
@@ -19,6 +20,7 @@ X-Forwarded-For: {{ip}}
 
 > {%
     client.global.set("screenshot", response.body);
+    client.global.set("creator", response.body.creator);
 %}
 
 ### Get random screenshot weighted algorithms
@@ -36,6 +38,7 @@ X-Forwarded-For: {{ip}}
 
 > {%
     client.global.set("screenshot", response.body);
+    client.global.set("creator", response.body.creator);
 %}
 
 ### Add a screenshot to favorites

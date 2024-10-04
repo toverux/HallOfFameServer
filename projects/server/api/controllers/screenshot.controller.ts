@@ -113,7 +113,7 @@ export class ScreenshotController {
 
         // If the user is authenticated, we check if the screenshot is already
         // in their favorites. Otherwise, just set it to false.
-        payload.__liked =
+        payload.__favorited =
             !!authed &&
             (await this.favoriteService.isFavorite(
                 screenshot.id,

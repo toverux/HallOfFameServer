@@ -1,0 +1,19 @@
+### Get me
+
+GET {{url}}/api/v1/creators/me
+Authorization: Creator name={{creatorName}}&id={{creatorId}}&provider=paradox&hwid={{hwid}}
+Accept-Language: {{locale}}
+X-Timezone-Offset: {{utcOffset}}
+X-Forwarded-For: {{ip}}
+
+> {%
+    client.global.set("creator", response.body);
+%}
+
+### Get statistics for a creator
+
+GET {{url}}/api/v1/creators/{{creator.id}}/stats
+Authorization: Creator name={{creatorName}}&id={{creatorId}}&provider=paradox&hwid={{hwid}}
+Accept-Language: {{locale}}
+X-Timezone-Offset: {{utcOffset}}
+X-Forwarded-For: {{ip}}

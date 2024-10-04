@@ -1,0 +1,4 @@
+GET {{url}}/api/v1/platform/expense-income-records
+Accept-Language: {{locale}}
+X-Timezone-Offset: {{utcOffset}}
+X-Forwarded-For: {{ip}}

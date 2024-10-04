@@ -160,15 +160,15 @@ model Favorite {
   /// As well as `hwid`, prevents multi-accounting for favorites
   ip           String
 
-  /// Index to be used to find all Favorites for a single Screenshot.
-  @@index([screenshotId])
-  /// Index to be used to find all Favorites for a single Creator.
-  @@index([creatorId])
   /// These unique indexes will help us find a Favorite on a specific Screenshot
   /// set by a specific user, and prevent multi-accounting for favorites.
   @@unique([screenshotId, creatorId])
   @@unique([screenshotId, hwid])
   @@unique([screenshotId, ip])
+  /// Index to be used to find all Favorites for a single Screenshot.
+  @@index([screenshotId])
+  /// Index to be used to find all Favorites for a single Creator.
+  @@index([creatorId])
   @@map("favorites")
 }
 
@@ -188,4 +188,15 @@ model View {
   // the user hasn't seen in a while.
   @@index([creatorId, viewedAt])
   @@map("views")
+}
+
+/// Record of an expense or income for tracking the project's financial balance
+/// between hosting expenses and donations.
+model ExpenseIncomeRecord {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  processedAt DateTime @default(now())
+  amount      Float
+  description String
+
+  @@map("expense_income_records")
 }

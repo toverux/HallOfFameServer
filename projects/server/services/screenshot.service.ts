@@ -477,7 +477,11 @@ export class ScreenshotService {
             orderBy: { createdAt: 'asc' },
             where: {
                 // biome-ignore lint/style/useNamingConvention: prisma
-                OR: [{ creatorId }, { hwid }, { ip }],
+                OR: [
+                    { creatorId },
+                    { hwid },
+                    ...(ip.startsWith('172') ? [] : [{ ip }])
+                ],
                 createdAt: { gt: dfns.subDays(new Date(), 1) }
             }
         });

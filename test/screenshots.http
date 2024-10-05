@@ -27,6 +27,7 @@ X-Forwarded-For: {{ip}}
 
 GET {{url}}/api/v1/screenshots/weighted
     ?random=10
+    &trending=10
     &recent=10
     &archeologist=10
     &supporter=10

@@ -25,6 +25,7 @@ import { ViewService } from './view.service';
 
 type RandomScreenshotAlgorithm =
     | 'random'
+    | 'trending'
     | 'recent'
     | 'archeologist'
     | 'supporter';
@@ -68,6 +69,7 @@ export class ScreenshotService {
 
     private readonly randomScreenshotFunctions: RandomScreenshotFunctions = {
         random: this.getScreenshotRandom.bind(this),
+        trending: this.getScreenshotTrending.bind(this),
         recent: this.getScreenshotRecent.bind(this),
         archeologist: this.getScreenshotArcheologist.bind(this),
         supporter: this.getScreenshotSupporter.bind(this)
@@ -355,7 +357,9 @@ export class ScreenshotService {
             isApproved: screenshot.isApproved,
             isReported: screenshot.isReported,
             viewsCount: screenshot.viewsCount,
+            viewsPerDay: screenshot.viewsPerDay,
             favoritesCount: screenshot.favoritesCount,
+            favoritesPerDay: screenshot.favoritesPerDay,
             cityName: screenshot.cityName,
             cityMilestone: screenshot.cityMilestone,
             cityPopulation: screenshot.cityPopulation,
@@ -612,6 +616,29 @@ export class ScreenshotService {
                 }
             },
             { $sample: { size: 1 } }
+        ]);
+    }
+
+    /**
+     * Retrieves a non-reported screenshot that has a high amount of "likes"
+     * (favorites) *per day*.
+     *
+     * ###### Implementation Notes
+     * Same performance considerations as {@link getScreenshotArcheologist} for
+     * the screenshots' aggregation.
+     */
+    private getScreenshotTrending(
+        nin: readonly Screenshot['id'][] = []
+    ): Promise<Screenshot | null> {
+        return this.runAggregateForSingleScreenshot([
+            {
+                $match: {
+                    _id: { $nin: nin.map(id => ({ $oid: id })) },
+                    isReported: false
+                }
+            },
+            { $sort: { favoritesPerDay: -1 } },
+            { $limit: 1 }
         ]);
     }
 

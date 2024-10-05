@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { Creator, Prisma, Screenshot } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+import Bun from 'bun';
 import { oneLine } from 'common-tags';
 import * as dfns from 'date-fns';
 import { FastifyRequest } from 'fastify';
@@ -386,6 +388,95 @@ export class ScreenshotService {
     }
 
     /**
+     * Updates the average views and favorites per day for each screenshot in
+     * the database.
+     *
+     * Averages are rounded to one decimal place and updates are only made if
+     * the difference between the calculated average and the stored average is
+     * greater than 0.1.
+     *
+     * The cron is scheduled to run every hour. It can also be run from the CLI
+     * with `bun run:cli update-screenshots-averages`.
+     */
+    @Cron('0 0 * * * *')
+    public async updateAverageViewsAndFavoritesPerDay(
+        nice = true
+    ): Promise<number> {
+        this.logger.log(
+            `[CRON] Start updating screenshots average views and favorites per day.`
+        );
+
+        const screenshots = await this.prisma.screenshot.findMany({
+            where: {
+                // biome-ignore lint/style/useNamingConvention: prisma
+                OR: [{ favoritesCount: { gt: 0 } }, { viewsCount: { gt: 0 } }]
+            },
+            select: {
+                id: true,
+                createdAt: true,
+                viewsCount: true,
+                viewsPerDay: true,
+                favoritesCount: true,
+                favoritesPerDay: true
+            }
+        });
+
+        this.logger.log(`Found ${screenshots.length} screenshots to update.`);
+
+        const viewsImplementationDate = new Date('2024-09-23');
+        const favoritesImplementationDate = new Date('2024-10-5');
+
+        let updatedCount = 0;
+
+        for (const screenshot of screenshots) {
+            const favoritesRefTime = Math.max(
+                favoritesImplementationDate.getTime(),
+                screenshot.createdAt.getTime()
+            );
+
+            const viewsRefTime = Math.max(
+                viewsImplementationDate.getTime(),
+                screenshot.createdAt.getTime()
+            );
+
+            let favoritesPerDay =
+                screenshot.favoritesCount /
+                ((Date.now() - favoritesRefTime) / 1000 / 60 / 60 / 24);
+
+            let viewsPerDay =
+                screenshot.viewsCount /
+                ((Date.now() - viewsRefTime) / 1000 / 60 / 60 / 24);
+
+            favoritesPerDay = Math.round(favoritesPerDay * 10) / 10;
+            viewsPerDay = Math.round(viewsPerDay * 10) / 10;
+
+            // Check if saved averages are different from the calculated one by
+            // more than 0.1; if it is, update the average.
+            if (
+                Math.abs(screenshot.favoritesPerDay - favoritesPerDay) > 0.1 ||
+                Math.abs(screenshot.viewsPerDay - viewsPerDay) > 0.1
+            ) {
+                await this.prisma.screenshot.update({
+                    where: { id: screenshot.id },
+                    data: { viewsPerDay, favoritesPerDay }
+                });
+
+                updatedCount++;
+
+                if (nice) {
+                    await Bun.sleep(100);
+                }
+            }
+        }
+
+        this.logger.log(
+            `[CRON] Done updating screenshots averages, updated ${updatedCount} screenshots.`
+        );
+
+        return updatedCount;
+    }
+
+    /**
      * Used by {@link getWeightedRandomScreenshot}.
      *
      * Given a set of weights for each algorithm:
@@ -656,7 +747,9 @@ export class ScreenshotService {
             isReported: screenshot.isReported,
             reportedById: screenshot.reportedById,
             favoritesCount: screenshot.favoritesCount,
+            favoritesPerDay: screenshot.favoritesPerDay,
             viewsCount: screenshot.views,
+            viewsPerDay: screenshot.viewsPerDay,
             hwid: screenshot.hwid,
             ip: screenshot.ip,
             creatorId: screenshot.creatorId.$oid,

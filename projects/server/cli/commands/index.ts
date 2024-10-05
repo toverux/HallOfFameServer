@@ -4,6 +4,7 @@ import { deleteScreenshotCommandProviders } from './delete-screenshot';
 import { deleteCommandProviders } from './delete.command';
 import { importCityCommandProviders } from './import-city.command';
 import { moderateCommandProviders } from './moderate.command';
+import { updateScreenshotsAveragesCommandProviders } from './update-screenshots-averages.command';
 
 // Lists commands but also their other nest-commander DI dependencies.
 export const commands: Provider[] = [
@@ -11,5 +12,6 @@ export const commands: Provider[] = [
     ...deleteCommandProviders,
     ...deleteScreenshotCommandProviders,
     ...importCityCommandProviders,
-    ...moderateCommandProviders
+    ...moderateCommandProviders,
+    ...updateScreenshotsAveragesCommandProviders
 ];

@@ -6,6 +6,7 @@ import {
     ServiceUnavailableException
 } from '@nestjs/common';
 import { RouterModule } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 import { SentryModule } from '@sentry/nestjs/setup';
 import { ApiModule } from './api/api.module';
 import { StandardError } from './common';
@@ -15,6 +16,7 @@ import { SharedModule } from './shared.module';
 
 @Module({
     imports: [
+        ScheduleModule.forRoot(),
         SentryModule.forRoot(),
         RouterModule.register([{ path: 'api/v1', module: ApiModule }]),
         SharedModule,

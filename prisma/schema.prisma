@@ -83,8 +83,12 @@ model Screenshot {
   reportedBy        Creator?   @relation("reports", fields: [reportedById], references: [id], onDelete: SetNull)
   /// Number of favorites the Screenshot has received.
   favoritesCount    Int        @default(0)
+  /// Average number of favorites the Screenshot has received per day.
+  favoritesPerDay   Float      @default(0)
   /// Number of views the Screenshot has received.
   viewsCount        Int        @default(0)
+  /// Average number of views the Screenshot has received per day.
+  viewsPerDay       Float      @default(0)
   /// Hardware ID of the user who uploaded the Screenshot.
   /// Used in case a user is multi-accounting (which is allowed), to keep track
   /// of all the screenshots uploaded by a same person to apply quota even
@@ -114,6 +118,7 @@ model Screenshot {
   @@index([isReported])
   @@index([createdAt, isReported]) // for "recent" aggregation
   @@index([viewsCount])
+  @@index([favoritesPerDay, isReported]) // for "trending" aggregation
   @@index([viewsCount, isReported]) // for "low views" aggregation
   @@index([creatorId])
   @@index([creatorId, cityName])

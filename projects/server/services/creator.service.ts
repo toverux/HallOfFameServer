@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, Logger } from '@nestjs/common';
 import type { Creator } from '@prisma/client';
 import { oneLine } from 'common-tags';
 import * as uuid from 'uuid';
@@ -264,7 +264,7 @@ export class InvalidCreatorNameError extends CreatorError {
 }
 
 export class IncorrectCreatorIDError extends CreatorError {
-    public override kind = 'forbidden' as const;
+    public override httpErrorType = ForbiddenException;
 
     public constructor(public readonly creatorName: string) {
         super(oneLine`

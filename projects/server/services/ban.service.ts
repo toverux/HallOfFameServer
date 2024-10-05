@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, Logger } from '@nestjs/common';
 import { Ban, Creator } from '@prisma/client';
 import { oneLine } from 'common-tags';
 import { LRUCache } from 'lru-cache';
@@ -197,7 +197,7 @@ export class BanService {
 export abstract class BanError extends StandardError {}
 
 export class BannedError extends BanError {
-    public override kind = 'forbidden' as const;
+    public override httpErrorType = ForbiddenException;
 
     public constructor(
         public readonly ip: IPAddress,
@@ -214,7 +214,7 @@ export class BannedError extends BanError {
 }
 
 export class BannedCreatorError extends BanError {
-    public override kind = 'forbidden' as const;
+    public override httpErrorType = ForbiddenException;
 
     public constructor(
         public readonly ban: Pick<Ban, 'reason' | 'bannedAt'>,

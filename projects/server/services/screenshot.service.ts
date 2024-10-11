@@ -107,14 +107,14 @@ export class ScreenshotService {
 
         // Create the screenshot in the database and upload the screenshots,
         // in a transaction so if the upload fails, the database is not updated.
-        return this.prisma.$transaction(saveScreenshot, {
+        return this.prisma.$transaction(saveScreenshotTransaction.bind(this), {
             // This is the timeout after which the whole transaction is
             // cancelled; default is 5s, wait a little longer because images
             // can take some time to upload when the network is slow.
             timeout: 10_000
         });
 
-        async function saveScreenshot(
+        async function saveScreenshotTransaction(
             this: ScreenshotService,
             prisma: Prisma.TransactionClient
         ): Promise<Screenshot> {

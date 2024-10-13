@@ -169,7 +169,7 @@ model Favorite {
   /// set by a specific user, and prevent multi-accounting for favorites.
   @@unique([screenshotId, creatorId])
   @@unique([screenshotId, hwid])
-  @@unique([screenshotId, ip])
+  @@index([screenshotId, ip])
   /// Index to be used to find all Favorites for a single Screenshot.
   @@index([screenshotId])
   /// Index to be used to find all Favorites for a single Creator.

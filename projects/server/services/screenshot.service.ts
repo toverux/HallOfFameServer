@@ -67,6 +67,8 @@ export class ScreenshotService {
 
     private readonly logger = new Logger(ScreenshotService.name);
 
+    private static readonly sampleSizeForDeterministicAlgorithms = 100;
+
     private readonly randomScreenshotFunctions: RandomScreenshotFunctions = {
         random: this.getScreenshotRandom.bind(this),
         trending: this.getScreenshotTrending.bind(this),
@@ -639,7 +641,8 @@ export class ScreenshotService {
                 }
             },
             { $sort: { favoritesPerDay: -1 } },
-            { $limit: 1 }
+            { $limit: ScreenshotService.sampleSizeForDeterministicAlgorithms },
+            { $sample: { size: 1 } }
         ]);
     }
 
@@ -664,7 +667,8 @@ export class ScreenshotService {
                 }
             },
             { $sort: { viewsCount: 1, createdAt: 1 } },
-            { $limit: 1 }
+            { $limit: ScreenshotService.sampleSizeForDeterministicAlgorithms },
+            { $sample: { size: 1 } }
         ]);
     }
 
@@ -705,7 +709,8 @@ export class ScreenshotService {
                 }
             },
             { $sort: { viewsCount: 1, createdAt: 1 } },
-            { $limit: 1 }
+            { $limit: ScreenshotService.sampleSizeForDeterministicAlgorithms },
+            { $sample: { size: 1 } }
         ]);
     }
 
@@ -745,7 +750,8 @@ export class ScreenshotService {
                 }
             },
             { $sort: { viewsCount: 1, createdAt: 1 } },
-            { $limit: 1 }
+            { $limit: ScreenshotService.sampleSizeForDeterministicAlgorithms },
+            { $sample: { size: 1 } }
         ]);
     }
 

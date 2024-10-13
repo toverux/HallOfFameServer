@@ -634,6 +634,7 @@ export class ScreenshotService {
             {
                 $match: {
                     _id: { $nin: nin.map(id => ({ $oid: id })) },
+                    favoritesPerDay: { $gt: 0 },
                     isReported: false
                 }
             },

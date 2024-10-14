@@ -44,8 +44,8 @@ export class CreatorController {
         const creator = await this.fetchCreatorById(creatorId, req);
 
         const [
-            allCreatorsCount,
             allScreenshotsCount,
+            allCreatorsCount,
             allViewsCount,
             screenshotsCount,
             viewsCount,

@@ -37,11 +37,21 @@ export class ScreenshotStorageService {
 
         const date = dateFns.format(new Date(), 'yyyy-MM-dd-HH-mm-ss');
 
-        const blobSlug = slug(
-            `${screenshot.cityName} by ${creator.creatorNameSlug} ${date}`
-        );
+        const cityNameSlug = slug(screenshot.cityName, { fallback: false });
 
-        const blobNameBase = `${creator.id}/${screenshot.id}/${blobSlug}`;
+        const creatorNameSlug =
+            creator.creatorNameSlug &&
+            slug(creator.creatorNameSlug, { fallback: false });
+
+        // slug will return an empty string if the input only has characters
+        // that it cannot slugify or transliterate, for example Chinese, so we
+        // need to handle fallbacks.
+        const contextSlug =
+            cityNameSlug && creatorNameSlug
+                ? `${cityNameSlug}-by-${creatorNameSlug}`
+                : cityNameSlug || creatorNameSlug || 'screenshot';
+
+        const blobNameBase = `${creator.id}/${screenshot.id}/${contextSlug}-${date}`;
 
         const [blobNameThumbnail, blobNameFHD, blobName4K] = await allFulfilled(
             [

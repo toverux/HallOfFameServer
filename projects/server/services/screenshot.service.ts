@@ -114,7 +114,7 @@ export class ScreenshotService {
             // This is the timeout after which the whole transaction is
             // cancelled; default is 5s, wait a little longer because images
             // can take some time to upload when the network is slow.
-            timeout: 10_000
+            timeout: 20_000
         });
 
         async function saveScreenshotTransaction(

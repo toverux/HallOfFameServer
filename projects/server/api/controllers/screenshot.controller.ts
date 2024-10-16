@@ -263,21 +263,20 @@ export class ScreenshotController {
             );
         }
 
-        const getString = ScreenshotController.getMultipartString.bind(
-            this,
-            multipart
+        const cityName = this.validateCityName(
+            this.getMultipartString(multipart, 'cityName', true)
         );
 
-        const cityName = ScreenshotController.validateCityName(
-            getString('cityName')
+        const cityMilestone = this.validateMilestone(
+            this.getMultipartString(multipart, 'cityMilestone', true)
         );
 
-        const cityMilestone = ScreenshotController.validateMilestone(
-            getString('cityMilestone')
+        const cityPopulation = this.validatePopulation(
+            this.getMultipartString(multipart, 'cityPopulation', true)
         );
 
-        const cityPopulation = ScreenshotController.validatePopulation(
-            getString('cityPopulation')
+        const metadata = this.validateMetadata(
+            this.getMultipartString(multipart, 'metadata', false)
         );
 
         try {
@@ -290,6 +289,7 @@ export class ScreenshotController {
                 cityName,
                 cityMilestone,
                 cityPopulation,
+                metadata,
                 new Date(),
                 fileBuffer
             );
@@ -307,13 +307,30 @@ export class ScreenshotController {
         }
     }
 
-    private static getMultipartString(
+    private getMultipartString(
         multipart: Multipart,
-        fieldName: string
-    ): string {
+        fieldName: string,
+        strict: true
+    ): string;
+
+    private getMultipartString(
+        multipart: Multipart,
+        fieldName: string,
+        strict: false
+    ): string | undefined;
+
+    private getMultipartString(
+        multipart: Multipart,
+        fieldName: string,
+        strict = true
+    ): string | undefined {
         const field = multipart.fields[fieldName];
 
         if (!(field && 'value' in field)) {
+            if (!strict) {
+                return undefined;
+            }
+
             throw new InvalidPayloadError(
                 `Expected a multipart field named '${fieldName}'.`
             );
@@ -330,7 +347,7 @@ export class ScreenshotController {
         return value;
     }
 
-    private static validateCityName(name: string): string {
+    private validateCityName(name: string): string {
         if (!name.match(ScreenshotController.cityNameRegex)) {
             throw new InvalidCityNameError(name);
         }
@@ -338,7 +355,7 @@ export class ScreenshotController {
         return name;
     }
 
-    private static validateMilestone(milestone: string): number {
+    private validateMilestone(milestone: string): number {
         const parsed = Number.parseInt(milestone, 10);
 
         if (Number.isNaN(parsed) || parsed < 0 || parsed > 20) {
@@ -350,7 +367,7 @@ export class ScreenshotController {
         return parsed;
     }
 
-    private static validatePopulation(population: string): number {
+    private validatePopulation(population: string): number {
         const parsed = Number.parseInt(population, 10);
 
         if (Number.isNaN(parsed) || parsed < 0 || parsed > 5_000_000) {
@@ -360,6 +377,28 @@ export class ScreenshotController {
         }
 
         return parsed;
+    }
+
+    private validateMetadata(metadata: string | undefined): JsonObject {
+        if (!metadata) {
+            return {};
+        }
+
+        try {
+            const json = JSON.parse(metadata);
+
+            if (typeof json != 'object' || Array.isArray(json)) {
+                // noinspection ExceptionCaughtLocallyJS
+                throw new Error(`Expected a JSON object.`);
+            }
+
+            return json;
+        } catch (error) {
+            throw new InvalidPayloadError(
+                `Invalid JSON for the metadata field.`,
+                { cause: error }
+            );
+        }
     }
 }
 

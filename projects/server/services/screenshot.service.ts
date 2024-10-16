@@ -92,6 +92,7 @@ export class ScreenshotService {
         cityName: string,
         cityMilestone: number,
         cityPopulation: number,
+        metadata: JsonObject,
         createdAt: Date,
         file: Buffer
     ): Promise<Screenshot> {
@@ -133,7 +134,8 @@ export class ScreenshotService {
                     cityPopulation,
                     imageUrlThumbnail: '',
                     imageUrlFHD: '',
-                    imageUrl4K: ''
+                    imageUrl4K: '',
+                    metadata
                 }
             });
 
@@ -792,7 +794,8 @@ export class ScreenshotService {
             cityPopulation: screenshot.cityPopulation,
             imageUrlThumbnail: screenshot.imageUrlThumbnail,
             imageUrlFHD: screenshot.imageUrlFHD,
-            imageUrl4K: screenshot.imageUrl4K
+            imageUrl4K: screenshot.imageUrl4K,
+            metadata: screenshot.metadata
         };
     }
 }

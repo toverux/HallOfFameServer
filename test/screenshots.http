@@ -99,6 +99,15 @@ Content-Disposition: form-data; name="cityPopulation"
 1200
 
 --WebAppBoundary
+Content-Disposition: form-data; name="metadata"
+
+{
+  "platform": "WindowsPlayer",
+  "gpuName": "JetBrains WebStorm HTTP Client",
+  "gpuVendor": "JetBrains"
+}
+
+--WebAppBoundary
 Content-Disposition: form-data; name="screenshot"; filename="screenshot.jpg"
 
 < screenshot.jpg

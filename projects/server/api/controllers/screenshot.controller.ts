@@ -253,7 +253,7 @@ export class ScreenshotController {
             limits: {
                 fields: 5,
                 fieldSize: 1024,
-                fileSize: 5 * 1024 * 1024
+                fileSize: 30 * 1024 * 1024
             }
         });
 

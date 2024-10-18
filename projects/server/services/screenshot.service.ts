@@ -443,7 +443,9 @@ export class ScreenshotService {
             // biome-ignore lint/style/noNonNullAssertion: cannot be null
             const screenshot = screenshots[index]!;
 
-            const progress = ((index + 1) / screenshots.length) * 100;
+            const progress = Math.floor(
+                ((index + 1) / screenshots.length) * 100
+            );
 
             if (progress % 10 == 0 && progress != lastProgress) {
                 this.logger.log(

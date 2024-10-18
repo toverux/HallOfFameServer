@@ -72,6 +72,18 @@ change it, instead override locally in `.env.local`.
   `bun prisma generate`.<br>
   Note that this is also done by `bun prisma db push`.
 
+### Dump & Restore Database
+
+Example for production to local database:
+
+```shell
+mongodump --uri "mongodb://user:pass@server:port/halloffame?replicaSet=rs0&directConnection=true" --gzip --archive=halloffame.mongoarchive
+
+mongorestore --uri "mongodb://localhost/halloffame?replicaSet=rs0" --gzip --archive=halloffame.mongoarchive --nsInclude='default.*' --nsFrom='default.*' --nsTo='halloffame.*' --drop
+
+bun prisma db push
+```
+
 ### Updating Dependencies & Toolchain
 
 - To update Bun: `bun upgrade`, and update `package.json#packageManager`.

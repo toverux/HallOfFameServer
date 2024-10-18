@@ -5,7 +5,8 @@
 /node_modules
 /.angular/cache
 
-# Build artifacts
+# Build artifacts, temporary files
+/halloffame.mongoarchive
 /dist
 
 # Test files

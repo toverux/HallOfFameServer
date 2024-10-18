@@ -1,4 +1,5 @@
 import { Inject, Provider } from '@nestjs/common';
+import chalk from 'chalk';
 import { Command, CommandRunner } from 'nest-commander';
 import { ScreenshotService } from '../../services';
 
@@ -11,14 +12,11 @@ class UpdateScreenshotsAveragesCommand extends CommandRunner {
     private readonly screenshotService!: ScreenshotService;
 
     public override async run(): Promise<void> {
-        const updatedCount =
-            await this.screenshotService.updateAverageViewsAndFavoritesPerDay(
-                false
-            );
-
-        process.stdout.write(
-            `Averages updates for ${updatedCount} screenshots.\n`
+        await this.screenshotService.updateAverageViewsAndFavoritesPerDay(
+            false
         );
+
+        console.info(chalk.bold`Done.`);
     }
 }
 

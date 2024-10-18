@@ -43,12 +43,10 @@ class BalanceCommand extends CommandRunner {
 
         assert(amount != null);
 
-        process.stdout.write(
-            chalk.bold(
-                `Record added successfully!\n${chalk[
-                    amount < 0 ? 'redBright' : 'greenBright'
-                ](`Total balance: $${(amount / 100).toFixed(2)}\n`)}`
-            )
+        console.info(
+            chalk.bold`Record added successfully!\n${chalk[
+                amount < 0 ? 'redBright' : 'greenBright'
+            ](`Total balance: $${(amount / 100).toFixed(2)}`)}`
         );
     }
 }

@@ -67,59 +67,62 @@ enum CreatorIdProvider {
 
 /// A screenshot uploaded by a Creator.
 model Screenshot {
-  id                String     @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt         DateTime   @default(now())
+  id                   String     @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt            DateTime   @default(now())
   /// Whether that screenshot was manually approved by an admin.
   /// If true, users won't be able to signal that screenshot again.
-  isApproved        Boolean    @default(false)
+  isApproved           Boolean    @default(false)
   /// Whether an user has reported the Screenshot as inappropriate.
   /// If true, the Screenshot is hidden from the public until an admin reviews
   /// it and decides to reset the flag or take action.
-  isReported        Boolean    @default(false)
+  isReported           Boolean    @default(false)
   /// Creator who reported the Screenshot.
   /// Useful to track users who abuse the report feature and eventually reset a
   /// bunch of reports if they aren't justified.
-  reportedById      String?    @db.ObjectId
-  reportedBy        Creator?   @relation("reports", fields: [reportedById], references: [id], onDelete: SetNull)
+  reportedById         String?    @db.ObjectId
+  reportedBy           Creator?   @relation("reports", fields: [reportedById], references: [id], onDelete: SetNull)
   /// Number of favorites the Screenshot has received.
-  favoritesCount    Int        @default(0)
+  favoritesCount       Int        @default(0)
   /// Average number of favorites the Screenshot has received per day.
-  favoritesPerDay   Float      @default(0)
+  favoritesPerDay      Float      @default(0)
+  /// Percentage of users who favorited the Screenshot when they saw it.
+  /// Math.round(favoritesCount / viewsCount * 100)
+  favoritingPercentage Float      @default(0)
   /// Number of views the Screenshot has received.
-  viewsCount        Int        @default(0)
+  viewsCount           Int        @default(0)
   /// Average number of views the Screenshot has received per day.
-  viewsPerDay       Float      @default(0)
+  viewsPerDay          Float      @default(0)
   /// Hardware ID of the user who uploaded the Screenshot.
   /// Used in case a user is multi-accounting (which is allowed), to keep track
   /// of all the screenshots uploaded by a same person to apply quota even
   /// across multiple accounts.
   /// Null if the screenshot was created programmatically by an admin (ex.
   /// screenshots import via CLI).
-  hwid              String?
+  hwid                 String?
   /// Same purpose as `Screenshot.hwid`, but for the IP address.
-  ip                String?
-  creatorId         String     @db.ObjectId
-  creator           Creator    @relation("screenshots", fields: [creatorId], references: [id], onDelete: Cascade)
+  ip                   String?
+  creatorId            String     @db.ObjectId
+  creator              Creator    @relation("screenshots", fields: [creatorId], references: [id], onDelete: Cascade)
   /// Name of the city.
   /// Can contain only unicode letters, numbers, spaces, hyphens, apostrophes,
   /// commas, and be between 1 and 20 characters long.
-  cityName          String
-  cityMilestone     Int
-  cityPopulation    Int
-  imageUrlThumbnail String
-  imageUrlFHD       String
-  imageUrl4K        String
-  metadata          Json
+  cityName             String
+  cityMilestone        Int
+  cityPopulation       Int
+  imageUrlThumbnail    String
+  imageUrlFHD          String
+  imageUrl4K           String
+  metadata             Json
   /// One to many relationship with Favorites.
-  favorites         Favorite[]
+  favorites            Favorite[]
   /// One to many relationship with Views.
-  views             View[]
+  views                View[]
 
   @@index([createdAt])
   @@index([isReported])
   @@index([createdAt, isReported]) // for "recent" aggregation
   @@index([viewsCount])
-  @@index([favoritesPerDay, isReported]) // for "trending" aggregation
+  @@index([favoritingPercentage, isReported]) // for "trending" aggregation
   @@index([viewsCount, isReported]) // for "low views" aggregation
   @@index([creatorId])
   @@index([creatorId, cityName])

@@ -3,6 +3,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { Inject, Provider } from '@nestjs/common';
 import { Creator, Screenshot } from '@prisma/client';
+import chalk from 'chalk';
 import { oneLine } from 'common-tags';
 import {
     Command,
@@ -78,7 +79,7 @@ class ModerateCommand extends CommandRunner {
             });
 
             if (!screenshot) {
-                console.info('All screenshots have been moderated.');
+                console.info(chalk.bold`All screenshots have been moderated.`);
                 break;
             }
 

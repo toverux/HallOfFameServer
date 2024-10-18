@@ -9,7 +9,7 @@ import { DeleteScreenshotCommand } from './delete-screenshot';
 })
 class DeleteCommand extends CommandRunner {
     public override run(): Promise<void> {
-        process.stdout.write(`Please specify a subcommand.\n`);
+        console.info(`Please specify a subcommand.`);
 
         return Promise.resolve();
     }

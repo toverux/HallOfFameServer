@@ -362,6 +362,7 @@ export class ScreenshotService {
             isReported: screenshot.isReported,
             favoritesCount: screenshot.favoritesCount,
             favoritesPerDay: screenshot.favoritesPerDay,
+            favoritingPercentage: screenshot.favoritingPercentage,
             viewsCount: screenshot.viewsCount,
             viewsPerDay: screenshot.viewsPerDay,
             cityName: screenshot.cityName,
@@ -411,7 +412,7 @@ export class ScreenshotService {
         nice = true
     ): Promise<number> {
         this.logger.log(
-            `[CRON] Start updating screenshots average views and favorites per day.`
+            `Start updating screenshots average views and favorites per day.`
         );
 
         const screenshots = await this.prisma.screenshot.findMany({
@@ -425,7 +426,8 @@ export class ScreenshotService {
                 viewsCount: true,
                 viewsPerDay: true,
                 favoritesCount: true,
-                favoritesPerDay: true
+                favoritesPerDay: true,
+                favoritingPercentage: true
             }
         });
 
@@ -435,8 +437,22 @@ export class ScreenshotService {
         const favoritesImplementationDate = new Date('2024-10-5');
 
         let updatedCount = 0;
+        let lastProgress = 0;
 
-        for (const screenshot of screenshots) {
+        for (let index = 0; index < screenshots.length; index++) {
+            // biome-ignore lint/style/noNonNullAssertion: cannot be null
+            const screenshot = screenshots[index]!;
+
+            const progress = ((index + 1) / screenshots.length) * 100;
+
+            if (progress % 10 == 0 && progress != lastProgress) {
+                this.logger.log(
+                    `Screenshot averages update progress: ${progress}% (${index + 1}/${screenshots.length})`
+                );
+
+                lastProgress = progress;
+            }
+
             const favoritesRefTime = Math.max(
                 favoritesImplementationDate.getTime(),
                 screenshot.createdAt.getTime()
@@ -458,15 +474,20 @@ export class ScreenshotService {
             favoritesPerDay = Math.round(favoritesPerDay * 10) / 10;
             viewsPerDay = Math.round(viewsPerDay * 10) / 10;
 
+            const favoritingPercentage = Math.round(
+                (screenshot.favoritesCount / screenshot.viewsCount) * 100
+            );
+
             // Check if saved averages are different from the calculated one by
             // more than 0.1; if it is, update the average.
             if (
                 Math.abs(screenshot.favoritesPerDay - favoritesPerDay) > 0.1 ||
-                Math.abs(screenshot.viewsPerDay - viewsPerDay) > 0.1
+                Math.abs(screenshot.viewsPerDay - viewsPerDay) > 0.1 ||
+                screenshot.favoritingPercentage != favoritingPercentage
             ) {
                 await this.prisma.screenshot.update({
                     where: { id: screenshot.id },
-                    data: { viewsPerDay, favoritesPerDay }
+                    data: { viewsPerDay, favoritesPerDay, favoritingPercentage }
                 });
 
                 updatedCount++;
@@ -478,7 +499,7 @@ export class ScreenshotService {
         }
 
         this.logger.log(
-            `[CRON] Done updating screenshots averages, updated ${updatedCount} screenshots.`
+            `Done updating screenshots averages, updated ${updatedCount} screenshots.`
         );
 
         return updatedCount;
@@ -638,11 +659,11 @@ export class ScreenshotService {
             {
                 $match: {
                     _id: { $nin: nin.map(id => ({ $oid: id })) },
-                    favoritesPerDay: { $gt: 0 },
+                    favoritingPercentage: { $gt: 1 },
                     isReported: false
                 }
             },
-            { $sort: { favoritesPerDay: -1 } },
+            { $sort: { favoritingPercentage: -1 } },
             { $limit: ScreenshotService.sampleSizeForDeterministicAlgorithms },
             { $sample: { size: 1 } }
         ]);
@@ -784,6 +805,7 @@ export class ScreenshotService {
             reportedById: screenshot.reportedById,
             favoritesCount: screenshot.favoritesCount,
             favoritesPerDay: screenshot.favoritesPerDay,
+            favoritingPercentage: screenshot.favoritingPercentage,
             viewsCount: screenshot.viewsCount,
             viewsPerDay: screenshot.viewsPerDay,
             hwid: screenshot.hwid,

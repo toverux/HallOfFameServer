@@ -1,4 +1,5 @@
 import { Inject, Provider } from '@nestjs/common';
+import chalk from 'chalk';
 import { CommandRunner, SubCommand } from 'nest-commander';
 import { ScreenshotService } from '../../services';
 
@@ -16,7 +17,7 @@ export class DeleteScreenshotCommand extends CommandRunner {
 
         await this.screenshotService.deleteScreenshot(id);
 
-        process.stdout.write(`Screenshot ${id} deleted successfully!\n`);
+        console.info(chalk.bold`Screenshot ${id} deleted successfully!`);
     }
 }
 

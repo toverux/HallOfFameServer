@@ -23,11 +23,15 @@ model Creator {
   /// searches, to enforce uniqueness in all cases.
   /// Also could be used for vanity URLs in the future.
   creatorNameSlug     String?
+  /// Whether the user is allowed to reset their `creatorId`: the next time the
+  /// user logs in, whatever they used to log in will be their new `creatorId`,
+  /// and `allowCreatorIdReset` will be reset to false.
+  allowCreatorIdReset Boolean           @default(false)
   /// This is our "Creator ID" and also the Paradox account ID.
   /// This is how users are identified and authenticated, and plays the role of
   /// a password or API token, as this account ID is only known to an
   /// authenticated Paradox user.
-  creatorId           String
+  creatorId           String            @unique
   /// The provider of the `Creator.creatorId`, either local (random ID generated
   /// by the mod and managed by the user) or Paradox account GUID.
   creatorIdProvider   CreatorIdProvider
@@ -54,7 +58,6 @@ model Creator {
 
   @@index([creatorName])
   @@index([creatorNameSlug])
-  @@index([creatorId])
   @@index([creatorIdProvider])
   @@index([isSupporter])
   @@map("creators")

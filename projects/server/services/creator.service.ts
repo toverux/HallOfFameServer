@@ -200,10 +200,8 @@ export class CreatorService {
         ip: IPAddress,
         creator: Creator
     ): Promise<{ creator: Creator; modified: boolean }> {
-        // Check if the Creator ID match.
-        // Check if the database Creator ID is non-null to allow for legacy
-        // Creator ID reset to Paradox account ID.
-        if (creator.creatorId && creator.creatorId != creatorId) {
+        // Check if the Creator ID match, unless the reset flag is set.
+        if (creator.creatorId != creatorId && !creator.allowCreatorIdReset) {
             // This should never happen, as when we enter this condition, it
             // means that we matched on the Creator Name and not the Creator ID.
             assert(creator.creatorName);
@@ -233,6 +231,7 @@ export class CreatorService {
                         ? creatorName
                         : CreatorService.validateCreatorName(creatorName),
                 creatorNameSlug,
+                allowCreatorIdReset: false,
                 creatorId,
                 creatorIdProvider,
                 hwids: Array.from(new Set([hwid, ...creator.hwids])),

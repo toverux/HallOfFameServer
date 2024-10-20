@@ -649,14 +649,12 @@ export class ScreenshotService {
     /**
      * Retrieves a non-reported screenshot that has a high amount of "likes"
      * (favorites) *per day*.
-     *
-     * ###### Implementation Notes
-     * Same performance considerations as {@link getScreenshotArcheologist} for
-     * the screenshots' aggregation.
      */
     private getScreenshotTrending(
         nin: readonly Screenshot['id'][] = []
     ): Promise<Screenshot | null> {
+        // Uses [isReported, favoritingPercentage] compound index for sorting
+        // with limiting and filtering, test changes to ensure index usage.
         return this.runAggregateForSingleScreenshot([
             {
                 $match: {
@@ -683,6 +681,10 @@ export class ScreenshotService {
             config.screenshots.recencyThresholdDays
         );
 
+        // Uses [isReported, createdAt] compound index for sorting with limiting
+        // and filtering when there are less than sampleSize results, and
+        // [isReported, viewsCount, createdAt] when there are more than
+        // sampleSize results, test changes to ensure index usage.
         return this.runAggregateForSingleScreenshot([
             {
                 $match: {
@@ -701,21 +703,6 @@ export class ScreenshotService {
      * Retrieves a non-reported screenshot that was uploaded more than X days
      * ago (configurable in env) ago, has the lowest amount of views, and then
      * prioritizes the oldest screenshots.
-     *
-     * ###### Implementation Notes
-     * This query scans the entire collection (minus last X days for recency and
-     * reported posts), so I was worried about performance and wondered if I
-     * should add a `{ $sample: { size: aRelativelyBigNumber } }` to limit the
-     * amount of documents scanned.
-     * After testing on ~110k documents, it seems that `{ $sample }`, before or
-     * after `{ $match }`, breaks various MongoDB optimizations (index usage,
-     * in-memory sorting, etc.), so it was actually ~30% slower.
-     * I guess a "big data" approach would be to use other optimization
-     * techniques like pre-aggregating data, or use `{ $sample }` only for much
-     * larger collections.
-     * Anyway, even on 110k documents, the query was still very fast and light
-     * due to MongoDB's optimizations, and we still transfer only one document
-     * so throughput is not a concern.
      */
     private getScreenshotArcheologist(
         nin: readonly Screenshot['id'][] = []
@@ -725,6 +712,8 @@ export class ScreenshotService {
             config.screenshots.recencyThresholdDays
         );
 
+        // Uses [isReported, viewsCount, createdAt] compound index for sorting
+        // with limiting and filtering, test changes to ensure index usage.
         return this.runAggregateForSingleScreenshot([
             {
                 $match: {
@@ -743,10 +732,6 @@ export class ScreenshotService {
      * Retrieves a non-reported random screenshot from a random supporter.
      * Prioritizes the oldest screenshots with the least views for the
      * randomly-selected supporter.
-     *
-     * ###### Implementation Notes
-     * Same performance considerations as {@link getScreenshotArcheologist} for
-     * the screenshots' aggregation.
      */
     private async getScreenshotSupporter(
         nin: readonly Screenshot['id'][] = []
@@ -775,8 +760,7 @@ export class ScreenshotService {
                 }
             },
             { $sort: { viewsCount: 1, createdAt: 1 } },
-            { $limit: ScreenshotService.sampleSizeForDeterministicAlgorithms },
-            { $sample: { size: 1 } }
+            { $limit: 1 }
         ]);
     }
 

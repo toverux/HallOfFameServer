@@ -119,15 +119,14 @@ model Screenshot {
   views                View[]
 
   @@index([createdAt])
-  @@index([isReported])
-  @@index([createdAt, isReported]) // for "recent" aggregation
+  @@index([isReported]) // for "random" aggregation & simple filtering
   @@index([viewsCount])
-  @@index([favoritingPercentage, isReported]) // for "trending" aggregation
-  @@index([viewsCount, isReported]) // for "low views" aggregation
-  @@index([creatorId])
-  @@index([creatorId, cityName])
   @@index([hwid])
   @@index([ip])
+  @@index([creatorId]) // for "supporter" aggregation & simple filtering
+  @@index([isReported, createdAt]) // for "recent" aggregation when <limit results
+  @@index([isReported, favoritingPercentage]) // for "trending" aggregation
+  @@index([isReported, viewsCount, createdAt]) // for "archeologist" aggregation and recent aggregation when >limit results
   @@map("screenshots")
 }
 

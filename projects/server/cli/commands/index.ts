@@ -3,6 +3,7 @@ import { balanceCommandProviders } from './balance.command';
 import { deleteScreenshotCommandProviders } from './delete-screenshot';
 import { deleteCommandProviders } from './delete.command';
 import { importCityCommandProviders } from './import-city.command';
+import { mergeCreatorsCommandProviders } from './merge-creators.command';
 import { moderateCommandProviders } from './moderate.command';
 import { updateScreenshotsAveragesCommandProviders } from './update-screenshots-averages.command';
 
@@ -12,6 +13,7 @@ export const commands: Provider[] = [
     ...deleteCommandProviders,
     ...deleteScreenshotCommandProviders,
     ...importCityCommandProviders,
+    ...mergeCreatorsCommandProviders,
     ...moderateCommandProviders,
     ...updateScreenshotsAveragesCommandProviders
 ];

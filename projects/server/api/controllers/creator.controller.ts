@@ -1,21 +1,32 @@
 import {
+    Body,
     Controller,
     Get,
     Inject,
     NotFoundException,
     Param,
+    Put,
     Req,
     UseGuards
 } from '@nestjs/common';
 import type { Creator } from '@prisma/client';
 import type { FastifyRequest } from 'fastify';
+import { z } from 'zod';
 import { JsonObject, allFulfilled } from '../../common';
 import { CreatorAuthorizationGuard } from '../../guards';
+import { ZodParsePipe } from '../../pipes';
 import { CreatorService, PrismaService } from '../../services';
 
 @Controller('creators')
 @UseGuards(CreatorAuthorizationGuard)
 export class CreatorController {
+    /** @see updateMyself */
+    private static readonly updateMyselfBodySchema = z
+        .strictObject({
+            modSettings: z.object({}).passthrough().optional()
+        })
+        .required();
+
     @Inject(PrismaService)
     private readonly prisma!: PrismaService;
 
@@ -34,6 +45,32 @@ export class CreatorController {
         const creator = await this.fetchCreatorById(creatorId, req);
 
         return this.creatorService.serialize(creator);
+    }
+
+    /**
+     * Update the authenticated Creator.
+     * Allowed fields:
+     *  - `modSettings`: a raw JSON object with arbitrary keys and values of the
+     *    current mod settings.
+     */
+    @Put('me')
+    @UseGuards(CreatorAuthorizationGuard)
+    public async updateMyself(
+        @Req() req: FastifyRequest,
+        @Body(new ZodParsePipe(CreatorController.updateMyselfBodySchema))
+        body: z.infer<typeof CreatorController.updateMyselfBodySchema>
+    ): Promise<JsonObject> {
+        const { creator } =
+            CreatorAuthorizationGuard.getAuthenticatedCreator(req);
+
+        const updated = await this.prisma.creator.update({
+            where: { id: creator.id },
+            data: {
+                modSettings: body.modSettings
+            }
+        });
+
+        return this.creatorService.serialize(updated);
     }
 
     @Get(':id/stats')

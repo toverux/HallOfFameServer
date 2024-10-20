@@ -45,10 +45,13 @@ model Creator {
   /// Contrarily to hardware IDs, IPs are harder to spoof so this adds as an
   /// additional layer of security.
   ips                 String[]
+  /// JSON object containing the latest known mod settings this user used.
+  /// Used to better understand the mod's usage.
+  modSettings         Json?
   /// One to many relationship with posted Screenshots.
-  screenshots         Screenshot[]      @relation("screenshots")
+  screenshots         Screenshot[] @relation("screenshots")
   /// One to many relationship with reported Screenshots.
-  reportedScreenshots Screenshot[]      @relation("reports")
+  reportedScreenshots Screenshot[] @relation("reports")
   /// One to many relationship with Bans targeting the Creator.
   bans                Ban[]
   /// One to many relationship with Favorites.

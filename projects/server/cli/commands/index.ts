@@ -1,5 +1,6 @@
 import { Provider } from '@nestjs/common';
 import { balanceCommandProviders } from './balance.command';
+import { deleteCreatorCommandProviders } from './delete-creator';
 import { deleteScreenshotCommandProviders } from './delete-screenshot';
 import { deleteCommandProviders } from './delete.command';
 import { importCityCommandProviders } from './import-city.command';
@@ -12,6 +13,7 @@ export const commands: Provider[] = [
     ...balanceCommandProviders,
     ...deleteCommandProviders,
     ...deleteScreenshotCommandProviders,
+    ...deleteCreatorCommandProviders,
     ...importCityCommandProviders,
     ...mergeCreatorsCommandProviders,
     ...moderateCommandProviders,

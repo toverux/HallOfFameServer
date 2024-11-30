@@ -1,3 +1,15 @@
+### Get a screenshot by ID
+
+GET {{url}}/api/v1/screenshots/{{screenshot.id}}
+Accept-Language: {{locale}}
+X-Timezone-Offset: {{utcOffset}}
+X-Forwarded-For: {{ip}}
+
+> {%
+    client.global.set("screenshot", response.body);
+    client.global.set("creator", response.body.creator);
+%}
+
 ### Get random screenshot (anonymous)
 
 GET {{url}}/api/v1/screenshots/weighted

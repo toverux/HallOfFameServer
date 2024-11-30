@@ -7,6 +7,7 @@ import {
     Get,
     Inject,
     Ip,
+    NotFoundException,
     Param,
     ParseIntPipe,
     Post,
@@ -51,6 +52,41 @@ export class ScreenshotController {
     private readonly viewService!: ViewService;
 
     /**
+     * Returns a single screenshot by its ID.
+     */
+    @Get(':id')
+    public async getOne(
+        @Req() req: FastifyRequest,
+        @Param('id') id: string
+    ): Promise<JsonObject> {
+        const authed = req[CreatorAuthorizationGuard.authenticatedCreatorKey];
+
+        const screenshot = await this.prisma.screenshot.findUnique({
+            where: { id },
+            include: { creator: true }
+        });
+
+        if (!screenshot) {
+            throw new NotFoundException(`Could not find Screenshot #${id}.`);
+        }
+
+        const payload = this.screenshotService.serialize(screenshot, req);
+
+        // If the user is authenticated, we check if the screenshot is already
+        // in their favorites. Otherwise, just set it to false.
+        payload.__favorited =
+            !!authed &&
+            (await this.favoriteService.isFavorite(
+                screenshot.id,
+                authed.creator.id,
+                authed.authorization.ip,
+                authed.authorization.hwid
+            ));
+
+        return payload;
+    }
+
+    /**
      * Returns a random screenshot.
      * Different algorithms can be used to select the screenshot randomly, to
      * each algorithm a weight can be assigned to favor one method over others.
@@ -72,7 +108,7 @@ export class ScreenshotController {
      *                      user has already seen. Default is 60, 0 is no limit.
      */
     @Get('weighted')
-    public async weighted(
+    public async getRandomWeighted(
         @Req()
         req: FastifyRequest,
         @Query('random', new ParseIntPipe({ optional: true }))
@@ -218,7 +254,7 @@ export class ScreenshotController {
                 error.code == 'P2025'
             ) {
                 throw new BadRequestException(
-                    `Could not find screenshot #${screenshotId}.`,
+                    `Could not find Screenshot #${screenshotId}.`,
                     { cause: error }
                 );
             }

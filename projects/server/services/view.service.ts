@@ -21,11 +21,7 @@ export class ViewService {
     >({
         // Allow a max of 100 creator entries in the cache.
         max: 100,
-        // Allow a max 10,000 view IDs in the cache.
-        maxSize: 10000,
-        sizeCalculation: value => value.screenshotIds.length,
-        // Cache entries for 2 hours (more if key recency is updated, less if
-        // max/maxSize are reached).
+        // Cache entries for 2 hours (more if key recency is updated).
         ttl: 1000 * 60 * 60 * 2
     });
 

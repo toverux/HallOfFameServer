@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { ForbiddenException, Inject, Injectable, Logger } from '@nestjs/common';
 import type { Creator } from '@prisma/client';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { oneLine } from 'common-tags';
 import * as uuid from 'uuid';
 import { HardwareID, IPAddress, JsonObject, StandardError } from '../common';
@@ -80,8 +81,39 @@ export class CreatorService {
      *   with the provided credentials.
      * - If the Creator ID matches a record, the request is authenticated, and
      *   the Creator Name is updated if it changed.
+     *
+     * Just a wrapper around {@link authenticateCreatorUnsafe} that handles
+     * concurrent requests conflicts.
      */
-    public async authenticateCreator({
+    public async authenticateCreator(
+        authorization: CreatorAuthorization
+    ): Promise<Creator> {
+        try {
+            return await this.authenticateCreatorUnsafe(authorization);
+        } catch (error) {
+            // This can happen if a Creator account didn't exist and that user
+            // simultaneously sends two authenticated requests that lead to the
+            // creation of the same Creator account due to race condition, for
+            // example /me and /me/stats when launching the mod.
+            // In that case we just have to retry the authentication.
+            if (
+                error instanceof PrismaClientKnownRequestError &&
+                error.code == 'P2002'
+            ) {
+                return await this.authenticateCreatorUnsafe(authorization);
+            }
+
+            throw error;
+        }
+    }
+
+    /**
+     * See {@link authenticateCreator} for the method's purpose, this is just
+     * the part of the authentication that can be retried in case of error due
+     * to concurrent requests leading to an account creation (and therefore a
+     * unique constraint violation).
+     */
+    public async authenticateCreatorUnsafe({
         creatorId,
         creatorIdProvider,
         creatorName,

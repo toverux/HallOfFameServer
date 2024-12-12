@@ -15,6 +15,7 @@ export const config = {
     http: {
         address: getString('HOF_HTTP_ADDRESS'),
         port: getNumber('HOF_HTTP_PORT'),
+        bodyLimitMb: getNumber('HOF_HTTP_BODY_LIMIT_MB'),
         maintenanceMessage: getString('HOF_HTTP_MAINTENANCE_MESSAGE')
     },
 

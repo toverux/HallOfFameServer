@@ -20,6 +20,7 @@ const pinoLikeLogger: FastifyBaseLogger = {
 
 export const fastify = new FastifyAdapter({
     trustProxy: true,
+    bodyLimit: config.http.bodyLimitMb * 1000 * 1000,
     logger: pinoLikeLogger,
     disableRequestLogging: true
 });

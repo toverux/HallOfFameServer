@@ -15,7 +15,6 @@ export const config = {
     http: {
         address: getString('HOF_HTTP_ADDRESS'),
         port: getNumber('HOF_HTTP_PORT'),
-        bodyLimitMb: getNumber('HOF_HTTP_BODY_LIMIT_MB'),
         maintenanceMessage: getString('HOF_HTTP_MAINTENANCE_MESSAGE')
     },
 
@@ -32,6 +31,8 @@ export const config = {
     },
 
     screenshots: {
+        maxFileSizeBytes:
+            getNumber('HOF_SCREENSHOTS_MAX_FILE_SIZE_MB') * 1000 * 1000,
         jpegQuality: getNumber('HOF_SCREENSHOTS_JPEG_QUALITY'),
         recencyThresholdDays: getNumber(
             'HOF_SCREENSHOTS_RECENCY_THRESHOLD_DAYS'

@@ -19,6 +19,7 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { oneLine } from 'common-tags';
 import type { FastifyRequest } from 'fastify';
 import { type IPAddress, JsonObject, StandardError } from '../../common';
+import { config } from '../../config';
 import { CreatorAuthorizationGuard } from '../../guards';
 import {
     FavoriteService,
@@ -289,7 +290,7 @@ export class ScreenshotController {
             limits: {
                 fields: 5,
                 fieldSize: 1024,
-                fileSize: 30 * 1024 * 1024
+                fileSize: config.screenshots.maxFileSizeBytes
             }
         });
 

@@ -120,9 +120,9 @@ Content-Disposition: form-data; name="metadata"
 }
 
 --WebAppBoundary
-Content-Disposition: form-data; name="screenshot"; filename="screenshot.jpg"
+Content-Disposition: form-data; name="screenshot"; filename="screenshot.png"
 
-< screenshot.jpg
+< screenshot.png
 --WebAppBoundary--
 
 > {%

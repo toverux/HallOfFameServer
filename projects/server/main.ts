@@ -33,11 +33,6 @@ async function bootstrap(): Promise<void> {
         '../../dist/browser'
     );
 
-    const indexHtml = path.join(
-        import.meta.dir,
-        '../../dist/server/index.server.html'
-    );
-
     app.useStaticAssets({
         root: browserDistFolder
     });
@@ -47,11 +42,7 @@ async function bootstrap(): Promise<void> {
         // other more specific filters take precedence.
         new filters.GlobalExceptionFilter(app.getHttpAdapter()),
         new filters.StandardErrorExceptionFilter(app.getHttpAdapter()),
-        new filters.NotFoundExceptionFilter(
-            app.getHttpAdapter(),
-            browserDistFolder,
-            indexHtml
-        )
+        new filters.NotFoundExceptionFilter(app.getHttpAdapter())
     );
 
     await app.listen(config.http.port, config.http.address);

@@ -1,15 +1,11 @@
-import {
-    ArgumentsHost,
-    Catch,
-    type HttpServer,
-    NotFoundException
-} from '@nestjs/common';
+import { ArgumentsHost, Catch, NotFoundException } from '@nestjs/common';
 import { BaseExceptionFilter } from '@nestjs/core';
 import { FastifyReply, FastifyRequest } from 'fastify';
-import type { ssrRender as ssrRenderType } from '../ssr';
-
-// @ts-expect-error We can't import JS (allowJs: false) and can't declare a d.ts
-import { ssrRender } from '../../../dist/server/server.mjs';
+import {
+    angularAppEngine,
+    createWebRequestFromNodeRequest,
+    writeResponseToNodeResponse
+} from '../angular-app-engine';
 
 /**
  * Error filter that's meant to catch 404 errors from the static file router,
@@ -20,14 +16,6 @@ import { ssrRender } from '../../../dist/server/server.mjs';
  */
 @Catch(NotFoundException)
 export class NotFoundExceptionFilter extends BaseExceptionFilter {
-    public constructor(
-        applicationRef: HttpServer,
-        private readonly browserDistFolder: string,
-        private readonly indexHtml: string
-    ) {
-        super(applicationRef);
-    }
-
     /**
      * ###### Implementation Notes
      * A synchronous error filter can rethrow errors, we can't as Angular SSR
@@ -42,25 +30,23 @@ export class NotFoundExceptionFilter extends BaseExceptionFilter {
         const req = ctx.getRequest<FastifyRequest>();
         const res = ctx.getResponse<FastifyReply>();
 
-        const { protocol, originalUrl, url, headers } = req;
-
         // If it's an API request, let the default error handler handle it.
-        if (url.startsWith('/api/')) {
+        if (req.url.startsWith('/api/')) {
             return super.catch(error, host);
         }
 
-        // Otherwise, render the Angular application.
-        const fullUrl = `${protocol}://${headers.host}${originalUrl}`;
-
         try {
-            const result = await (ssrRender as typeof ssrRenderType)(
-                this.browserDistFolder,
-                this.indexHtml,
-                fullUrl
+            const ngResponse = await angularAppEngine?.handle(
+                createWebRequestFromNodeRequest(req.raw)
             );
 
-            res.header('Content-Type', 'text/html');
-            res.send(result);
+            if (ngResponse) {
+                await writeResponseToNodeResponse(ngResponse, res.raw);
+            } else {
+                // Angular returns null if it 404s, let the default error
+                // handler handle it.
+                super.catch(error, host);
+            }
         } catch (error) {
             super.catch(error, host);
         }

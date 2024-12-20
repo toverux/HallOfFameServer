@@ -33,6 +33,7 @@
     // Just not this one because it's not really a strictness thing and I don't like it.
     "noPropertyAccessFromIndexSignature": false,
     "noUncheckedIndexedAccess": true,
+    "noUncheckedSideEffectImports": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true
   },
@@ -40,6 +41,7 @@
     "enableI18nLegacyMessageIdFormat": false,
     "strictInjectionParameters": true,
     "strictInputAccessModifiers": true,
+    "strictStandalone": true,
     "strictTemplates": true
   }
 }

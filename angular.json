@@ -15,8 +15,9 @@
       "prefix": "app",
       "architect": {
         "build": {
-          "builder": "@angular-devkit/build-angular:application",
+          "builder": "@angular/build:application",
           "options": {
+            "outputMode": "server",
             "outputPath": "dist",
             "index": "projects/client/index.html",
             "browser": "projects/client/main.ts",
@@ -31,7 +32,6 @@
             "styles": ["projects/client/styles.scss"],
             "scripts": [],
             "server": "projects/client/main.server.ts",
-            "prerender": true,
             "ssr": {
               "entry": "projects/server/ssr.ts"
             }
@@ -61,7 +61,7 @@
           "defaultConfiguration": "production"
         },
         "serve": {
-          "builder": "@angular-devkit/build-angular:dev-server",
+          "builder": "@angular/build:dev-server",
           "configurations": {
             "production": {
               "buildTarget": "hof:build:production"
@@ -73,7 +73,7 @@
           "defaultConfiguration": "development"
         },
         "extract-i18n": {
-          "builder": "@angular-devkit/build-angular:extract-i18n"
+          "builder": "@angular/build:extract-i18n"
         }
       }
     }

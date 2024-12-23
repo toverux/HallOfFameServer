@@ -60,12 +60,7 @@ export class PrismaService
 
         assert(stats.ok, 'dbStats command returned ok: false.');
 
-        // totalSize is normally returned by dbStats, but not on Atlas.
-        // Note that this is the total size of the database occupied on disk, not just the raw data,
-        // and it includes space that's reserved but not used yet.
-        const totalSize = Number(stats.storageSize) + Number(stats.indexSize);
-
-        const totalSizeStr = filesize(totalSize, { round: 0 });
+        const totalSizeStr = filesize(Number(stats.totalSize), { round: 0 });
 
         this.logger.log(`Connected to MongoDB, DB size: ${totalSizeStr}.`);
     }

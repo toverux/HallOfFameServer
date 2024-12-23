@@ -12,34 +12,27 @@ void linkEnvFilesForWatchMode();
 void bootstrap();
 
 async function bootstrap(): Promise<void> {
-    const app = await NestFactory.create<NestFastifyApplication>(
-        AppModule,
-        fastify,
-        {
-            logger: [
-                'fatal',
-                'error',
-                'warn',
-                'log',
-                ...(config.env == 'development' || config.verbose
-                    ? (['verbose', 'debug'] as const)
-                    : [])
-            ]
-        }
-    );
+    const app = await NestFactory.create<NestFastifyApplication>(AppModule, fastify, {
+        logger: [
+            'fatal',
+            'error',
+            'warn',
+            'log',
+            ...(config.env == 'development' || config.verbose
+                ? (['verbose', 'debug'] as const)
+                : [])
+        ]
+    });
 
-    const browserDistFolder = path.resolve(
-        import.meta.dir,
-        '../../dist/browser'
-    );
+    const browserDistFolder = path.resolve(import.meta.dir, '../../dist/browser');
 
     app.useStaticAssets({
         root: browserDistFolder
     });
 
     app.useGlobalFilters(
-        // The catch-all error filter should actually come first to let the
-        // other more specific filters take precedence.
+        // The catch-all error filter should actually come first to let the other more specific
+        // filters take precedence.
         new filters.GlobalExceptionFilter(app.getHttpAdapter()),
         new filters.StandardErrorExceptionFilter(app.getHttpAdapter()),
         new filters.NotFoundExceptionFilter(app.getHttpAdapter())

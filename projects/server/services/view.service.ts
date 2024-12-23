@@ -11,9 +11,8 @@ export class ViewService {
     private readonly prisma!: PrismaService;
 
     /**
-     * Cache of Creator ID (database one, not the UUID v4) to viewed screenshot
-     * IDs to avoid repeatedly querying the database for the same data when the
-     * user is browsing screenshots.
+     * Cache of Creator ID (database one, not the UUID v4) to viewed screenshot IDs to avoid
+     * repeatedly querying the database for the same data when the user is browsing screenshots.
      */
     private readonly viewsCache = new LRUCache<
         Creator['id'],
@@ -29,10 +28,9 @@ export class ViewService {
      * Returns the IDs of the screenshots viewed by the given Creator.
      *
      * @param creatorId    Creator ID to filter by.
-     * @param maxAgeInDays Max age of the views to consider, in days, so we can
-     *                     repropose screenshots the user hasn't seen in a
-     *                     while. A max age of `0` or `undefined` means no limit
-     *                     (i.e. all past known views count).
+     * @param maxAgeInDays Max age of the views to consider, in days, so we can repropose
+     *                     screenshots the user hasn't seen in a while. A max age of `0` or
+     *                     `undefined` means no limit (i.e. all past known views count).
      */
     public async getViewedScreenshotIds(
         creatorId: Creator['id'],
@@ -92,8 +90,8 @@ export class ViewService {
         creatorId: Creator['id']
     ): Promise<View> {
         // Update the Screenshot view count and create a new View record.
-        // No transaction with the View record creation, this is not critical
-        // data & we can reconstruct it.
+        // No transaction with the View record creation, this is not critical data & we can
+        // reconstruct it.
         await this.prisma.screenshot.update({
             select: { id: true },
             where: { id: screenshotId },

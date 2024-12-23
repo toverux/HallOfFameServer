@@ -21,6 +21,4 @@ export class DeleteScreenshotCommand extends CommandRunner {
     }
 }
 
-export const deleteScreenshotCommandProviders: Provider[] = [
-    DeleteScreenshotCommand
-];
+export const deleteScreenshotCommandProviders: Provider[] = [DeleteScreenshotCommand];

@@ -24,8 +24,7 @@ export const fastify = new FastifyAdapter({
     disableRequestLogging: true
 });
 
-// @ts-expect-error
-// Errors due to our strict config on types we don't control.
+// @ts-expect-error: errors due to our strict config on types we don't control.
 fastify.register(fastifyMultipart);
 
 @Injectable()

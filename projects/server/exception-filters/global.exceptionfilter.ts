@@ -3,9 +3,9 @@ import { BaseExceptionFilter } from '@nestjs/core';
 import * as sentry from '@sentry/bun';
 
 /**
- * Catch-all error filter, uses the base exception filter to handle all errors
- * that reach it, but adds Sentry error reporting for all errors that are not
- * {@link HttpException} (unless status 500+) or {@link StandardError}.
+ * Catch-all error filter, uses the base exception filter to handle all errors that reach it, but
+ * adds Sentry error reporting for all errors that are not {@link HttpException} (unless status
+ * 500+) or {@link StandardError}.
  */
 @Catch()
 export class GlobalExceptionFilter extends BaseExceptionFilter {
@@ -19,17 +19,16 @@ export class GlobalExceptionFilter extends BaseExceptionFilter {
     }
 
     /**
-     * The default implementation of this method isn't great, it's called for
-     * "unknown errors" (i.e. errors that aren't HttpException) it's supposed to
-     * catch http-errors lib's errors (which we don't use btw), but just checks
-     * if the error has a `statusCode` and `message` property.
+     * The default implementation of this method isn't great, it's called for "unknown errors" (i.e.
+     * errors that aren't {@link HttpException}) it's supposed to catch http-errors lib's errors
+     * (which we don't use btw), but just checks if the error has `statusCode` and `message` props.
      *
-     * In our case this was a problem with the Azure SDK errors which has
-     * `statusCode` and `message`, but they're not user errors, we want to treat
-     * that as an unknown errors too (resulting in a 500 error to the end user).
+     * In our case this was a problem with the Azure SDK errors which has `statusCode` and
+     * `message`, but they're not user errors, we want to treat that as an unknown errors too
+     * (resulting in a 500 error to the end user).
      *
-     * So right now we don't ever want to return true for anything else as
-     * HttpException and {@link StandardError} are already properly handled.
+     * So right now we don't ever want to return true for anything else as {@link HttpException} and
+     * {@link StandardError} are already properly handled.
      */
     public override isHttpError(
         _error: unknown

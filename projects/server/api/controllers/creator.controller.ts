@@ -50,8 +50,8 @@ export class CreatorController {
     /**
      * Update the authenticated Creator.
      * Allowed fields:
-     *  - `modSettings`: a raw JSON object with arbitrary keys and values of the
-     *    current mod settings.
+     *  - `modSettings`: a raw JSON object with arbitrary keys and values of the current mod
+     *    settings.
      */
     @Put('me')
     @UseGuards(CreatorAuthorizationGuard)
@@ -60,8 +60,7 @@ export class CreatorController {
         @Body(new ZodParsePipe(CreatorController.updateMyselfBodySchema))
         body: z.infer<typeof CreatorController.updateMyselfBodySchema>
     ): Promise<JsonObject> {
-        const { creator } =
-            CreatorAuthorizationGuard.getAuthenticatedCreator(req);
+        const { creator } = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
 
         const updated = await this.prisma.creator.update({
             where: { id: creator.id },
@@ -136,8 +135,7 @@ export class CreatorController {
             where: {
                 id:
                     id == 'me'
-                        ? CreatorAuthorizationGuard.getAuthenticatedCreator(req)
-                              .creator.id
+                        ? CreatorAuthorizationGuard.getAuthenticatedCreator(req).creator.id
                         : id
             }
         });

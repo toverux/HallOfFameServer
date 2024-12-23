@@ -12,9 +12,7 @@ class UpdateScreenshotsAveragesCommand extends CommandRunner {
     private readonly screenshotService!: ScreenshotService;
 
     public override async run(): Promise<void> {
-        await this.screenshotService.updateAverageViewsAndFavoritesPerDay(
-            false
-        );
+        await this.screenshotService.updateAverageViewsAndFavoritesPerDay(false);
 
         console.info(chalk.bold`Done.`);
     }

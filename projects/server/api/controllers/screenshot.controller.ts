@@ -21,22 +21,16 @@ import type { FastifyRequest } from 'fastify';
 import { type IPAddress, JsonObject, StandardError } from '../../common';
 import { config } from '../../config';
 import { CreatorAuthorizationGuard } from '../../guards';
-import {
-    FavoriteService,
-    PrismaService,
-    ScreenshotService,
-    ViewService
-} from '../../services';
+import { FavoriteService, PrismaService, ScreenshotService, ViewService } from '../../services';
 
 @Controller('screenshots')
 @UseGuards(CreatorAuthorizationGuard)
 export class ScreenshotController {
     /**
      * Regular expression to validate a city name:
-     * - Must contain only letters, numbers, spaces, hyphens, apostrophes and
-     *   commas.
-     * - Must be between 1 and 25 characters long. 1-character-long names are
-     *   for languages like Chinese.
+     * - Must contain only letters, numbers, spaces, hyphens, apostrophes and commas.
+     * - Must be between 1 and 25 characters long. 1-character-long names are for languages like
+     *   Chinese.
      */
     private static readonly cityNameRegex = /^[\p{L}\p{N}\- ',]{1,25}$/u;
 
@@ -56,10 +50,7 @@ export class ScreenshotController {
      * Returns a single screenshot by its ID.
      */
     @Get(':id')
-    public async getOne(
-        @Req() req: FastifyRequest,
-        @Param('id') id: string
-    ): Promise<JsonObject> {
+    public async getOne(@Req() req: FastifyRequest, @Param('id') id: string): Promise<JsonObject> {
         const authed = req[CreatorAuthorizationGuard.authenticatedCreatorKey];
 
         const screenshot = await this.prisma.screenshot.findUnique({
@@ -73,8 +64,8 @@ export class ScreenshotController {
 
         const payload = this.screenshotService.serialize(screenshot, req);
 
-        // If the user is authenticated, we check if the screenshot is already
-        // in their favorites. Otherwise, just set it to false.
+        // If the user is authenticated, we check if the screenshot is already in their favorites.
+        // Otherwise, just set it to false.
         payload.__favorited =
             !!authed &&
             (await this.favoriteService.isFavorite(
@@ -89,8 +80,8 @@ export class ScreenshotController {
 
     /**
      * Returns a random screenshot.
-     * Different algorithms can be used to select the screenshot randomly, to
-     * each algorithm a weight can be assigned to favor one method over others.
+     * Different algorithms can be used to select the screenshot randomly, to each algorithm a
+     * weight can be assigned to favor one method over others.
      * See {@link ScreenshotService} for the description of the algorithms.
      * By default, all weights are zero and "random" is used.
      *
@@ -105,8 +96,8 @@ export class ScreenshotController {
      *                      {@link ScreenshotService.getScreenshotArcheologist}.
      * @param supporter     Weight for the "supporter" algorithm, see
      *                      {@link ScreenshotService.getScreenshotSupporter}.
-     * @param viewMaxAge    Min time in days before showing a screenshot the
-     *                      user has already seen. Default is 60, 0 is no limit.
+     * @param viewMaxAge    Min time in days before showing a screenshot the user has already seen.
+     *                      Default is 60, 0 is no limit.
      */
     @Get('weighted')
     public async getRandomWeighted(
@@ -129,12 +120,11 @@ export class ScreenshotController {
 
         const weights = { random, trending, recent, archeologist, supporter };
 
-        const screenshot =
-            await this.screenshotService.getWeightedRandomScreenshot(
-                weights,
-                authed?.creator.id,
-                viewMaxAge
-            );
+        const screenshot = await this.screenshotService.getWeightedRandomScreenshot(
+            weights,
+            authed?.creator.id,
+            viewMaxAge
+        );
 
         const createdBy = await this.prisma.creator.findFirst({
             where: { id: screenshot.creatorId }
@@ -152,8 +142,8 @@ export class ScreenshotController {
 
         payload.__algorithm = screenshot.__algorithm;
 
-        // If the user is authenticated, we check if the screenshot is already
-        // in their favorites. Otherwise, just set it to false.
+        // If the user is authenticated, we check if the screenshot is already in their favorites.
+        // Otherwise, just set it to false.
         payload.__favorited =
             !!authed &&
             (await this.favoriteService.isFavorite(
@@ -168,8 +158,8 @@ export class ScreenshotController {
 
     /**
      * Adds the screenshot to the authenticated creator's favorites.
-     * We also verify that the screenshot was not already favorites using a same
-     * IP or HWID, as multi-accounting on favorites is not allowed.
+     * We also verify that the screenshot was not already favorites using a same IP or HWID, as
+     * multi-accounting on favorites is not allowed.
      */
     @Post(':id/favorites')
     public async addToFavorites(
@@ -216,13 +206,9 @@ export class ScreenshotController {
         @Req() req: FastifyRequest,
         @Param('id') screenshotId: string
     ): Promise<JsonObject> {
-        const { creator } =
-            CreatorAuthorizationGuard.getAuthenticatedCreator(req);
+        const { creator } = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
 
-        const view = await this.viewService.markViewed(
-            screenshotId,
-            creator.id
-        );
+        const view = await this.viewService.markViewed(screenshotId, creator.id);
 
         return this.viewService.serialize(view);
     }
@@ -230,9 +216,8 @@ export class ScreenshotController {
     /**
      * Reports a screenshot as inappropriate.
      *
-     * Note: the request body is empty as of now as there are no other
-     * information to transmit. This could change if we allow users to provide
-     * a reason for the report.
+     * Note: the request body is empty as of now as there are no other information to transmit.
+     * This could change if we allow users to provide a reason for the report.
      */
     @Post(':id/reports')
     public async report(
@@ -240,24 +225,16 @@ export class ScreenshotController {
         @Param('id') screenshotId: string
     ): Promise<JsonObject> {
         try {
-            const { creator } =
-                CreatorAuthorizationGuard.getAuthenticatedCreator(req);
+            const { creator } = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
 
-            const screenshot = await this.screenshotService.markReported(
-                screenshotId,
-                creator.id
-            );
+            const screenshot = await this.screenshotService.markReported(screenshotId, creator.id);
 
             return this.screenshotService.serialize(screenshot, req);
         } catch (error) {
-            if (
-                error instanceof PrismaClientKnownRequestError &&
-                error.code == 'P2025'
-            ) {
-                throw new BadRequestException(
-                    `Could not find Screenshot #${screenshotId}.`,
-                    { cause: error }
-                );
+            if (error instanceof PrismaClientKnownRequestError && error.code == 'P2025') {
+                throw new BadRequestException(`Could not find Screenshot #${screenshotId}.`, {
+                    cause: error
+                });
             }
 
             throw error;
@@ -265,8 +242,7 @@ export class ScreenshotController {
     }
 
     /**
-     * Receives a screenshot and its metadata and processes it to add it to the
-     * Hall of Fame.
+     * Receives a screenshot and its metadata and processes it to add it to the Hall of Fame.
      *
      * Expects a multipart request with the following fields:
      * - `creatorId`: The Creator ID.
@@ -278,12 +254,8 @@ export class ScreenshotController {
      * Response will be 201 with serialized Screenshot.
      */
     @Post()
-    public async upload(
-        @Ip() ip: IPAddress,
-        @Req() req: FastifyRequest
-    ): Promise<JsonObject> {
-        const { authorization, creator } =
-            CreatorAuthorizationGuard.getAuthenticatedCreator(req);
+    public async upload(@Ip() ip: IPAddress, @Req() req: FastifyRequest): Promise<JsonObject> {
+        const { authorization, creator } = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
 
         const multipart = await req.file({
             isPartAFile: fieldName => fieldName == 'screenshot',
@@ -295,9 +267,7 @@ export class ScreenshotController {
         });
 
         if (!multipart) {
-            throw new InvalidPayloadError(
-                `Expected a file-field named 'screenshot'.`
-            );
+            throw new InvalidPayloadError(`Expected a file-field named 'screenshot'.`);
         }
 
         const cityName = this.validateCityName(
@@ -331,10 +301,7 @@ export class ScreenshotController {
                 fileBuffer
             );
 
-            return this.screenshotService.serialize(
-                { ...screenshot, creator },
-                req
-            );
+            return this.screenshotService.serialize({ ...screenshot, creator }, req);
         } catch (error) {
             if (error instanceof Error && error.message.includes('format')) {
                 throw new InvalidImageFormatError(error);
@@ -344,11 +311,7 @@ export class ScreenshotController {
         }
     }
 
-    private getMultipartString(
-        multipart: Multipart,
-        fieldName: string,
-        strict: true
-    ): string;
+    private getMultipartString(multipart: Multipart, fieldName: string, strict: true): string;
 
     private getMultipartString(
         multipart: Multipart,
@@ -368,9 +331,7 @@ export class ScreenshotController {
                 return undefined;
             }
 
-            throw new InvalidPayloadError(
-                `Expected a multipart field named '${fieldName}'.`
-            );
+            throw new InvalidPayloadError(`Expected a multipart field named '${fieldName}'.`);
         }
 
         const value = String(field.value).trim();
@@ -431,10 +392,7 @@ export class ScreenshotController {
 
             return json;
         } catch (error) {
-            throw new InvalidPayloadError(
-                `Invalid JSON for the metadata field.`,
-                { cause: error }
-            );
+            throw new InvalidPayloadError(`Invalid JSON for the metadata field.`, { cause: error });
         }
     }
 }
@@ -442,10 +400,9 @@ export class ScreenshotController {
 abstract class UploadError extends StandardError {}
 
 /**
- * Error class for invalid payloads, but it should not happen for users using
- * the actual mod. This should only happen in testing, or eventually if people
- * want to implement a custom client in good faith, otherwise we could also ban
- * IPs with failed attempts.
+ * Error class for invalid payloads, but it should not happen for users using the actual mod.
+ * This should only happen in testing, or eventually if people want to implement a custom client in
+ * good faith, otherwise we could also ban IPs with failed attempts.
  */
 class InvalidPayloadError extends UploadError {}
 

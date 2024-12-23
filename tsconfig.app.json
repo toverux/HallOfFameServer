@@ -4,10 +4,6 @@
     "outDir": "./out-tsc/app",
     "types": ["bun"]
   },
-  "files": [
-    "projects/client/main.ts",
-    "projects/client/main.server.ts",
-    "projects/server/ssr.ts"
-  ],
+  "files": ["projects/client/main.ts", "projects/client/main.server.ts", "projects/server/ssr.ts"],
   "include": ["projects/**/*.d.ts"]
 }

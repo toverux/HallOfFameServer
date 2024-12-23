@@ -17,9 +17,8 @@ export class FavoriteService {
         ip: IPAddress,
         hwid: HardwareID
     ): Promise<boolean> {
-        // Find a favorite with any of the provided identifiers,
-        // multi-accounting is not allowed for favorites so a favorite is shared
-        // by any of these, hence the OR clause.
+        // Find a favorite with any of the provided identifiers, multi-accounting is not allowed for
+        // favorites so a favorite is shared by any of these, hence the OR clause.
         const favorite = await this.prisma.favorite.findFirst({
             select: { id: true },
             where: {
@@ -93,9 +92,8 @@ export class FavoriteService {
         hwid: HardwareID
     ): Promise<Favorite> {
         // Find the favorite to remove.
-        // We can't use .remove() directly because we can't use .remove() which
-        // requires a where clause that guarantees uniqueness, but we use an OR
-        // clause.
+        // We can't use .remove() directly because we can't use .remove() which requires a where
+        // clause that guarantees uniqueness, but we use an OR clause.
         const favorite = await this.prisma.favorite.findFirst({
             where: {
                 // biome-ignore lint/style/useNamingConvention: prisma

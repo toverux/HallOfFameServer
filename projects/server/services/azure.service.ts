@@ -7,8 +7,6 @@ export class AzureService {
     public readonly blobServiceClient: BlobServiceClient;
 
     public constructor() {
-        this.blobServiceClient = BlobServiceClient.fromConnectionString(
-            config.azure.url
-        );
+        this.blobServiceClient = BlobServiceClient.fromConnectionString(config.azure.url);
     }
 }

@@ -20,8 +20,7 @@ export class BanService {
      * Cache to store the ban status of hardware IDs and creators.
      * Entries expire after 5 minutes.
      *
-     * The key is the IP address, Hardware ID, Creator ID, and the value is
-     * either:
+     * The key is the IP address, Hardware ID, Creator ID, and the value is either:
      *  - `false` if the IP, hwid or creator is *not* banned,
      *  - A {@link BanError} if the IP, hwid or creator is banned.
      *
@@ -40,10 +39,7 @@ export class BanService {
      *
      * @throws BannedError If the IP or Hardware ID is banned.
      */
-    public async ensureNotBanned(
-        ip: IPAddress,
-        hwid: HardwareID
-    ): Promise<void> {
+    public async ensureNotBanned(ip: IPAddress, hwid: HardwareID): Promise<void> {
         if (this.checkBanCache(ip) && this.checkBanCache(hwid)) {
             return;
         }
@@ -53,8 +49,8 @@ export class BanService {
             where: { OR: [{ ip }, { hwid }] }
         });
 
-        // If there are multiple bans matching, prefer using one with a
-        // Creator ID so we can provide a more specific error message.
+        // If there are multiple bans matching, prefer using one with a Creator ID so we can provide
+        // a more specific error message.
         const ban = bans.find(ban => !!ban.creatorId) ?? bans[0];
 
         // If there is a creator-based ban, throw a specific error.
@@ -150,17 +146,15 @@ export class BanService {
     }
 
     /**
-     * Checks whether the given hardware ID or creator ID is banned or not,
-     * using the ban cache {@link banCache}.
+     * Checks whether the given hardware ID or creator ID is banned or not, using the ban cache
+     * {@link banCache}.
      *
      * @throws BanError If the IP, hwid or creator is banned.
      *
      * @returns `true` if the IP, hwid or creator is *NOT* banned,
      *          `false` if the status must be verified with the database.
      */
-    private checkBanCache(
-        cacheKey: IPAddress | HardwareID | Creator['id']
-    ): boolean {
+    private checkBanCache(cacheKey: IPAddress | HardwareID | Creator['id']): boolean {
         const cachedError = this.banCache.get(cacheKey);
 
         if (cachedError) {
@@ -184,8 +178,8 @@ export class BanService {
 
     /**
      * Formats a ban reason for consistency.
-     * Removes leading/trailing whitespace, normalizes whitespace, and ensures
-     * the reason does not end with a period.
+     * Removes leading/trailing whitespace, normalizes whitespace, and ensures the reason does not
+     * end with a period.
      */
     private static fmtReason(reason: string): string {
         const formatted = reason.trim().replace(/\s+/g, ' ').toLowerCase();

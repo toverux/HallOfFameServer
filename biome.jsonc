@@ -54,14 +54,13 @@
         // Same reason as performance.noBarrelFile.
         "noNamespaceImport": "off",
         "noParameterProperties": "off",
-        // I like using template literals for hardcoded english strings, ex.
-        // exception error messages. This makes spotting them easier and also it
-        // makes it easier to use double or single quotes.
+        // I like using template literals for hardcoded english strings, ex. exception error
+        // messages. This makes spotting them easier, and also it makes it easier to use double or
+        // single quotes.
         "noUnusedTemplateLiteral": "off",
-        // I don't like that it forces "===" over "==" on 0, and it doesn't
-        // support undefined values well, i.e. it thinks `arr?.length > 0` is
-        // valid, while in TS it is not, so a simple `arr?.length` would need
-        // to be rewritten to `(arr?.length ?? 0) > 0`.
+        // I don't like that it forces "===" over "==" on 0, and it doesn't support undefined values
+        // well, i.e. it thinks `arr?.length > 0` is valid, while in TS it is not, so a simple
+        // `arr?.length` would need to be rewritten to `(arr?.length ?? 0) > 0`.
         "useExplicitLengthCheck": "off",
         "useFilenamingConvention": {
           "level": "error",
@@ -69,8 +68,8 @@
             "filenameCases": ["kebab-case"]
           }
         },
-        // PROJECT-SPECIFIC: The rule does not play well with DI in NestJS and
-        // Angular. No fix is easily conceivable, see:
+        // PROJECT-SPECIFIC: The rule does not play well with DI in NestJS and Angular.
+        // No fix is easily conceivable, see:
         // https://biomejs.dev/linter/rules/use-import-type
         "useImportType": "off",
         // Keep it but with a few exceptions.
@@ -89,9 +88,9 @@
             "allow": ["info", "warn", "error"]
           }
         },
-        // Double equals is not THAT bad, although I understand why the rule
-        // exists. If you know the language you can avoid the pitfalls and even
-        // enjoy the benefits of loose equality.
+        // Double equals is not THAT bad, although I understand why the rule exists.
+        // If you know the language you can avoid the pitfalls and even enjoy the benefits of loose
+        // equality! Yep, hot take.
         "noDoubleEquals": "off"
       }
     }
@@ -101,7 +100,7 @@
     "lineEnding": "lf",
     "indentStyle": "space",
     "indentWidth": 4,
-    "lineWidth": 80
+    "lineWidth": 100
   },
   "json": {
     "formatter": {

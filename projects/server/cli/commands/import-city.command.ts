@@ -5,13 +5,7 @@ import { Creator, Screenshot } from '@prisma/client';
 import Bun from 'bun';
 import { oneLine } from 'common-tags';
 import * as dateFns from 'date-fns';
-import {
-    Command,
-    CommandRunner,
-    InquirerService,
-    Question,
-    QuestionSet
-} from 'nest-commander';
+import { Command, CommandRunner, InquirerService, Question, QuestionSet } from 'nest-commander';
 import { Maybe } from '../../common';
 import { PrismaService, ScreenshotService } from '../../services';
 
@@ -84,8 +78,8 @@ class ImportCityCommand extends CommandRunner {
                 continue;
             }
 
-            // Check if the creator already has screenshots for a city that has
-            // the same name. Helps to avoid accidental re-imports.
+            // Check if the creator already has screenshots for a city that has the same name.
+            // Helps to avoid accidental re-imports.
             const existingCity = await this.prisma.screenshot.findFirst({
                 where: {
                     creatorId: creator.id,
@@ -97,11 +91,7 @@ class ImportCityCommand extends CommandRunner {
             });
 
             // Ask the user to confirm the changes.
-            confirm = await this.confirmChanges(
-                existingCity,
-                cityInfo,
-                filePaths
-            );
+            confirm = await this.confirmChanges(existingCity, cityInfo, filePaths);
 
             if (!confirm) {
                 continue;
@@ -111,12 +101,7 @@ class ImportCityCommand extends CommandRunner {
             await this.maybeMakeCreatorSupporter(creator, creator, cityInfo);
 
             // Import the screenshots.
-            await this.ingestScreenshots(
-                directoryPath,
-                filePaths,
-                creator,
-                cityInfo
-            );
+            await this.ingestScreenshots(directoryPath, filePaths, creator, cityInfo);
         }
     }
 
@@ -135,20 +120,13 @@ class ImportCityCommand extends CommandRunner {
             process.exit(1);
         }
 
-        console.info(
-            `Found ${filePaths.length} candidate file(s) in directory.`
-        );
+        console.info(`Found ${filePaths.length} candidate file(s) in directory.`);
 
         return filePaths;
     }
 
-    private async askForCityInfo(): Promise<
-        CityInfoQuestionsResult | undefined
-    > {
-        const cityInfo = await this.inquirer.ask<CityInfoQuestionsResult>(
-            'city-info',
-            undefined
-        );
+    private async askForCityInfo(): Promise<CityInfoQuestionsResult | undefined> {
+        const cityInfo = await this.inquirer.ask<CityInfoQuestionsResult>('city-info', undefined);
 
         // Log the city information for the user to review.
         console.info(`\nPlease review the city information:`, cityInfo);
@@ -169,9 +147,7 @@ class ImportCityCommand extends CommandRunner {
             ? console.info(
                   ` - Add to EXISTING City "${existingCity.cityName}" #${existingCity.id}.`
               )
-            : console.info(
-                  ` - Create screenshot(s) for a NEW City "${cityInfo.cityName}".`
-              );
+            : console.info(` - Create screenshot(s) for a NEW City "${cityInfo.cityName}".`);
 
         console.info(
             ` - Create Screenshot record(s) for each of those ${filePaths.length} files:`,
@@ -194,9 +170,7 @@ class ImportCityCommand extends CommandRunner {
                 data: { isSupporter: true }
             });
 
-            console.info(
-                `Made Creator "${creator.creatorName ?? '<anonymous>'}" a supporter.`
-            );
+            console.info(`Made Creator "${creator.creatorName ?? '<anonymous>'}" a supporter.`);
         }
     }
 
@@ -224,9 +198,7 @@ class ImportCityCommand extends CommandRunner {
                 Buffer.from(fileBytes)
             );
 
-            console.info(
-                `Imported screenshot "${filePath}", #${screenshot.id}`
-            );
+            console.info(`Imported screenshot "${filePath}", #${screenshot.id}`);
         }
     }
 }
@@ -287,9 +259,7 @@ class CityInfoQuestions {
         name: 'cityMilestone',
         message: `What is the milestone reached by the city?`,
         type: 'list',
-        choices: milestones.map(
-            (milestone, index) => `${index + 1}. ${milestone}`
-        )
+        choices: milestones.map((milestone, index) => `${index + 1}. ${milestone}`)
     })
     public parseMilestone(val: string): number {
         // biome-ignore lint/style/noNonNullAssertion: input is safe

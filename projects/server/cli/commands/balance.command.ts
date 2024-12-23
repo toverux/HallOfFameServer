@@ -3,13 +3,7 @@ import { Inject, Provider } from '@nestjs/common';
 import chalk from 'chalk';
 import { oneLine } from 'common-tags';
 import * as dateFns from 'date-fns';
-import {
-    Command,
-    CommandRunner,
-    InquirerService,
-    Question,
-    QuestionSet
-} from 'nest-commander';
+import { Command, CommandRunner, InquirerService, Question, QuestionSet } from 'nest-commander';
 import { PrismaService } from '../../services';
 
 @Command({
@@ -24,10 +18,7 @@ class BalanceCommand extends CommandRunner {
     private readonly prisma!: PrismaService;
 
     public override async run(): Promise<void> {
-        const record = await this.inquirer.ask<BalanceQuestionsResult>(
-            'balance',
-            undefined
-        );
+        const record = await this.inquirer.ask<BalanceQuestionsResult>('balance', undefined);
 
         await this.prisma.expenseIncomeRecord.create({
             data: record
@@ -110,7 +101,4 @@ class BalanceQuestions {
     }
 }
 
-export const balanceCommandProviders: Provider[] = [
-    BalanceCommand,
-    BalanceQuestions
-];
+export const balanceCommandProviders: Provider[] = [BalanceCommand, BalanceQuestions];

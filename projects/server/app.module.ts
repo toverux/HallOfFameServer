@@ -31,11 +31,7 @@ export class AppModule implements NestModule {
 }
 
 class MaintenanceMiddleware implements NestMiddleware {
-    public use(
-        _req: unknown,
-        _res: unknown,
-        next: (error?: unknown) => void
-    ): void {
+    public use(_req: unknown, _res: unknown, next: (error?: unknown) => void): void {
         if (config.http.maintenanceMessage != 'false') {
             throw new MaintenanceModeError(config.http.maintenanceMessage);
         }
@@ -48,8 +44,7 @@ class MaintenanceModeError extends StandardError {
     public override httpErrorType = ServiceUnavailableException;
 
     public constructor(message: string) {
-        const explanation =
-            message == 'true' ? `Please check back later.` : message;
+        const explanation = message == 'true' ? `Please check back later.` : message;
 
         super(`Hall of Fame is not available right now. ${explanation}`);
     }

@@ -1,11 +1,10 @@
 import { oneLine } from 'common-tags';
 
 /**
- * Custom configuration solution, we do not use @nestjs/config because Bun
- * already loads dotenv files for us and NestJS solution is not type-safe
- * (more like, the API consumer declares the type).
- * Also, we need some values before Nest is initialized, so this is not done in
- * the form of a service.
+ * Custom configuration solution, we do not use @nestjs/config because Bun already loads dotenv
+ * files for us and NestJS solution is not very type-safe.
+ * Also, we need some values before Nest is initialized, so this is not done in the form of a
+ * service.
  */
 export const config = {
     env: getEnum('NODE_ENV', ['development', 'production']),
@@ -31,12 +30,9 @@ export const config = {
     },
 
     screenshots: {
-        maxFileSizeBytes:
-            getNumber('HOF_SCREENSHOTS_MAX_FILE_SIZE_MB') * 1000 * 1000,
+        maxFileSizeBytes: getNumber('HOF_SCREENSHOTS_MAX_FILE_SIZE_MB') * 1000 * 1000,
         jpegQuality: getNumber('HOF_SCREENSHOTS_JPEG_QUALITY'),
-        recencyThresholdDays: getNumber(
-            'HOF_SCREENSHOTS_RECENCY_THRESHOLD_DAYS'
-        ),
+        recencyThresholdDays: getNumber('HOF_SCREENSHOTS_RECENCY_THRESHOLD_DAYS'),
         limitPer24h: getNumber('HOF_SCREENSHOTS_LIMIT_PER_24H')
     },
 

@@ -67,10 +67,7 @@ class ModerateCommand extends CommandRunner {
         _args: never,
         options: { readonly download: boolean }
     ): Promise<void> {
-        const reportedScreenshotFilePath = path.join(
-            os.tmpdir(),
-            'hof-reported-screenshot.jpg'
-        );
+        const reportedScreenshotFilePath = path.join(os.tmpdir(), 'hof-reported-screenshot.jpg');
 
         while (true) {
             const screenshot = await this.prisma.screenshot.findFirst({
@@ -87,18 +84,14 @@ class ModerateCommand extends CommandRunner {
                 where: { isReported: true }
             });
 
-            console.info(
-                `There are ${reportedCount} screenshots left to moderate.`
-            );
+            console.info(`There are ${reportedCount} screenshots left to moderate.`);
 
             console.info(oneLine`
                 Screenshot: City "${screenshot.cityName}",
                 Creator "${screenshot.creator.creatorName ?? '<anonymous>'}"
                 (reported by "${screenshot.reportedBy?.creatorName ?? '<anonymous>'}")`);
 
-            console.info(
-                `URL: ${this.screenshotService.getBlobUrl(screenshot.imageUrlFHD)}`
-            );
+            console.info(`URL: ${this.screenshotService.getBlobUrl(screenshot.imageUrlFHD)}`);
 
             if (options.download) {
                 await this.screenshotStorage.downloadScreenshotToFile(
@@ -109,11 +102,10 @@ class ModerateCommand extends CommandRunner {
                 await open(reportedScreenshotFilePath);
             }
 
-            const { action } =
-                await this.inquirer.ask<ModerationActionQuestionsResult>(
-                    'moderation-action',
-                    undefined
-                );
+            const { action } = await this.inquirer.ask<ModerationActionQuestionsResult>(
+                'moderation-action',
+                undefined
+            );
 
             switch (action) {
                 case 'approve': {
@@ -123,9 +115,7 @@ class ModerateCommand extends CommandRunner {
                     break;
                 }
                 case 'delete': {
-                    await this.screenshotService.deleteScreenshot(
-                        screenshot.id
-                    );
+                    await this.screenshotService.deleteScreenshot(screenshot.id);
 
                     console.info(`DELETED screenshot.`);
                     break;
@@ -146,10 +136,7 @@ class ModerateCommand extends CommandRunner {
         }
     }
 
-    private async banCreator(
-        creator: Creator,
-        screenshot: Screenshot
-    ): Promise<void> {
+    private async banCreator(creator: Creator, screenshot: Screenshot): Promise<void> {
         await this.ban.banCreator(
             creator,
             oneLine`
@@ -180,7 +167,4 @@ class ModerationActionQuestions {
     }
 }
 
-export const moderateCommandProviders: Provider[] = [
-    ModerateCommand,
-    ModerationActionQuestions
-];
+export const moderateCommandProviders: Provider[] = [ModerateCommand, ModerationActionQuestions];

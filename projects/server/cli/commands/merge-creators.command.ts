@@ -16,9 +16,7 @@ class MergeCreatorsCommand extends CommandRunner {
     public override async run(args: [string, string]): Promise<void> {
         const [duplicate, target] = args;
 
-        await this.prisma.$transaction(prisma =>
-            this.runTransaction(prisma, duplicate, target)
-        );
+        await this.prisma.$transaction(prisma => this.runTransaction(prisma, duplicate, target));
     }
 
     private async runTransaction(
@@ -29,11 +27,7 @@ class MergeCreatorsCommand extends CommandRunner {
         const duplicateCreator = await prisma.creator.findFirst({
             where: {
                 // biome-ignore lint/style/useNamingConvention: prisma
-                OR: [
-                    { id: duplicate },
-                    { creatorId: duplicate },
-                    { creatorName: duplicate }
-                ]
+                OR: [{ id: duplicate }, { creatorId: duplicate }, { creatorName: duplicate }]
             }
         });
 
@@ -45,11 +39,7 @@ class MergeCreatorsCommand extends CommandRunner {
         const targetCreator = await prisma.creator.findFirst({
             where: {
                 // biome-ignore lint/style/useNamingConvention: prisma
-                OR: [
-                    { id: target },
-                    { creatorId: target },
-                    { creatorName: target }
-                ]
+                OR: [{ id: target }, { creatorId: target }, { creatorName: target }]
             }
         });
 
@@ -58,18 +48,12 @@ class MergeCreatorsCommand extends CommandRunner {
             throw `Creator ${target} not found.`;
         }
 
-        console.info(
-            chalk.bold`Merging`,
-            duplicateCreator,
-            chalk.bold`into`,
-            targetCreator
-        );
+        console.info(chalk.bold`Merging`, duplicateCreator, chalk.bold`into`, targetCreator);
 
-        const { count: updatedScreenshots } =
-            await prisma.screenshot.updateMany({
-                where: { creatorId: duplicateCreator.id },
-                data: { creatorId: targetCreator.id }
-            });
+        const { count: updatedScreenshots } = await prisma.screenshot.updateMany({
+            where: { creatorId: duplicateCreator.id },
+            data: { creatorId: targetCreator.id }
+        });
 
         console.info(chalk.bold`Updated ${updatedScreenshots} screenshots.`);
 
@@ -91,9 +75,7 @@ class MergeCreatorsCommand extends CommandRunner {
             where: { id: duplicateCreator.id }
         });
 
-        console.info(
-            chalk.bold`Deleted duplicate creator ${duplicateCreator.id}.`
-        );
+        console.info(chalk.bold`Deleted duplicate creator ${duplicateCreator.id}.`);
     }
 }
 

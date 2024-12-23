@@ -25,8 +25,8 @@ function handleError(error: Error): void {
     if (!config.verbose && error instanceof StandardError) {
         console.error(chalk.red(error.message));
     } else {
-        // Do not recolor using chalk, this will use the standard formatting for
-        // errors in the console.
+        // Do not recolor using chalk, this will use the standard formatting for errors which is
+        // much better.
         console.error(error);
     }
 

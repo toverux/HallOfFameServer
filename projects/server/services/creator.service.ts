@@ -15,10 +15,9 @@ import { PrismaService } from './prisma.service';
 export class CreatorService {
     /**
      * Regular expression to validate a Creator Name:
-     * - Must contain only letters, numbers, spaces, hyphens, apostrophes and
-     *   underscores.
-     * - Must be between 1 and 25 characters long. 1-character-long names are
-     *   for languages like Chinese.
+     * - Must contain only letters, numbers, spaces, hyphens, apostrophes and underscores.
+     * - Must be between 1 and 25 characters long. 1-character-long names are for languages like
+     *   Chinese.
      *
      * @see validateCreatorName
      * @see getCreatorNameSlug
@@ -32,8 +31,7 @@ export class CreatorService {
     private readonly logger = new Logger(CreatorService.name);
 
     /**
-     * Validates that a string is a valid Creator Name according to
-     * {@link CreatorService.nameRegex}
+     * Validates that a string is a valid Creator Name according to {@link CreatorService.nameRegex}
      *
      * @throws InvalidCreatorNameError If it is not a valid Creator Name.
      */
@@ -51,8 +49,8 @@ export class CreatorService {
     }
 
     /**
-     * Transforms a Creator Name to a slug-style one used to check for username
-     * collisions or future URL routing.
+     * Transforms a Creator Name to a slug-style one used to check for username collisions or future
+     * URL routing.
      */
     private static getCreatorNameSlug(name: string | null): string | null {
         if (!name?.trim()) {
@@ -73,33 +71,27 @@ export class CreatorService {
 
     /**
      * Creates a new Creator or retrieves an existing one.
-     * This method is intended to be used as authentication and account creation
-     * as it performs Creator Name/Creator ID validation and updates.
+     * This method is intended to be used as authentication and account creation as it performs
+     * Creator Name/Creator ID validation and updates.
      *
      * There are two possible outcomes:
-     * - If the Creator ID doesn't match any record, a new Creator is created
-     *   with the provided credentials.
-     * - If the Creator ID matches a record, the request is authenticated, and
-     *   the Creator Name is updated if it changed.
+     * - If the Creator ID doesn't match any record, a new Creator is created with the provided
+     *   credentials.
+     * - If the Creator ID matches a record, the request is authenticated, and the Creator Name is
+     *   updated if it changed.
      *
-     * Just a wrapper around {@link authenticateCreatorUnsafe} that handles
-     * concurrent requests conflicts.
+     * Just a wrapper around {@link authenticateCreatorUnsafe} that handles concurrent requests
+     * conflicts.
      */
-    public async authenticateCreator(
-        authorization: CreatorAuthorization
-    ): Promise<Creator> {
+    public async authenticateCreator(authorization: CreatorAuthorization): Promise<Creator> {
         try {
             return await this.authenticateCreatorUnsafe(authorization);
         } catch (error) {
-            // This can happen if a Creator account didn't exist and that user
-            // simultaneously sends two authenticated requests that lead to the
-            // creation of the same Creator account due to race condition, for
-            // example /me and /me/stats when launching the mod.
+            // This can happen if a Creator account didn't exist and that user simultaneously sends
+            // two authenticated requests that lead to the creation of the same Creator account due
+            // to race condition, for example "/me" and "/me/stats" when launching the mod.
             // In that case we just have to retry the authentication.
-            if (
-                error instanceof PrismaClientKnownRequestError &&
-                error.code == 'P2002'
-            ) {
+            if (error instanceof PrismaClientKnownRequestError && error.code == 'P2002') {
                 return await this.authenticateCreatorUnsafe(authorization);
             }
 
@@ -108,10 +100,9 @@ export class CreatorService {
     }
 
     /**
-     * See {@link authenticateCreator} for the method's purpose, this is just
-     * the part of the authentication that can be retried in case of error due
-     * to concurrent requests leading to an account creation (and therefore a
-     * unique constraint violation).
+     * See {@link authenticateCreator} for the method's purpose, this is just the part of the
+     * authentication that can be retried in case of error due to concurrent requests leading to an
+     * account creation (and therefore a unique constraint violation).
      */
     public async authenticateCreatorUnsafe({
         creatorId,
@@ -125,15 +116,14 @@ export class CreatorService {
             throw new InvalidCreatorIDError(creatorId);
         }
 
-        // Note: we do NOT validate the Creator Name immediately, as we need to
-        // support legacy Creator Names that were validated with a different
-        // regex. We validate it only when an account is created or updated.
+        // Note: we do NOT validate the Creator Name immediately, as we need to support legacy
+        // Creator Names that were validated with a different regex.
+        // We validate it only when an account is created or updated.
 
         // Find the creator by either the Creator ID or the Creator Name.
         // If we find a match,
         // - If the Creator ID is incorrect (not a UUID), reject request.
-        // - If the Creator ID is correct, we'll update the Creator Name if it
-        //   changed.
+        // - If the Creator ID is correct, we'll update the Creator Name if it changed.
         // If we don't find a match, create a new account.
         const creatorNameSlug = CreatorService.getCreatorNameSlug(creatorName);
 
@@ -146,42 +136,35 @@ export class CreatorService {
                 : { creatorId }
         });
 
-        // This can happen if we matched an existing Creator ID (so far so good)
-        // but that the Creator Name is being changed to a name that is already
-        // taken.
-        // This returns two creators, one matching the Creator ID and one
-        // matching the Creator Name.
+        // This can happen if we matched an existing Creator ID (so far so good) but that the
+        // Creator Name is being changed to a name that is already taken.
+        // This returns two creators, one matching the Creator ID and one matching the Creator Name.
         if (creators.length > 1) {
             assert(
                 creators.length == 2,
                 `Only two creators are returned, otherwise there are non-unique Creator Names.`
             );
 
-            assert(
-                creatorName,
-                `Creator Name can only be non-null if >1 creators are found.`
-            );
+            assert(creatorName, `Creator Name can only be non-null if >1 creators are found.`);
 
             throw new IncorrectCreatorIDError(creatorName);
         }
 
-        // After this previous check we know that the first and only creator is
-        // the one we want to authenticate or create.
+        // After this previous check we know that the first and only creator is the one we want to
+        // authenticate or create.
         let creator = creators[0];
 
         if (creator) {
-            // Check if the Creator ID and Creator Name are correct and update
-            // info if needed.
-            const { creator: updatedCreator, modified } =
-                await this.authenticateAndUpdateCreator(
-                    creatorId,
-                    creatorIdProvider,
-                    creatorName,
-                    creatorNameSlug,
-                    hwid,
-                    ip,
-                    creator
-                );
+            // Check if the Creator ID and Creator Name are correct and update info if needed.
+            const { creator: updatedCreator, modified } = await this.authenticateAndUpdateCreator(
+                creatorId,
+                creatorIdProvider,
+                creatorName,
+                creatorNameSlug,
+                hwid,
+                ip,
+                creator
+            );
 
             creator = updatedCreator;
 
@@ -194,8 +177,7 @@ export class CreatorService {
                 data: {
                     creatorId,
                     creatorIdProvider,
-                    creatorName:
-                        CreatorService.validateCreatorName(creatorName),
+                    creatorName: CreatorService.validateCreatorName(creatorName),
                     creatorNameSlug,
                     hwids: [hwid],
                     ips: [ip]
@@ -234,8 +216,8 @@ export class CreatorService {
     ): Promise<{ creator: Creator; modified: boolean }> {
         // Check if the Creator ID match, unless the reset flag is set.
         if (creator.creatorId != creatorId && !creator.allowCreatorIdReset) {
-            // This should never happen, as when we enter this condition, it
-            // means that we matched on the Creator Name and not the Creator ID.
+            // This should never happen, as when we enter this condition, it means that we matched
+            // on the Creator Name and not the Creator ID.
             assert(creator.creatorName);
 
             throw new IncorrectCreatorIDError(creator.creatorName);
@@ -252,8 +234,7 @@ export class CreatorService {
             return { creator, modified: false };
         }
 
-        // Update the Creator Name and Hardware IDs, and Creator ID if it was
-        // reset.
+        // Update the Creator Name and Hardware IDs, and Creator ID if it was reset.
         const updatedCreator = await this.prisma.creator.update({
             where: { id: creator.id },
             data: {
@@ -279,9 +260,7 @@ export abstract class CreatorError extends StandardError {}
 
 export class InvalidCreatorIDError extends CreatorError {
     public constructor(public readonly creatorId: string) {
-        super(
-            `Invalid Creator ID "${creatorId}", an UUID v4 sequence was expected.`
-        );
+        super(`Invalid Creator ID "${creatorId}", an UUID v4 sequence was expected.`);
     }
 }
 

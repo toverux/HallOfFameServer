@@ -267,10 +267,7 @@ export class ScreenshotService {
             ? await this.viewService.getViewedScreenshotIds(creatorId, alreadyViewedMaxAgeInDays)
             : new Set<string>();
 
-        const viewedOids: readonly JsonOid[] = viewedIds
-            .values()
-            .map(id => ({ $oid: id }))
-            .toArray();
+        const viewedOids: readonly JsonOid[] = Array.from(viewedIds).map(id => ({ $oid: id }));
 
         this.logger.verbose(oneLine`
             Attempt to find screenshot starting

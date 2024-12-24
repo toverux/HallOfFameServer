@@ -28,15 +28,14 @@ type RandomScreenshotAlgorithm = 'random' | 'trending' | 'recent' | 'archeologis
 type RandomScreenshotWeights = Readonly<Record<RandomScreenshotAlgorithm, number>>;
 
 type RandomScreenshotFunctions = Readonly<
-    Record<
-        RandomScreenshotAlgorithm,
-        (nin: readonly Screenshot['id'][]) => Promise<Screenshot | null>
-    >
+    Record<RandomScreenshotAlgorithm, (nin: readonly JsonOid[]) => Promise<Screenshot | null>>
 >;
 
 type ScreenshotWithAlgo = Screenshot & {
     __algorithm: RandomScreenshotAlgorithm | 'random_default';
 };
+
+type JsonOid = { readonly $oid: string };
 
 @Injectable()
 export class ScreenshotService {
@@ -266,32 +265,26 @@ export class ScreenshotService {
         // have already seen.
         const viewedIds = creatorId
             ? await this.viewService.getViewedScreenshotIds(creatorId, alreadyViewedMaxAgeInDays)
-            : [];
+            : new Set<string>();
 
-        this.logger.debug(`Attempt to find screenshot starting.`);
+        const viewedOids: readonly JsonOid[] = viewedIds
+            .values()
+            .map(id => ({ $oid: id }))
+            .toArray();
+
+        this.logger.verbose(oneLine`
+            Attempt to find screenshot starting
+            (creator id: #${creatorId}, viewed ids: ${viewedIds.size}).`);
 
         // Try to get a screenshot using the weighted random selection and taking in account the
         // viewed screenshots.
-        let screenshot = await this.tryGetWeightedRandomScreenshot(weights, viewedIds);
-
-        // If we did not find a screenshot here, it might be because the user has viewed all the
-        // screenshots for their weight preferences.
-        // Try again without taking into account the viewed screenshots, but still respecting the
-        // user's weights.
-        if (!screenshot && viewedIds.length > 0) {
-            this.logger.debug(
-                `No screenshot found, retrying without taking into account viewed screenshots.`
-            );
-
-            screenshot = await this.tryGetWeightedRandomScreenshot(weights, []);
-        }
+        let screenshot = await this.tryGetWeightedRandomScreenshot(weights, viewedOids);
 
         // If we still did not find a screenshot, fall back to a completely random screenshot.
-        // This is very unlikely at this point.
         if (!screenshot) {
-            this.logger.debug(`No screenshot found, falling back to random.`);
+            this.logger.verbose(`No screenshot found, falling back to random.`);
 
-            const random = await this.getScreenshotRandom();
+            const random = await this.getScreenshotRandom([]);
 
             if (random) {
                 screenshot = { ...random, __algorithm: 'random_default' };
@@ -301,7 +294,9 @@ export class ScreenshotService {
         // At this point we have a screenshot or the database is empty.
         assert(screenshot, `Not a single screenshot found. Empty database?`);
 
-        this.logger.debug(`We have a screenshot!`);
+        this.logger.verbose(
+            `We have a screenshot! (id: #${screenshot.id}, algo: ${screenshot.__algorithm})`
+        );
 
         return screenshot;
     }
@@ -470,7 +465,7 @@ export class ScreenshotService {
      */
     private async tryGetWeightedRandomScreenshot(
         weights: RandomScreenshotWeights,
-        viewedIds: readonly Screenshot['id'][]
+        viewedIds: readonly JsonOid[]
     ): Promise<ScreenshotWithAlgo | undefined> {
         // Get a mutable copy of the weights.
         const currentWeights = { ...weights };
@@ -573,11 +568,11 @@ export class ScreenshotService {
     /**
      * Retrieves a non-reported completely random screenshot.
      */
-    private getScreenshotRandom(nin: readonly Screenshot['id'][] = []): Promise<Screenshot | null> {
+    private getScreenshotRandom(nin: readonly JsonOid[]): Promise<Screenshot | null> {
         return this.runAggregateForSingleScreenshot([
             {
                 $match: {
-                    _id: { $nin: nin.map(id => ({ $oid: id })) },
+                    _id: { $nin: nin },
                     isReported: false
                 }
             },
@@ -588,15 +583,13 @@ export class ScreenshotService {
     /**
      * Retrieves a non-reported screenshot that has a high amount of "likes" (favorites) *per day*.
      */
-    private getScreenshotTrending(
-        nin: readonly Screenshot['id'][] = []
-    ): Promise<Screenshot | null> {
+    private getScreenshotTrending(nin: readonly JsonOid[]): Promise<Screenshot | null> {
         // Uses [isReported, favoritingPercentage] compound index for sorting with limiting and
         // filtering, test changes to ensure index usage.
         return this.runAggregateForSingleScreenshot([
             {
                 $match: {
-                    _id: { $nin: nin.map(id => ({ $oid: id })) },
+                    _id: { $nin: nin },
                     favoritingPercentage: { $gt: 1 },
                     isReported: false
                 }
@@ -611,7 +604,7 @@ export class ScreenshotService {
      * Retrieves a non-reported random screenshot that was uploaded within the last X days
      * (configurable in env).
      */
-    private getScreenshotRecent(nin: readonly Screenshot['id'][] = []): Promise<Screenshot | null> {
+    private getScreenshotRecent(nin: readonly JsonOid[]): Promise<Screenshot | null> {
         const $date = dfns.subDays(new Date(), config.screenshots.recencyThresholdDays);
 
         // Uses [isReported, createdAt] compound index for sorting with limiting and filtering when
@@ -620,7 +613,7 @@ export class ScreenshotService {
         return this.runAggregateForSingleScreenshot([
             {
                 $match: {
-                    _id: { $nin: nin.map(id => ({ $oid: id })) },
+                    _id: { $nin: nin },
                     isReported: false,
                     createdAt: { $gt: { $date } }
                 }
@@ -635,9 +628,7 @@ export class ScreenshotService {
      * Retrieves a non-reported screenshot that was uploaded more than X days ago (configurable in
      * env), has the lowest amount of views, and then prioritizes the oldest screenshots.
      */
-    private getScreenshotArcheologist(
-        nin: readonly Screenshot['id'][] = []
-    ): Promise<Screenshot | null> {
+    private getScreenshotArcheologist(nin: readonly JsonOid[]): Promise<Screenshot | null> {
         const $date = dfns.subDays(new Date(), config.screenshots.recencyThresholdDays);
 
         // Uses [isReported, viewsCount, createdAt] compound index for sorting with limiting and
@@ -645,7 +636,7 @@ export class ScreenshotService {
         return this.runAggregateForSingleScreenshot([
             {
                 $match: {
-                    _id: { $nin: nin.map(id => ({ $oid: id })) },
+                    _id: { $nin: nin },
                     isReported: false,
                     createdAt: { $lt: { $date } }
                 }
@@ -660,9 +651,7 @@ export class ScreenshotService {
      * Retrieves a non-reported random screenshot from a random supporter.
      * Prioritizes the oldest screenshots with the least views for the randomly-selected supporter.
      */
-    private async getScreenshotSupporter(
-        nin: readonly Screenshot['id'][] = []
-    ): Promise<Screenshot | null> {
+    private async getScreenshotSupporter(nin: readonly JsonOid[]): Promise<Screenshot | null> {
         const supporters = await this.prisma.creator.aggregateRaw({
             pipeline: [
                 { $match: { isSupporter: true } },
@@ -681,7 +670,7 @@ export class ScreenshotService {
         return this.runAggregateForSingleScreenshot([
             {
                 $match: {
-                    _id: { $nin: nin.map(id => ({ $oid: id })) },
+                    _id: { $nin: nin },
                     isReported: false,
                     creatorId: supporter._id
                 }

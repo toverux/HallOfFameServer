@@ -16,7 +16,7 @@ export class ViewService {
      */
     private readonly viewsCache = new LRUCache<
         Creator['id'],
-        { maxAge?: number; screenshotIds: Screenshot['id'][] }
+        { maxAge?: number; screenshotIds: Set<Screenshot['id']> }
     >({
         // Allow a max of 100 creator entries in the cache.
         max: 100,
@@ -35,7 +35,7 @@ export class ViewService {
     public async getViewedScreenshotIds(
         creatorId: Creator['id'],
         maxAgeInDays: number | undefined
-    ): Promise<Screenshot['id'][]> {
+    ): Promise<Set<Screenshot['id']>> {
         if (this.viewsCache.has(creatorId)) {
             // biome-ignore lint/style/noNonNullAssertion: cannot be null
             const cache = this.viewsCache.get(creatorId)!;
@@ -68,9 +68,9 @@ export class ViewService {
             }
         });
 
-        const screenshotIds = screenshots.map(view => view.screenshotId);
+        const screenshotIds = new Set(screenshots.map(view => view.screenshotId));
 
-        if (screenshotIds.length > 0) {
+        if (screenshotIds.size > 0) {
             this.viewsCache.set(creatorId, {
                 maxAge: maxAgeInDays ?? 0,
                 screenshotIds
@@ -100,10 +100,10 @@ export class ViewService {
 
         // Add the view to the cache once we recorded it in the database.
         const cache = this.viewsCache.get(creatorId) ?? {
-            screenshotIds: []
+            screenshotIds: new Set()
         };
 
-        cache.screenshotIds.push(screenshotId);
+        cache.screenshotIds.add(screenshotId);
 
         this.viewsCache.set(creatorId, cache);
 

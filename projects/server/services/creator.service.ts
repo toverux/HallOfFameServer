@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { ForbiddenException, Inject, Injectable, Logger } from '@nestjs/common';
-import type { Creator } from '@prisma/client';
+import type { Creator, CreatorSocial, CreatorSocialLink } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { oneLine } from 'common-tags';
 import * as uuid from 'uuid';
@@ -13,6 +13,26 @@ import { PrismaService } from './prisma.service';
  */
 @Injectable()
 export class CreatorService {
+    /**
+     * An object that provides functions to generate a link for the supported social media.
+     */
+    public static readonly formatSocialLink = {
+        discordInviteLink: value => `https://discord.gg/${value}`,
+        reddit: value => `https://reddit.com/user/${value}`,
+        twitch: value => `https://twitch.tv/${value}`,
+        youtube: value => `https://youtube.com/@${value}`
+    } satisfies Record<keyof CreatorSocial, (value: string) => string>;
+
+    /**
+     * An object that defines formatting functions for supported social media handles.
+     */
+    public static readonly formatSocialHandle = {
+        discordInviteLink: value => `discord.gg/${value}`,
+        reddit: value => `u/${value}`,
+        twitch: value => value,
+        youtube: value => `@${value}`
+    } satisfies Record<keyof CreatorSocial, (value: string) => string>;
+
     /**
      * Regular expression to validate a Creator Name:
      * - Must contain only letters, numbers, spaces, hyphens, apostrophes and underscores.
@@ -30,43 +50,8 @@ export class CreatorService {
 
     private readonly logger = new Logger(CreatorService.name);
 
-    /**
-     * Validates that a string is a valid Creator Name according to {@link CreatorService.nameRegex}
-     *
-     * @throws InvalidCreatorNameError If it is not a valid Creator Name.
-     */
-    private static validateCreatorName(name: string | null): string | null {
-        if (!name?.trim()) {
-            return null;
-        }
-
-        if (!name.match(CreatorService.nameRegex)) {
-            throw new InvalidCreatorNameError(name);
-        }
-
-        // Normalize multiple spaces to a single space.
-        return name.replace(/\s+/g, ' ');
-    }
-
-    /**
-     * Transforms a Creator Name to a slug-style one used to check for username collisions or future
-     * URL routing.
-     */
-    private static getCreatorNameSlug(name: string | null): string | null {
-        if (!name?.trim()) {
-            return null;
-        }
-
-        return (
-            name
-                .replaceAll("'", '')
-                .replaceAll('’', '')
-                // Replace consecutive spaces or hyphens by a single hyphen.
-                .replace(/\s+|-+/g, '-')
-                // Remove leading and trailing hyphens.
-                .replace(/^-+|-+$/g, '')
-                .toLowerCase()
-        );
+    public static isValidSocialPlatform(platform: string): platform is keyof CreatorSocial {
+        return platform in CreatorService.formatSocialLink;
     }
 
     /**
@@ -180,7 +165,8 @@ export class CreatorService {
                     creatorName: CreatorService.validateCreatorName(creatorName),
                     creatorNameSlug,
                     hwids: [hwid],
-                    ips: [ip]
+                    ips: [ip],
+                    social: {}
                 }
             });
 
@@ -198,7 +184,21 @@ export class CreatorService {
             id: creator.id,
             creatorName: creator.creatorName,
             creatorNameSlug: creator.creatorNameSlug,
-            createdAt: creator.createdAt.toISOString()
+            createdAt: creator.createdAt.toISOString(),
+            social: Object.entries(creator.social)
+                .filter(
+                    (kv): kv is [keyof CreatorSocial, CreatorSocialLink] =>
+                        CreatorService.isValidSocialPlatform(kv[0]) && !!kv[1]
+                )
+                .reduce<Record<string, JsonObject>>((social, [platform, link]) => {
+                    social[platform] = {
+                        handle: CreatorService.formatSocialHandle[platform](link.value),
+                        link: CreatorService.formatSocialLink[platform](link.value),
+                        clicks: link.clicks
+                    };
+
+                    return social;
+                }, {})
         };
     }
 
@@ -253,6 +253,45 @@ export class CreatorService {
         });
 
         return { creator: updatedCreator, modified: true };
+    }
+
+    /**
+     * Validates that a string is a valid Creator Name according to {@link CreatorService.nameRegex}
+     *
+     * @throws InvalidCreatorNameError If it is not a valid Creator Name.
+     */
+    private static validateCreatorName(name: string | null): string | null {
+        if (!name?.trim()) {
+            return null;
+        }
+
+        if (!name.match(CreatorService.nameRegex)) {
+            throw new InvalidCreatorNameError(name);
+        }
+
+        // Normalize multiple spaces to a single space.
+        return name.replace(/\s+/g, ' ');
+    }
+
+    /**
+     * Transforms a Creator Name to a slug-style one used to check for username collisions or future
+     * URL routing.
+     */
+    private static getCreatorNameSlug(name: string | null): string | null {
+        if (!name?.trim()) {
+            return null;
+        }
+
+        return (
+            name
+                .replaceAll("'", '')
+                .replaceAll('’', '')
+                // Replace consecutive spaces or hyphens by a single hyphen.
+                .replace(/\s+|-+/g, '-')
+                // Remove leading and trailing hyphens.
+                .replace(/^-+|-+$/g, '')
+                .toLowerCase()
+        );
     }
 }
 

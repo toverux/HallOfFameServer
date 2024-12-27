@@ -1,16 +1,19 @@
 import {
+    BadRequestException,
     Body,
     Controller,
     Get,
+    HttpStatus,
     Inject,
     NotFoundException,
     Param,
     Put,
     Req,
+    Res,
     UseGuards
 } from '@nestjs/common';
-import type { Creator } from '@prisma/client';
-import type { FastifyRequest } from 'fastify';
+import type { Creator, CreatorSocial } from '@prisma/client';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { JsonObject, allFulfilled } from '../../common';
 import { CreatorAuthorizationGuard } from '../../guards';
@@ -125,6 +128,32 @@ export class CreatorController {
             viewsCount,
             favoritesCount
         };
+    }
+
+    @Get(':id/social/:platform')
+    public async redirectCreatorSocial(
+        @Req() req: FastifyRequest,
+        @Res() res: FastifyReply,
+        @Param('id') creatorId: Creator['id'],
+        @Param('platform') platform: keyof CreatorSocial | string
+    ): Promise<void> {
+        const creator = await this.fetchCreatorById(creatorId, req);
+
+        if (!CreatorService.isValidSocialPlatform(platform)) {
+            throw new BadRequestException(`Social platform "${platform}" is not supported.`);
+        }
+
+        const link = creator.social[platform];
+
+        if (!link) {
+            throw new NotFoundException(
+                `Creator "${creator.creatorName}" has no social link for "${platform}".`
+            );
+        }
+
+        const url = CreatorService.formatSocialLink[platform](link.value);
+
+        res.redirect(url, HttpStatus.FOUND);
     }
 
     private async fetchCreatorById(

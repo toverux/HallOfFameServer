@@ -44,6 +44,8 @@ model Creator {
   /// Contrarily to hardware IDs, IPs are harder to spoof so this adds as an additional layer of
   /// security.
   ips                 String[]
+  /// Map of social accounts of the Creator.
+  social              CreatorSocial
   /// JSON object containing the latest known mod settings this user used.
   /// Used to better understand the mod's usage.
   modSettings         Json?
@@ -68,6 +70,21 @@ model Creator {
 enum CreatorIdProvider {
   local
   paradox
+}
+
+/// A link to a social account of a Creator.
+type CreatorSocial {
+  discordInviteLink CreatorSocialLink?
+  reddit            CreatorSocialLink?
+  twitch            CreatorSocialLink?
+  youtube           CreatorSocialLink?
+}
+
+type CreatorSocialLink {
+  /// Creator handle/username or any other data necessary to build the social link.
+  value  String
+  /// Number of times we redirected to this social account.
+  clicks Int    @default(0)
 }
 
 /// A screenshot uploaded by a Creator.

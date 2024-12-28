@@ -193,7 +193,7 @@ export class CreatorService {
                 .reduce<Record<string, JsonObject>>((social, [platform, link]) => {
                     social[platform] = {
                         handle: CreatorService.formatSocialHandle[platform](link.value),
-                        link: CreatorService.formatSocialLink[platform](link.value),
+                        link: `/api/v1/creators/${creator.id}/social/${platform}`,
                         clicks: link.clicks
                     };
 

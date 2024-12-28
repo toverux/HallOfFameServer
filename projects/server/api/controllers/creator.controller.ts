@@ -130,6 +130,11 @@ export class CreatorController {
         };
     }
 
+    /**
+     * Redirects a request to a creator's social media page based on the provided platform.
+     * Validates the platform and ensures the creator has a corresponding social link.
+     * If valid, redirection occurs and the click count for that link is incremented.
+     */
     @Get(':id/social/:platform')
     public async redirectCreatorSocial(
         @Req() req: FastifyRequest,
@@ -139,6 +144,7 @@ export class CreatorController {
     ): Promise<void> {
         const creator = await this.fetchCreatorById(creatorId, req);
 
+        // Check the platform is supported and available for this user.
         if (!CreatorService.isValidSocialPlatform(platform)) {
             throw new BadRequestException(`Social platform "${platform}" is not supported.`);
         }
@@ -151,9 +157,22 @@ export class CreatorController {
             );
         }
 
+        // Make the URL and redirect asap.
         const url = CreatorService.formatSocialLink[platform](link.value);
 
         res.redirect(url, HttpStatus.FOUND);
+
+        // Increment click count for this platform.
+        await this.prisma.creator.update({
+            where: { id: creator.id },
+            data: {
+                social: {
+                    update: {
+                        [platform]: { ...link, clicks: link.clicks + 1 }
+                    }
+                }
+            }
+        });
     }
 
     private async fetchCreatorById(

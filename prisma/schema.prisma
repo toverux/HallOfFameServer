@@ -72,19 +72,39 @@ enum CreatorIdProvider {
   paradox
 }
 
-/// A link to a social account of a Creator.
+/// A map of links to social accounts of a Creator.
 type CreatorSocial {
-  discordInviteLink CreatorSocialLink?
-  reddit            CreatorSocialLink?
-  twitch            CreatorSocialLink?
-  youtube           CreatorSocialLink?
+  discordServer DiscordServerSocialLink?
+  paradoxMods   ParadoxModsSocialLink?
+  reddit        RedditSocialLink?
+  twitch        TwitchSocialLink?
+  youtube       YoutubeSocialLink?
 }
 
-type CreatorSocialLink {
-  /// Creator handle/username or any other data necessary to build the social link.
-  value  String
-  /// Number of times we redirected to this social account.
-  clicks Int    @default(0)
+type DiscordServerSocialLink {
+  serverName String
+  code       String
+  clicks     Int    @default(0)
+}
+
+type ParadoxModsSocialLink {
+  username String
+  clicks   Int    @default(0)
+}
+
+type RedditSocialLink {
+  username String
+  clicks   Int    @default(0)
+}
+
+type TwitchSocialLink {
+  channel String
+  clicks  Int    @default(0)
+}
+
+type YoutubeSocialLink {
+  channel String
+  clicks  Int    @default(0)
 }
 
 /// A screenshot uploaded by a Creator.

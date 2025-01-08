@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { ForbiddenException, Inject, Injectable, Logger } from '@nestjs/common';
-import type { Creator, CreatorSocial, CreatorSocialLink } from '@prisma/client';
+import type { Creator, CreatorSocial } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { oneLine } from 'common-tags';
 import * as uuid from 'uuid';
@@ -8,30 +8,37 @@ import { HardwareID, IPAddress, JsonObject, StandardError } from '../common';
 import { CreatorAuthorization } from '../guards';
 import { PrismaService } from './prisma.service';
 
+type SocialLinkMapper = {
+    [TPlatform in keyof CreatorSocial]: (link: NonNullable<CreatorSocial[TPlatform]>) => string;
+};
+
 /**
  * Service to manage authenticate and manage Creators.
  */
 @Injectable()
 export class CreatorService {
     /**
-     * An object that provides functions to generate a link for the supported social media.
+     * An object with functions to map a supported social media to an HTTP link.
      */
     public static readonly formatSocialLink = {
-        discordInviteLink: value => `https://discord.gg/${value}`,
-        reddit: value => `https://reddit.com/user/${value}`,
-        twitch: value => `https://twitch.tv/${value}`,
-        youtube: value => `https://youtube.com/@${value}`
-    } satisfies Record<keyof CreatorSocial, (value: string) => string>;
+        discordServer: link => `https://discord.gg/${link.code}`,
+        paradoxMods: link =>
+            `https://mods.paradoxplaza.com/authors/${link.username}?games=cities_skylines_2`,
+        reddit: link => `https://reddit.com/user/${link.username}`,
+        twitch: link => `https://twitch.tv/${link.channel}`,
+        youtube: link => `https://youtube.com/@${link.channel}`
+    } satisfies SocialLinkMapper;
 
     /**
-     * An object that defines formatting functions for supported social media handles.
+     * An object with functions to map a supported social media to a description.
      */
-    public static readonly formatSocialHandle = {
-        discordInviteLink: value => `discord.gg/${value}`,
-        reddit: value => `u/${value}`,
-        twitch: value => value,
-        youtube: value => `@${value}`
-    } satisfies Record<keyof CreatorSocial, (value: string) => string>;
+    public static readonly formatSocialLinkDescription = {
+        discordServer: link => `Join ${link.serverName} on Discord`,
+        paradoxMods: link => `${link.username} on Paradox Mods`,
+        reddit: link => `u/${link.username} on Reddit`,
+        twitch: link => `${link.channel} on Twitch`,
+        youtube: link => `@${link.channel} on YouTube`
+    } satisfies SocialLinkMapper;
 
     /**
      * Regular expression to validate a Creator Name:
@@ -187,12 +194,23 @@ export class CreatorService {
             createdAt: creator.createdAt.toISOString(),
             social: Object.entries(creator.social)
                 .filter(
-                    (kv): kv is [keyof CreatorSocial, CreatorSocialLink] =>
-                        CreatorService.isValidSocialPlatform(kv[0]) && !!kv[1]
+                    (
+                        kv
+                    ): kv is [
+                        keyof CreatorSocial,
+                        NonNullable<CreatorSocial[keyof CreatorSocial]>
+                    ] => CreatorService.isValidSocialPlatform(kv[0]) && !!kv[1]
                 )
                 .reduce<Record<string, JsonObject>>((social, [platform, link]) => {
                     social[platform] = {
-                        handle: CreatorService.formatSocialHandle[platform](link.value),
+                        description: CreatorService.formatSocialLinkDescription[platform]({
+                            // Little contraption to avoid a type error and stay strict.
+                            channel: '',
+                            code: '',
+                            serverName: '',
+                            username: '',
+                            ...link
+                        }),
                         link: `/api/v1/creators/${creator.id}/social/${platform}`,
                         clicks: link.clicks
                     };

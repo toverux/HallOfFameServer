@@ -158,7 +158,14 @@ export class CreatorController {
         }
 
         // Make the URL and redirect asap.
-        const url = CreatorService.formatSocialLink[platform](link.value);
+        const url = CreatorService.formatSocialLink[platform]({
+            // Little contraption to avoid a type error and stay strict.
+            channel: '',
+            code: '',
+            serverName: '',
+            username: '',
+            ...link
+        });
 
         res.redirect(url, HttpStatus.FOUND);
 

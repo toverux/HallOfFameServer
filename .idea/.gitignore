@@ -5,3 +5,5 @@
 /httpRequests/
 # Database connections
 /dataSources*
+# Biome plugin preferences (ie. enable format-on-save)
+/biome.xml

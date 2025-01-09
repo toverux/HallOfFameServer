@@ -23,7 +23,7 @@ export class CreatorService {
     public static readonly formatSocialLink = {
         discordServer: link => `https://discord.gg/${link.code}`,
         paradoxMods: link =>
-            `https://mods.paradoxplaza.com/authors/${link.username}?games=cities_skylines_2`,
+            `https://mods.paradoxplaza.com/authors/${link.username}/cities_skylines_2`,
         reddit: link => `https://reddit.com/user/${link.username}`,
         twitch: link => `https://twitch.tv/${link.channel}`,
         youtube: link => `https://youtube.com/@${link.channel}`

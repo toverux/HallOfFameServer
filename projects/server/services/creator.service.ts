@@ -212,7 +212,7 @@ export class CreatorService {
                             ...link
                         }),
                         link: `/api/v1/creators/${creator.id}/social/${platform}`,
-                        clicks: link.clicks
+                        ...link
                     };
 
                     return social;

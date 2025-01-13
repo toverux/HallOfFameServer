@@ -271,7 +271,7 @@ export class ScreenshotService {
 
         this.logger.verbose(oneLine`
             Attempt to find screenshot starting
-            (creator id: #${creatorId}, viewed ids: ${viewedIds.size}).`);
+            (creator id: ${creatorId ? `#${creatorId}` : 'anon'}, viewed ids: ${viewedIds.size}).`);
 
         // Try to get a screenshot using the weighted random selection and taking in account the
         // viewed screenshots.

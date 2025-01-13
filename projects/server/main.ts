@@ -13,6 +13,7 @@ void bootstrap();
 
 async function bootstrap(): Promise<void> {
     const app = await NestFactory.create<NestFastifyApplication>(AppModule, fastify, {
+        cors: true,
         logger: [
             'fatal',
             'error',

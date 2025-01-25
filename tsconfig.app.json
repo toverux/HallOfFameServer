@@ -2,7 +2,8 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "outDir": "./out-tsc/app",
-    "types": ["bun"]
+    "types": ["bun"],
+    "isolatedModules": false
   },
   "files": ["projects/client/main.ts", "projects/client/main.server.ts", "projects/server/ssr.ts"],
   "include": ["projects/**/*.d.ts"]

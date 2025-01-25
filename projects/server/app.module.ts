@@ -26,7 +26,7 @@ import { SharedModule } from './shared.module';
 export class AppModule implements NestModule {
     public configure(consumer: MiddlewareConsumer): void {
         consumer.apply(FastifyLoggerMiddleware).forRoutes('*');
-        consumer.apply(MaintenanceMiddleware).forRoutes('api/*');
+        consumer.apply(MaintenanceMiddleware).forRoutes('api/*path');
     }
 }
 

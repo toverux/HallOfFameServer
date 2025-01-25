@@ -20,7 +20,7 @@ const pinoLikeLogger: FastifyBaseLogger = {
 
 export const fastify = new FastifyAdapter({
     trustProxy: true,
-    logger: pinoLikeLogger,
+    loggerInstance: pinoLikeLogger,
     disableRequestLogging: true
 });
 

@@ -4,7 +4,9 @@
   "scripts": {
     "pm:update": "bun upgrade && bunx npm-check-updates -i && bun update",
     "prisma": "bun prisma/run-prisma.ts",
-    "check": "tsc --noEmit; biome check --fix --error-on-warnings",
+    "check:rw": "tsc --noEmit; biome check --fix --error-on-warnings",
+    "check:ro": "tsc --noEmit; biome check --error-on-warnings",
+    "check": "bun check:rw",
     "build:client:watch": "ng build --watch --configuration development",
     "run:cli": "bun projects/server/cli/main.ts",
     "run:server": "bun projects/server/main.ts",
@@ -12,7 +14,7 @@
     "// Useful when working on the mod with the editor and game open so the server does not consume too much memory": "",
     "run:server:light": "bun --smol projects/server/main.ts",
     "serve:client": "ng serve",
-    "build": "bun check && ng build",
+    "build": "bun check:ro && bun prisma generate && ng build",
     "start": "bun run:server"
   },
   "packageManager": "bun@1.2.0",

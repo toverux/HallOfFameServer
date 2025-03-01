@@ -195,7 +195,8 @@ class ImportCityCommand extends CommandRunner {
                 cityInfo.cityPopulation,
                 {},
                 cityInfo.date,
-                Buffer.from(fileBytes)
+                Buffer.from(fileBytes),
+                false
             );
 
             console.info(`Imported screenshot "${filePath}", #${screenshot.id}`);

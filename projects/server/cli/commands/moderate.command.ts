@@ -86,10 +86,12 @@ class ModerateCommand extends CommandRunner {
 
             console.info(`There are ${reportedCount} screenshots left to moderate.`);
 
-            console.info(oneLine`
+            console.info(
+                oneLine`
                 Screenshot: City "${screenshot.cityName}",
                 Creator "${screenshot.creator.creatorName ?? '<anonymous>'}"
-                (reported by "${screenshot.reportedBy?.creatorName ?? '<anonymous>'}")`);
+                (reported by "${screenshot.reportedBy?.creatorName ?? '<anonymous>'}")`
+            );
 
             console.info(`URL: ${this.screenshotService.getBlobUrl(screenshot.imageUrlFHD)}`);
 

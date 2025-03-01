@@ -14,7 +14,7 @@ const pinoLikeLogger: FastifyBaseLogger = {
     warn: httpLogger.warn.bind(httpLogger),
     info: httpLogger.log.bind(httpLogger),
     debug: httpLogger.debug.bind(httpLogger),
-    trace: httpLogger.verbose.bind(httpLogger),
+    trace: httpLogger.debug.bind(httpLogger),
     child: () => pinoLikeLogger
 };
 
@@ -40,7 +40,7 @@ export class FastifyLoggerMiddleware implements NestMiddleware {
         const reqContentLength = req.headers['content-length'] || 0;
 
         httpLogger.log(
-            `[INCOMING/${req.id}] ${method} ${originalUrl} len=${reqContentLength} ip=${ip}`
+            `[${req.id}/incoming] ${method} ${originalUrl} len=${reqContentLength} ip=${ip}`
         );
 
         res.on('finish', () => {
@@ -57,7 +57,7 @@ export class FastifyLoggerMiddleware implements NestMiddleware {
             ).bind(httpLogger);
 
             logFn(
-                `[RESPONSE/${req.id}] ${method} ${originalUrl} status=${res.statusCode} len=${resContentLength} ip=${ip} elapsed=${elapsedTime}ms`
+                `[${req.id}/response] ${method} ${originalUrl} status=${res.statusCode} len=${resContentLength} ip=${ip} elapsed=${elapsedTime}ms`
             );
         });
 

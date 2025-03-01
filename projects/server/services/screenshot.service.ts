@@ -7,6 +7,7 @@ import Bun from 'bun';
 import { oneLine } from 'common-tags';
 import * as dfns from 'date-fns';
 import { FastifyRequest } from 'fastify';
+import { filesize } from 'filesize';
 import {
     HardwareID,
     IPAddress,
@@ -39,6 +40,13 @@ type JsonOid = { readonly $oid: string };
 
 @Injectable()
 export class ScreenshotService {
+    private static readonly sampleSizeForDeterministicAlgorithms = 100;
+
+    /**
+     * Timeout after which the upload process and database transaction are cancelled.
+     */
+    private static readonly ingestScreenshotTransactionTimeout = 20_000;
+
     @Inject(PrismaService)
     private readonly prisma!: PrismaService;
 
@@ -58,8 +66,6 @@ export class ScreenshotService {
     private readonly screenshotStorage!: ScreenshotStorageService;
 
     private readonly logger = new Logger(ScreenshotService.name);
-
-    private static readonly sampleSizeForDeterministicAlgorithms = 100;
 
     private readonly randomScreenshotFunctions: RandomScreenshotFunctions = {
         random: this.getScreenshotRandom.bind(this),
@@ -86,12 +92,23 @@ export class ScreenshotService {
         cityPopulation: number,
         metadata: JsonObject,
         createdAt: Date,
-        file: Buffer
+        file: Buffer,
+        healthcheck: boolean
     ): Promise<Screenshot> {
+        const startMark = Date.now();
+
+        this.logger.log(
+            oneLine`
+            Ingesting screenshot "${cityName}" by "${creator.creatorName}"
+            (#${creator.id}), size ${filesize(file.length)}.`
+        );
+
         if (hwid && ip) {
             // Check upload limit, throws if reached.
             await this.checkUploadLimit(creator.id, hwid, ip);
         }
+
+        let mark = Date.now();
 
         // Generate the two resized screenshot from the uploaded file.
         const { imageThumbnailBuffer, imageFHDBuffer, image4KBuffer } =
@@ -100,14 +117,28 @@ export class ScreenshotService {
                 cityName
             });
 
+        this.logger.log(`Screenshot "${cityName}" resized (${Date.now() - mark}ms).`);
+        mark = Date.now();
+
         // Create the screenshot in the database and upload the screenshots, in a transaction so if
         // the upload fails, the database is not updated.
-        return this.prisma.$transaction(saveScreenshotTransaction.bind(this), {
-            // This is the timeout after which the whole transaction is cancelled; default is 5s,
-            // wait a little longer because images can take some time to upload when the network is
-            // slow.
-            timeout: 20_000
+        const screenshot = await this.prisma.$transaction(saveScreenshotTransaction.bind(this), {
+            timeout: ScreenshotService.ingestScreenshotTransactionTimeout
         });
+
+        this.logger.log(
+            `Screenshot "${cityName}" (#${screenshot.id}) uploaded and saved (${Date.now() - mark}ms).`
+        );
+
+        this.logger.log(
+            oneLine`
+            Ingested screenshot "${screenshot.cityName}" (#${screenshot.id})
+            by "${creator.creatorName}" (#${creator.id})
+            (total ${Date.now() - startMark}ms).`,
+            this.getBlobUrl(screenshot.imageUrlFHD)
+        );
+
+        return screenshot;
 
         async function saveScreenshotTransaction(
             this: ScreenshotService,
@@ -127,7 +158,8 @@ export class ScreenshotService {
                     imageUrlThumbnail: '',
                     imageUrlFHD: '',
                     imageUrl4K: '',
-                    metadata
+                    metadata,
+                    isReported: healthcheck // make sure healthcheck uploads are never shown
                 }
             });
 
@@ -150,15 +182,20 @@ export class ScreenshotService {
                 }
             });
 
-            this.logger.log(`Created screenshot #${screenshot.id} "${screenshot.cityName}".`);
+            if (healthcheck) {
+                await this.deleteScreenshot(screenshot.id, prisma);
+            }
 
             return screenshot;
         }
     }
 
-    public async deleteScreenshot(screenshotId: Screenshot['id']): Promise<Screenshot> {
+    public async deleteScreenshot(
+        screenshotId: Screenshot['id'],
+        prisma: Prisma.TransactionClient = this.prisma
+    ): Promise<Screenshot> {
         try {
-            const screenshot = await this.prisma.screenshot.delete({
+            const screenshot = await prisma.screenshot.delete({
                 where: { id: screenshotId }
             });
 
@@ -269,9 +306,11 @@ export class ScreenshotService {
 
         const viewedOids: readonly JsonOid[] = Array.from(viewedIds).map(id => ({ $oid: id }));
 
-        this.logger.verbose(oneLine`
+        this.logger.verbose(
+            oneLine`
             Attempt to find screenshot starting
-            (creator id: ${creatorId ? `#${creatorId}` : 'anon'}, viewed ids: ${viewedIds.size}).`);
+            (creator id: ${creatorId ? `#${creatorId}` : 'anon'}, viewed ids: ${viewedIds.size}).`
+        );
 
         // Try to get a screenshot using the weighted random selection and taking in account the
         // viewed screenshots.

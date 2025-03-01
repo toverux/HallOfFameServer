@@ -9,6 +9,7 @@ import {
     Ip,
     NotFoundException,
     Param,
+    ParseBoolPipe,
     ParseIntPipe,
     Post,
     Query,
@@ -254,7 +255,12 @@ export class ScreenshotController {
      * Response will be 201 with serialized Screenshot.
      */
     @Post()
-    public async upload(@Ip() ip: IPAddress, @Req() req: FastifyRequest): Promise<JsonObject> {
+    public async upload(
+        @Ip() ip: IPAddress,
+        @Req() req: FastifyRequest,
+        @Query('healthcheck', new ParseBoolPipe({ optional: true }))
+        healthcheck: boolean
+    ): Promise<JsonObject> {
         const { authorization, creator } = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
 
         const multipart = await req.file({
@@ -298,7 +304,8 @@ export class ScreenshotController {
                 cityPopulation,
                 metadata,
                 new Date(),
-                fileBuffer
+                fileBuffer,
+                healthcheck
             );
 
             return this.screenshotService.serialize({ ...screenshot, creator }, req);
@@ -408,10 +415,12 @@ class InvalidPayloadError extends UploadError {}
 
 class InvalidCityNameError extends UploadError {
     public constructor(public readonly incorrectName: string) {
-        super(oneLine`
+        super(
+            oneLine`
             City name "${incorrectName}" is invalid, it must contain only
             letters, numbers, spaces, hyphens and apostrophes, and be between 1
-            and 25 characters long.`);
+            and 25 characters long.`
+        );
     }
 }
 

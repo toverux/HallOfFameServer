@@ -323,10 +323,12 @@ export class InvalidCreatorIDError extends CreatorError {
 
 export class InvalidCreatorNameError extends CreatorError {
     public constructor(public readonly incorrectName: string) {
-        super(oneLine`
+        super(
+            oneLine`
             Creator Name "${incorrectName}" is invalid, it must contain only
             letters, numbers, spaces, hyphens and apostrophes, and be between 1
-            and 25 characters long.`);
+            and 25 characters long.`
+        );
     }
 }
 
@@ -334,11 +336,13 @@ export class IncorrectCreatorIDError extends CreatorError {
     public override httpErrorType = ForbiddenException;
 
     public constructor(public readonly creatorName: string) {
-        super(oneLine`
+        super(
+            oneLine`
             Incorrect Creator ID for user "${creatorName}".
             If you've never used HallOfFame before or just changed your Creator
             Name, this means this username is already claimed, choose another!
             Otherwise, check that you are logged in with the correct Paradox
-            account.`);
+            account.`
+        );
     }
 }

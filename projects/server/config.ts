@@ -11,6 +11,8 @@ export const config = {
 
     verbose: process.argv.includes('--verbose') || process.argv.includes('-v'),
 
+    systemPassword: getString('HOF_SYSTEM_PASSWORD'),
+
     http: {
         address: getString('HOF_HTTP_ADDRESS'),
         port: getNumber('HOF_HTTP_PORT'),
@@ -46,10 +48,12 @@ function getEnum<const Choices extends string[]>(
     const value = getString(envVar);
 
     if (!choices.includes(value)) {
-        throw new Error(oneLine`
+        throw new Error(
+            oneLine`
             Invalid value for environment variable ${envVar},
             got "${value}",
-            expected one of: ${choices.join(', ')}.`);
+            expected one of: ${choices.join(', ')}.`
+        );
     }
 
     return value as Choices[number];

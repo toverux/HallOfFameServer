@@ -1,0 +1,4 @@
+### Perform healthcheck
+
+GET {{url}}/api/v1/system/healthcheck
+Authorization: System correcthorsebatterystaple

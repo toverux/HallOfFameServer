@@ -138,11 +138,13 @@ export class BanService {
             ]
         });
 
-        this.logger.warn(oneLine`
+        this.logger.warn(
+            oneLine`
             Banned creator #${creator.id} "${creator.creatorName ?? '<anonymous>'}"
             as well as IP addresses [${creator.ips.join(', ')}]
             and Hardware IDs [${creator.hwids.join(', ')}]
-            for: ${reasonFormatted}.`);
+            for: ${reasonFormatted}.`
+        );
     }
 
     /**
@@ -199,11 +201,13 @@ export class BannedError extends BanError {
         public readonly ban: Pick<Ban, 'reason' | 'bannedAt'>,
         public readonly supportContact: string
     ) {
-        super(oneLine`
+        super(
+            oneLine`
             You are banned for the following reason: ${ban.reason}
             (${ban.bannedAt.toLocaleString()} UTC).
             Please contact support to appeal (${supportContact}),
-            communicate identifier "${hardwareId}" and IP address "${ip}".`);
+            communicate identifier "${hardwareId}" and IP address "${ip}".`
+        );
     }
 }
 
@@ -215,10 +219,12 @@ export class BannedCreatorError extends BanError {
         public readonly creator: Pick<Creator, 'creatorName'>,
         public readonly supportContact: string
     ) {
-        super(oneLine`
+        super(
+            oneLine`
             Creator "${creator.creatorName ?? '<anonymous>'}" is banned
             for the following reason: ${ban.reason}
             (${ban.bannedAt.toLocaleString()} UTC).
-            Please contact support to appeal (${supportContact}).`);
+            Please contact support to appeal (${supportContact}).`
+        );
     }
 }

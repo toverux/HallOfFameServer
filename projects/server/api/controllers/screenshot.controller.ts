@@ -259,7 +259,7 @@ export class ScreenshotController {
         @Ip() ip: IPAddress,
         @Req() req: FastifyRequest,
         @Query('healthcheck', new ParseBoolPipe({ optional: true }))
-        healthcheck: boolean
+        healthcheck = false
     ): Promise<JsonObject> {
         const { authorization, creator } = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
 

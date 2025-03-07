@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { CanActivate, ExecutionContext, ForbiddenException, Inject } from '@nestjs/common';
 import { Creator } from '@prisma/client';
+import * as sentry from '@sentry/node';
 import { FastifyRequest } from 'fastify';
 import { CreatorID, HardwareID, IPAddress } from '../common';
 import { BanService, CreatorService } from '../services';
@@ -64,6 +65,13 @@ export class CreatorAuthorizationGuard implements CanActivate {
 
         // noinspection UnnecessaryLocalVariableJS
         const creator = await this.creatorService.authenticateCreator(authorization);
+
+        sentry.setUser({
+            id: creator.id,
+            username: creator.creatorName ?? (undefined as unknown as string),
+            // biome-ignore lint/style/useNamingConvention: sentry's API
+            ip_address: authorization.ip
+        });
 
         await this.ban.ensureCreatorNotBanned(creator);
 

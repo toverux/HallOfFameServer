@@ -22,7 +22,7 @@ type JsonNonSerialized = Branded<undefined, 'Unserialized Field'>;
  *    accept.
  */
 export function optionallySerialized<T extends JsonValue>(
-    value: T | undefined
+  value: T | undefined
 ): T | JsonNonSerialized {
-    return value as T | JsonNonSerialized;
+  return value as T | JsonNonSerialized;
 }

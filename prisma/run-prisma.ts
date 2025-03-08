@@ -10,8 +10,8 @@ import Bun from 'bun';
 const argv = [process.argv0, 'node_modules/.bin/prisma', ...process.argv.slice(2)];
 
 const { exitCode } = Bun.spawnSync(argv, {
-    stdio: ['inherit', 'inherit', 'inherit'],
-    windowsHide: true
+  stdio: ['inherit', 'inherit', 'inherit'],
+  windowsHide: true
 });
 
 process.exitCode = exitCode;

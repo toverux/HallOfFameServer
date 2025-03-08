@@ -7,78 +7,77 @@ import { oneLine } from 'common-tags';
  * service.
  */
 export const config = {
-    env: getEnum('NODE_ENV', ['development', 'production']),
+  env: getEnum('NODE_ENV', ['development', 'production']),
 
-    verbose: process.argv.includes('--verbose') || process.argv.includes('-v'),
+  verbose: process.argv.includes('--verbose') || process.argv.includes('-v'),
 
-    systemPassword: getString('HOF_SYSTEM_PASSWORD'),
+  systemPassword: getString('HOF_SYSTEM_PASSWORD'),
 
-    http: {
-        address: getString('HOF_HTTP_ADDRESS'),
-        port: getNumber('HOF_HTTP_PORT'),
-        maintenanceMessage: getString('HOF_HTTP_MAINTENANCE_MESSAGE')
-    },
+  http: {
+    address: getString('HOF_HTTP_ADDRESS'),
+    port: getNumber('HOF_HTTP_PORT'),
+    maintenanceMessage: getString('HOF_HTTP_MAINTENANCE_MESSAGE')
+  },
 
-    databaseUrl: getString('HOF_DATABASE_URL'),
+  databaseUrl: getString('HOF_DATABASE_URL'),
 
-    azure: {
-        url: getString('HOF_AZURE_URL'),
-        cdn: getString('HOF_AZURE_CDN'),
-        screenshotsContainer: getString('HOF_AZURE_SCREENSHOTS_CONTAINER')
-    },
+  azure: {
+    url: getString('HOF_AZURE_URL'),
+    cdn: getString('HOF_AZURE_CDN'),
+    screenshotsContainer: getString('HOF_AZURE_SCREENSHOTS_CONTAINER')
+  },
 
-    sentry: {
-        dsn: getString('HOF_SENTRY_DSN')
-    },
+  sentry: {
+    dsn: getString('HOF_SENTRY_DSN')
+  },
 
-    screenshots: {
-        maxFileSizeBytes: getNumber('HOF_SCREENSHOTS_MAX_FILE_SIZE_MB') * 1000 * 1000,
-        jpegQuality: getNumber('HOF_SCREENSHOTS_JPEG_QUALITY'),
-        recencyThresholdDays: getNumber('HOF_SCREENSHOTS_RECENCY_THRESHOLD_DAYS'),
-        limitPer24h: getNumber('HOF_SCREENSHOTS_LIMIT_PER_24H')
-    },
+  screenshots: {
+    maxFileSizeBytes: getNumber('HOF_SCREENSHOTS_MAX_FILE_SIZE_MB') * 1000 * 1000,
+    jpegQuality: getNumber('HOF_SCREENSHOTS_JPEG_QUALITY'),
+    recencyThresholdDays: getNumber('HOF_SCREENSHOTS_RECENCY_THRESHOLD_DAYS'),
+    limitPer24h: getNumber('HOF_SCREENSHOTS_LIMIT_PER_24H')
+  },
 
-    supportContact: getString('HOF_SUPPORT_CONTACT')
+  supportContact: getString('HOF_SUPPORT_CONTACT')
 } as const;
 
 function getEnum<const Choices extends string[]>(
-    envVar: string,
-    choices: Choices
+  envVar: string,
+  choices: Choices
 ): Choices[number] {
-    const value = getString(envVar);
+  const value = getString(envVar);
 
-    if (!choices.includes(value)) {
-        throw new Error(
-            oneLine`
-            Invalid value for environment variable ${envVar},
-            got "${value}",
-            expected one of: ${choices.join(', ')}.`
-        );
-    }
+  if (!choices.includes(value)) {
+    throw new Error(
+      oneLine`
+      Invalid value for environment variable ${envVar}, got "${value}",
+      expected one of: ${choices.join(', ')}.`
+    );
+  }
 
-    return value as Choices[number];
+  return value as Choices[number];
 }
 
 function getNumber(envVar: string): number {
-    const value = getValue(envVar);
-    const number = Number(value);
+  const value = getValue(envVar);
+  const number = Number(value);
 
-    if (Number.isNaN(number)) {
-        throw new Error(`Invalid number in environment variable: ${envVar}`);
-    }
+  if (Number.isNaN(number)) {
+    throw new Error(`Invalid number in environment variable: ${envVar}`);
+  }
 
-    return number;
+  return number;
 }
 
 function getString(envVar: string): string {
-    return getValue(envVar);
+  return getValue(envVar);
 }
 
 function getValue(envVar: string): string {
-    const value = process.env[envVar];
-    if (!value) {
-        throw new Error(`Missing environment variable: ${envVar}`);
-    }
+  const value = process.env[envVar];
+  if (!value) {
+    throw new Error(`Missing environment variable: ${envVar}`);
+  }
 
-    return value;
+  return value;
 }

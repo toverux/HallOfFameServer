@@ -22,14 +22,14 @@ export * from './screenshot-storage.service';
 export * from './view.service';
 
 export const services: Provider[] = [
-    AzureService,
-    BanService,
-    CreatorService,
-    DateFnsLocalizationService,
-    FavoriteService,
-    PrismaService,
-    ScreenshotService,
-    ScreenshotProcessingService,
-    ScreenshotStorageService,
-    ViewService
+  AzureService,
+  BanService,
+  CreatorService,
+  DateFnsLocalizationService,
+  FavoriteService,
+  PrismaService,
+  ScreenshotService,
+  ScreenshotProcessingService,
+  ScreenshotStorageService,
+  ViewService
 ];

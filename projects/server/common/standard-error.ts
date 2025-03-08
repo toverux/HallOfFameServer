@@ -9,13 +9,13 @@ import { HttpExceptionOptions } from '@nestjs/common/exceptions/http.exception';
  * default for unknown errors, 500.
  */
 export abstract class StandardError extends Error {
-    /**
-     * The HTTP error constructor to use when converting this error to an HTTP error, defaults to
-     * {@link BadRequestException} (400).
-     * Override this in subclasses to use a different error class.
-     */
-    public readonly httpErrorType: new (
-        objectOrError?: unknown,
-        descriptionOrOptions?: string | HttpExceptionOptions
-    ) => HttpException = BadRequestException;
+  /**
+   * The HTTP error constructor to use when converting this error to an HTTP error, defaults to
+   * {@link BadRequestException} (400).
+   * Override this in subclasses to use a different error class.
+   */
+  public readonly httpErrorType: new (
+    objectOrError?: unknown,
+    descriptionOrOptions?: string | HttpExceptionOptions
+  ) => HttpException = BadRequestException;
 }

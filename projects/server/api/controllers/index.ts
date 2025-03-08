@@ -10,8 +10,8 @@ export * from './screenshot.controller';
 export * from './system.controller';
 
 export const controllers: Type<unknown>[] = [
-    CreatorController,
-    PlatformController,
-    ScreenshotController,
-    SystemController
+  CreatorController,
+  PlatformController,
+  ScreenshotController,
+  SystemController
 ];

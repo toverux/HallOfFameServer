@@ -1,5 +1,5 @@
 type UnwrapPromisesTuple<Tuple extends readonly unknown[]> = {
-    -readonly [Key in keyof Tuple]: Awaited<Tuple[Key]>;
+  -readonly [Key in keyof Tuple]: Awaited<Tuple[Key]>;
 };
 
 /**
@@ -10,29 +10,29 @@ type UnwrapPromisesTuple<Tuple extends readonly unknown[]> = {
  * If all promises are fulfilled, it returns an array of their values.
  */
 export async function allFulfilled<const TPromises extends readonly Promise<unknown>[]>(
-    promises: TPromises,
-    aggregate = false
+  promises: TPromises,
+  aggregate = false
 ): Promise<UnwrapPromisesTuple<TPromises>> {
-    const results = await Promise.allSettled(promises);
+  const results = await Promise.allSettled(promises);
 
-    const rejectedResults = results.filter(
-        (result): result is PromiseRejectedResult => result.status == 'rejected'
-    );
+  const rejectedResults = results.filter(
+    (result): result is PromiseRejectedResult => result.status == 'rejected'
+  );
 
-    if (rejectedResults[0] && rejectedResults.length == 1) {
-        throw rejectedResults[0].reason;
-    }
+  if (rejectedResults[0] && rejectedResults.length == 1) {
+    throw rejectedResults[0].reason;
+  }
 
-    if (rejectedResults[0]) {
-        throw aggregate
-            ? new AggregateError(
-                  rejectedResults.map(result => result.reason),
-                  rejectedResults.map(result => result.reason).join('\n')
-              )
-            : rejectedResults[0].reason;
-    }
+  if (rejectedResults[0]) {
+    throw aggregate
+      ? new AggregateError(
+          rejectedResults.map(result => result.reason),
+          rejectedResults.map(result => result.reason).join('\n')
+        )
+      : rejectedResults[0].reason;
+  }
 
-    return results.map(
-        result => (result as PromiseFulfilledResult<unknown>).value
-    ) as UnwrapPromisesTuple<TPromises>;
+  return results.map(
+    result => (result as PromiseFulfilledResult<unknown>).value
+  ) as UnwrapPromisesTuple<TPromises>;
 }

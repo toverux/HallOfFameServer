@@ -12,33 +12,33 @@ void linkEnvFilesForWatchMode();
 void bootstrap();
 
 async function bootstrap(): Promise<void> {
-    const app = await NestFactory.create<NestFastifyApplication>(AppModule, fastify, {
-        cors: true,
-        logger: [
-            'fatal',
-            'error',
-            'warn',
-            'log',
-            ...(config.env == 'development' ? (['verbose'] as const) : []),
-            ...(config.verbose ? (['verbose', 'debug'] as const) : [])
-        ]
-    });
+  const app = await NestFactory.create<NestFastifyApplication>(AppModule, fastify, {
+    cors: true,
+    logger: [
+      'fatal',
+      'error',
+      'warn',
+      'log',
+      ...(config.env == 'development' ? (['verbose'] as const) : []),
+      ...(config.verbose ? (['verbose', 'debug'] as const) : [])
+    ]
+  });
 
-    const browserDistFolder = path.resolve(import.meta.dir, '../../dist/browser');
+  const browserDistFolder = path.resolve(import.meta.dir, '../../dist/browser');
 
-    app.useStaticAssets({
-        root: browserDistFolder
-    });
+  app.useStaticAssets({
+    root: browserDistFolder
+  });
 
-    app.useGlobalFilters(
-        // The catch-all error filter should actually come first to let the other more specific
-        // filters take precedence.
-        new filters.GlobalExceptionFilter(app.getHttpAdapter()),
-        new filters.StandardErrorExceptionFilter(app.getHttpAdapter()),
-        new filters.NotFoundExceptionFilter(app.getHttpAdapter())
-    );
+  app.useGlobalFilters(
+    // The catch-all error filter should actually come first to let the other more specific
+    // filters take precedence.
+    new filters.GlobalExceptionFilter(app.getHttpAdapter()),
+    new filters.StandardErrorExceptionFilter(app.getHttpAdapter()),
+    new filters.NotFoundExceptionFilter(app.getHttpAdapter())
+  );
 
-    await app.listen(config.http.port, config.http.address);
+  await app.listen(config.http.port, config.http.address);
 }
 
 /**
@@ -46,12 +46,12 @@ async function bootstrap(): Promise<void> {
  * `{ with: { type: 'text' } }` is needed for Bun to not ignore the files.
  */
 async function linkEnvFilesForWatchMode(): Promise<void> {
-    try {
-        // @ts-ignore
-        await import('../../.env', { with: { type: 'text' } });
-        // @ts-ignore
-        await import('../../.env.local', { with: { type: 'text' } });
-    } catch {
-        // Ignore, we're just checking if the files exist.
-    }
+  try {
+    // @ts-ignore
+    await import('../../.env', { with: { type: 'text' } });
+    // @ts-ignore
+    await import('../../.env.local', { with: { type: 'text' } });
+  } catch {
+    // Ignore, we're just checking if the files exist.
+  }
 }

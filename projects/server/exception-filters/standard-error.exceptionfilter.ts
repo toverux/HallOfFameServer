@@ -8,7 +8,7 @@ import { StandardError } from '../common';
  */
 @Catch(StandardError)
 export class StandardErrorExceptionFilter extends BaseExceptionFilter {
-    public override catch(error: StandardError, host: ArgumentsHost) {
-        super.catch(new error.httpErrorType(error.message, { cause: error }), host);
-    }
+  public override catch(error: StandardError, host: ArgumentsHost) {
+    super.catch(new error.httpErrorType(error.message, { cause: error }), host);
+  }
 }

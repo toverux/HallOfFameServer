@@ -5,7 +5,7 @@ import { services } from './services';
  * Module used by both the Server and the CLI.
  */
 @Module({
-    providers: services,
-    exports: services
+  providers: services,
+  exports: services
 })
 export class SharedModule {}

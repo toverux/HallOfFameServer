@@ -4,9 +4,9 @@ import { config } from '../config';
 
 @Injectable()
 export class AzureService {
-    public readonly blobServiceClient: BlobServiceClient;
+  public readonly blobServiceClient: BlobServiceClient;
 
-    public constructor() {
-        this.blobServiceClient = BlobServiceClient.fromConnectionString(config.azure.url);
-    }
+  public constructor() {
+    this.blobServiceClient = BlobServiceClient.fromConnectionString(config.azure.url);
+  }
 }

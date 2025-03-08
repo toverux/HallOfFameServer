@@ -7,20 +7,20 @@ import { CreatorID, HardwareID, IPAddress } from '../common';
 import { BanService, CreatorService } from '../services';
 
 declare module 'fastify' {
-    interface FastifyRequest {
-        [CreatorAuthorizationGuard.authenticatedCreatorKey]?: {
-            readonly authorization: CreatorAuthorization;
-            readonly creator: Creator;
-        };
-    }
+  interface FastifyRequest {
+    [CreatorAuthorizationGuard.authenticatedCreatorKey]?: {
+      readonly authorization: CreatorAuthorization;
+      readonly creator: Creator;
+    };
+  }
 }
 
 export interface CreatorAuthorization {
-    readonly creatorName: Creator['creatorName'];
-    readonly creatorId: CreatorID;
-    readonly creatorIdProvider: Creator['creatorIdProvider'];
-    readonly hwid: HardwareID;
-    readonly ip: IPAddress;
+  readonly creatorName: Creator['creatorName'];
+  readonly creatorId: CreatorID;
+  readonly creatorIdProvider: Creator['creatorIdProvider'];
+  readonly hwid: HardwareID;
+  readonly ip: IPAddress;
 }
 
 /**
@@ -30,111 +30,111 @@ export interface CreatorAuthorization {
  * which will throw a {@link ForbiddenException} if the request is not authenticated.
  */
 export class CreatorAuthorizationGuard implements CanActivate {
-    public static readonly authenticatedCreatorKey = Symbol(
-        `${CreatorAuthorizationGuard.name}#authenticatedCreator`
-    );
+  public static readonly authenticatedCreatorKey = Symbol(
+    `${CreatorAuthorizationGuard.name}#authenticatedCreator`
+  );
 
-    @Inject()
-    private readonly ban!: BanService;
+  @Inject()
+  private readonly ban!: BanService;
 
-    @Inject()
-    private readonly creatorService!: CreatorService;
+  @Inject()
+  private readonly creatorService!: CreatorService;
 
-    public static getAuthenticatedCreator(request: FastifyRequest): {
-        readonly authorization: CreatorAuthorization;
-        readonly creator: Creator;
-    } {
-        const authentication = request[CreatorAuthorizationGuard.authenticatedCreatorKey];
+  public static getAuthenticatedCreator(request: FastifyRequest): {
+    readonly authorization: CreatorAuthorization;
+    readonly creator: Creator;
+  } {
+    const authentication = request[CreatorAuthorizationGuard.authenticatedCreatorKey];
 
-        if (!authentication) {
-            throw new ForbiddenException(`Creator is not authenticated.`);
-        }
-
-        return authentication;
+    if (!authentication) {
+      throw new ForbiddenException(`Creator is not authenticated.`);
     }
 
-    public async canActivate(context: ExecutionContext): Promise<boolean> {
-        const request = context.switchToHttp().getRequest<FastifyRequest>();
+    return authentication;
+  }
 
-        const authorization = this.getAuthorizationFromRequest(request);
-        if (!authorization) {
-            return true;
-        }
+  public async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest<FastifyRequest>();
 
-        await this.ban.ensureNotBanned(authorization.ip, authorization.hwid);
-
-        // noinspection UnnecessaryLocalVariableJS
-        const creator = await this.creatorService.authenticateCreator(authorization);
-
-        sentry.setUser({
-            id: creator.id,
-            username: creator.creatorName ?? (undefined as unknown as string),
-            // biome-ignore lint/style/useNamingConvention: sentry's API
-            ip_address: authorization.ip
-        });
-
-        await this.ban.ensureCreatorNotBanned(creator);
-
-        request[CreatorAuthorizationGuard.authenticatedCreatorKey] = {
-            authorization,
-            creator
-        };
-
-        return true;
+    const authorization = this.getAuthorizationFromRequest(request);
+    if (!authorization) {
+      return true;
     }
 
-    private getAuthorizationFromRequest(request: FastifyRequest): CreatorAuthorization | undefined {
-        const header = request.headers.authorization;
-        if (!header) {
-            return undefined;
-        }
+    await this.ban.ensureNotBanned(authorization.ip, authorization.hwid);
 
-        const ip = request.ip as IPAddress;
+    // noinspection UnnecessaryLocalVariableJS
+    const creator = await this.creatorService.authenticateCreator(authorization);
 
-        try {
-            const firstSpace = header.indexOf(' ');
-            const scheme = header.slice(0, firstSpace);
-            const partsString = header.slice(firstSpace + 1);
+    sentry.setUser({
+      id: creator.id,
+      username: creator.creatorName ?? (undefined as unknown as string),
+      // biome-ignore lint/style/useNamingConvention: sentry's API
+      ip_address: authorization.ip
+    });
 
-            const params = new URLSearchParams(partsString);
+    await this.ban.ensureCreatorNotBanned(creator);
 
-            // Note: the creator name is URL-encoded, but this is already
-            // decoded by URLSearchParams.
-            const creatorName = params.get('name')?.trim() || null;
-            const creatorId = params.get('id');
-            const provider = params.get('provider');
-            const hwid = params.get('hwid');
+    request[CreatorAuthorizationGuard.authenticatedCreatorKey] = {
+      authorization,
+      creator
+    };
 
-            assert(scheme?.toLowerCase() == 'creator', `Scheme is "Creator"`);
+    return true;
+  }
 
-            assert(
-                creatorName?.length || creatorName === null,
-                `Creator Name must be either an empty string, or a string.`
-            );
-
-            assert(creatorId?.length, `Creator ID must be a non-empty string.`);
-
-            assert(
-                provider == 'paradox' || provider == 'local',
-                `Provider must be either "paradox" or "local".`
-            );
-
-            assert(hwid?.length, `HWID must be a non-empty string.`);
-
-            return {
-                creatorName,
-                creatorId: creatorId as CreatorID,
-                creatorIdProvider: provider,
-                hwid: hwid as HardwareID,
-                ip
-            };
-        } catch (error) {
-            // biome-ignore lint/suspicious/noMisplacedAssertion: false positive
-            if (error instanceof assert.AssertionError) {
-                throw new ForbiddenException(`Invalid Authorization header (${error.message}).`);
-            }
-
-            throw error;
-        }
+  private getAuthorizationFromRequest(request: FastifyRequest): CreatorAuthorization | undefined {
+    const header = request.headers.authorization;
+    if (!header) {
+      return undefined;
     }
+
+    const ip = request.ip as IPAddress;
+
+    try {
+      const firstSpace = header.indexOf(' ');
+      const scheme = header.slice(0, firstSpace);
+      const partsString = header.slice(firstSpace + 1);
+
+      const params = new URLSearchParams(partsString);
+
+      // Note: the creator name is URL-encoded, but this is already
+      // decoded by URLSearchParams.
+      const creatorName = params.get('name')?.trim() || null;
+      const creatorId = params.get('id');
+      const provider = params.get('provider');
+      const hwid = params.get('hwid');
+
+      assert(scheme?.toLowerCase() == 'creator', `Scheme is "Creator"`);
+
+      assert(
+        creatorName?.length || creatorName === null,
+        `Creator Name must be either an empty string, or a string.`
+      );
+
+      assert(creatorId?.length, `Creator ID must be a non-empty string.`);
+
+      assert(
+        provider == 'paradox' || provider == 'local',
+        `Provider must be either "paradox" or "local".`
+      );
+
+      assert(hwid?.length, `HWID must be a non-empty string.`);
+
+      return {
+        creatorName,
+        creatorId: creatorId as CreatorID,
+        creatorIdProvider: provider,
+        hwid: hwid as HardwareID,
+        ip
+      };
+    } catch (error) {
+      // biome-ignore lint/suspicious/noMisplacedAssertion: false positive
+      if (error instanceof assert.AssertionError) {
+        throw new ForbiddenException(`Invalid Authorization header (${error.message}).`);
+      }
+
+      throw error;
+    }
+  }
 }

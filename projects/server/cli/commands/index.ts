@@ -10,12 +10,12 @@ import { updateScreenshotsAveragesCommandProviders } from './update-screenshots-
 
 // Lists commands but also their other nest-commander DI dependencies.
 export const commands: Provider[] = [
-    ...balanceCommandProviders,
-    ...deleteCommandProviders,
-    ...deleteScreenshotCommandProviders,
-    ...deleteCreatorCommandProviders,
-    ...importCityCommandProviders,
-    ...mergeCreatorsCommandProviders,
-    ...moderateCommandProviders,
-    ...updateScreenshotsAveragesCommandProviders
+  ...balanceCommandProviders,
+  ...deleteCommandProviders,
+  ...deleteScreenshotCommandProviders,
+  ...deleteCreatorCommandProviders,
+  ...importCityCommandProviders,
+  ...mergeCreatorsCommandProviders,
+  ...moderateCommandProviders,
+  ...updateScreenshotsAveragesCommandProviders
 ];

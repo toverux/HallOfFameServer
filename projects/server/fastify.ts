@@ -7,21 +7,21 @@ import { config } from './config';
 const httpLogger = new Logger('Fastify');
 
 const pinoLikeLogger: FastifyBaseLogger = {
-    silent: () => void 0,
-    level: config.verbose ? 'trace' : 'info',
-    fatal: httpLogger.fatal.bind(httpLogger),
-    error: httpLogger.error.bind(httpLogger),
-    warn: httpLogger.warn.bind(httpLogger),
-    info: httpLogger.log.bind(httpLogger),
-    debug: httpLogger.debug.bind(httpLogger),
-    trace: httpLogger.debug.bind(httpLogger),
-    child: () => pinoLikeLogger
+  silent: () => void 0,
+  level: config.verbose ? 'trace' : 'info',
+  fatal: httpLogger.fatal.bind(httpLogger),
+  error: httpLogger.error.bind(httpLogger),
+  warn: httpLogger.warn.bind(httpLogger),
+  info: httpLogger.log.bind(httpLogger),
+  debug: httpLogger.debug.bind(httpLogger),
+  trace: httpLogger.debug.bind(httpLogger),
+  child: () => pinoLikeLogger
 };
 
 export const fastify = new FastifyAdapter({
-    trustProxy: true,
-    loggerInstance: pinoLikeLogger,
-    disableRequestLogging: true
+  trustProxy: true,
+  loggerInstance: pinoLikeLogger,
+  disableRequestLogging: true
 });
 
 // @ts-expect-error: errors due to our strict config on types we don't control.
@@ -29,38 +29,38 @@ fastify.register(fastifyMultipart);
 
 @Injectable()
 export class FastifyLoggerMiddleware implements NestMiddleware {
-    public use(
-        req: FastifyRequest & FastifyRequest['raw'],
-        res: FastifyReply & FastifyReply['raw'],
-        next: (error?: unknown) => void
-    ) {
-        const startTime = Date.now();
+  public use(
+    req: FastifyRequest & FastifyRequest['raw'],
+    res: FastifyReply & FastifyReply['raw'],
+    next: (error?: unknown) => void
+  ) {
+    const startTime = Date.now();
 
-        const { ip, method, originalUrl } = req;
-        const reqContentLength = req.headers['content-length'] || 0;
+    const { ip, method, originalUrl } = req;
+    const reqContentLength = req.headers['content-length'] || 0;
 
-        httpLogger.log(
-            `[${req.id}/incoming] ${method} ${originalUrl} len=${reqContentLength} ip=${ip}`
-        );
+    httpLogger.log(
+      `[${req.id}/incoming] ${method} ${originalUrl} len=${reqContentLength} ip=${ip}`
+    );
 
-        res.on('finish', () => {
-            const elapsedTime = Date.now() - startTime;
+    res.on('finish', () => {
+      const elapsedTime = Date.now() - startTime;
 
-            const resContentLength = res.getHeader('content-length') || 0;
+      const resContentLength = res.getHeader('content-length') || 0;
 
-            const logFn = (
-                res.statusCode >= 500
-                    ? httpLogger.error
-                    : res.statusCode >= 400
-                      ? httpLogger.warn
-                      : httpLogger.log
-            ).bind(httpLogger);
+      const logFn = (
+        res.statusCode >= 500
+          ? httpLogger.error
+          : res.statusCode >= 400
+            ? httpLogger.warn
+            : httpLogger.log
+      ).bind(httpLogger);
 
-            logFn(
-                `[${req.id}/response] ${method} ${originalUrl} status=${res.statusCode} len=${resContentLength} ip=${ip} elapsed=${elapsedTime}ms`
-            );
-        });
+      logFn(
+        `[${req.id}/response] ${method} ${originalUrl} status=${res.statusCode} len=${resContentLength} ip=${ip} elapsed=${elapsedTime}ms`
+      );
+    });
 
-        next();
-    }
+    next();
+  }
 }

@@ -3,7 +3,7 @@ import { SharedModule } from '../shared.module';
 import { controllers } from './controllers';
 
 @Module({
-    controllers,
-    imports: [SharedModule]
+  controllers,
+  imports: [SharedModule]
 })
 export class ApiModule {}

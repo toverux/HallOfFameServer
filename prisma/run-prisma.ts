@@ -5,13 +5,8 @@
  * Otherwise, Prisma only loads the .env file.
  */
 
-import Bun from 'bun';
+import { $ } from 'bun';
 
-const argv = [process.argv0, 'node_modules/.bin/prisma', ...process.argv.slice(2)];
+const { exitCode } = await $`prisma ${process.argv.slice(2)}`.nothrow();
 
-const { exitCode } = Bun.spawnSync(argv, {
-  stdio: ['inherit', 'inherit', 'inherit'],
-  windowsHide: true
-});
-
-process.exitCode = exitCode;
+process.exit(exitCode);

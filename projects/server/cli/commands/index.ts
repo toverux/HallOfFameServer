@@ -1,5 +1,4 @@
 import { Provider } from '@nestjs/common';
-import { balanceCommandProviders } from './balance.command';
 import { deleteCreatorCommandProviders } from './delete-creator';
 import { deleteScreenshotCommandProviders } from './delete-screenshot';
 import { deleteCommandProviders } from './delete.command';
@@ -10,7 +9,6 @@ import { updateScreenshotsAveragesCommandProviders } from './update-screenshots-
 
 // Lists commands but also their other nest-commander DI dependencies.
 export const commands: Provider[] = [
-  ...balanceCommandProviders,
   ...deleteCommandProviders,
   ...deleteScreenshotCommandProviders,
   ...deleteCreatorCommandProviders,

@@ -238,14 +238,3 @@ model View {
   @@index([creatorId, viewedAt])
   @@map("views")
 }
-
-/// Record of an expense or income for tracking the project's financial balance between hosting
-/// expenses and donations.
-model ExpenseIncomeRecord {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  processedAt DateTime @default(now())
-  amount      Float
-  description String
-
-  @@map("expense_income_records")
-}

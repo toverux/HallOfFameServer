@@ -153,6 +153,11 @@ model Screenshot {
   imageUrlThumbnail    String
   imageUrlFHD          String
   imageUrl4K           String
+  /// Paradox Mods IDs of the active mods when the screenshot was taken.
+  /// A Paradox mod ID is an auto-incremented integer.
+  paradoxModIds        Int[]
+  /// Schema-less JSON object of metadata sent by the client.
+  /// Used for analytical/debugging purposes; not used by business logic.
   metadata             Json
   /// One to many relationship with Favorites.
   favorites            Favorite[]

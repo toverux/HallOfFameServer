@@ -13,6 +13,7 @@ import {
   IPAddress,
   JsonObject,
   Maybe,
+  ParadoxModID,
   StandardError,
   optionallySerialized
 } from '../common';
@@ -90,6 +91,7 @@ export class ScreenshotService {
     cityName: string,
     cityMilestone: number,
     cityPopulation: number,
+    paradoxModIds: ReadonlySet<ParadoxModID>,
     metadata: JsonObject,
     createdAt: Date,
     file: Buffer,
@@ -158,6 +160,7 @@ export class ScreenshotService {
           imageUrlThumbnail: '',
           imageUrlFHD: '',
           imageUrl4K: '',
+          paradoxModIds: Array.from(paradoxModIds),
           metadata,
           isReported: healthcheck // make sure healthcheck uploads are never shown
         }
@@ -754,6 +757,7 @@ export class ScreenshotService {
       imageUrlThumbnail: screenshot.imageUrlThumbnail,
       imageUrlFHD: screenshot.imageUrlFHD,
       imageUrl4K: screenshot.imageUrl4K,
+      paradoxModIds: screenshot.paradoxModIds,
       metadata: screenshot.metadata
     };
   }

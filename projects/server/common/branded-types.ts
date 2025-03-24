@@ -24,3 +24,8 @@ export type HardwareID = Branded<string, 'Hardware ID'>;
  * An IP address, in IPv4 or IPv6 format.
  */
 export type IPAddress = Branded<string, 'IP Address'>;
+
+/**
+ * A Paradox mod ID, which is an auto-incremented integer.
+ */
+export type ParadoxModID = Branded<number, 'Paradox Mod ID'>;

@@ -19,7 +19,7 @@ import {
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { oneLine } from 'common-tags';
 import type { FastifyRequest } from 'fastify';
-import { type IPAddress, JsonObject, StandardError } from '../../common';
+import { type IPAddress, JsonObject, ParadoxModID, StandardError } from '../../common';
 import { config } from '../../config';
 import { CreatorAuthorizationGuard } from '../../guards';
 import { FavoriteService, PrismaService, ScreenshotService, ViewService } from '../../services';
@@ -286,6 +286,8 @@ export class ScreenshotController {
       this.getMultipartString(multipart, 'cityPopulation', true)
     );
 
+    const modIds = this.validateModIds(this.getMultipartString(multipart, 'modIds', false));
+
     const metadata = this.validateMetadata(this.getMultipartString(multipart, 'metadata', false));
 
     try {
@@ -298,6 +300,7 @@ export class ScreenshotController {
         cityName,
         cityMilestone,
         cityPopulation,
+        modIds,
         metadata,
         new Date(),
         fileBuffer,
@@ -374,6 +377,26 @@ export class ScreenshotController {
     }
 
     return parsed;
+  }
+
+  private validateModIds(commaSeparatedModIds: string | undefined): Set<ParadoxModID> {
+    if (!commaSeparatedModIds) {
+      return new Set();
+    }
+
+    const modIds = commaSeparatedModIds.split(',').map(id => {
+      const parsed = Number.parseInt(id.trim(), 10);
+
+      if (Number.isNaN(parsed) || parsed < 1) {
+        throw new InvalidPayloadError(
+          `Mod IDs must be positive integers and separated by a comma.`
+        );
+      }
+
+      return parsed as ParadoxModID;
+    });
+
+    return new Set(modIds);
   }
 
   private validateMetadata(metadata: string | undefined): JsonObject {

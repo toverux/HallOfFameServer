@@ -111,6 +111,11 @@ Content-Disposition: form-data; name="cityPopulation"
 1200
 
 --WebAppBoundary
+Content-Disposition: form-data; name="modIds"
+
+90641, 94394
+
+--WebAppBoundary
 Content-Disposition: form-data; name="metadata"
 
 {

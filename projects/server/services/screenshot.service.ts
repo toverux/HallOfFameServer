@@ -378,6 +378,8 @@ export class ScreenshotService {
       imageUrlThumbnail: this.getBlobUrl(screenshot.imageUrlThumbnail),
       imageUrlFHD: this.getBlobUrl(screenshot.imageUrlFHD),
       imageUrl4K: this.getBlobUrl(screenshot.imageUrl4K),
+      paradoxModIds: screenshot.paradoxModIds,
+      renderSettings: screenshot.renderSettings as JsonObject,
       createdAt: screenshot.createdAt.toISOString(),
       createdAtFormatted: dfns.format(createdAtAdjusted, 'Pp', {
         locale: dfnsLocale

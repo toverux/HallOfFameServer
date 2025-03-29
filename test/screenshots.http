@@ -116,6 +116,13 @@ Content-Disposition: form-data; name="modIds"
 90641, 94394
 
 --WebAppBoundary
+Content-Disposition: form-data; name="renderSettings"
+
+{
+  "aperture": 2.4
+}
+
+--WebAppBoundary
 Content-Disposition: form-data; name="metadata"
 
 {

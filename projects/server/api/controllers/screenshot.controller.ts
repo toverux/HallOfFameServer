@@ -6,7 +6,6 @@ import {
   Delete,
   Get,
   Inject,
-  Ip,
   NotFoundException,
   Param,
   ParseBoolPipe,
@@ -19,7 +18,7 @@ import {
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { oneLine } from 'common-tags';
 import type { FastifyRequest } from 'fastify';
-import { type IPAddress, JsonObject, ParadoxModID, StandardError } from '../../common';
+import { JsonObject, ParadoxModID, StandardError } from '../../common';
 import { config } from '../../config';
 import { CreatorAuthorizationGuard } from '../../guards';
 import { FavoriteService, PrismaService, ScreenshotService, ViewService } from '../../services';
@@ -256,7 +255,6 @@ export class ScreenshotController {
    */
   @Post()
   public async upload(
-    @Ip() ip: IPAddress,
     @Req() req: FastifyRequest,
     @Query('healthcheck', new ParseBoolPipe({ optional: true }))
     healthcheck = false
@@ -266,7 +264,8 @@ export class ScreenshotController {
     const multipart = await req.file({
       isPartAFile: fieldName => fieldName == 'screenshot',
       limits: {
-        fields: 5,
+        files: 1,
+        fields: 6,
         fieldSize: 1024,
         fileSize: config.screenshots.maxFileSizeBytes
       }
@@ -286,26 +285,31 @@ export class ScreenshotController {
       this.getMultipartString(multipart, 'cityPopulation', true)
     );
 
-    const modIds = this.validateModIds(this.getMultipartString(multipart, 'modIds', false));
+    const paradoxModIds = this.validateModIds(this.getMultipartString(multipart, 'modIds', false));
+
+    const renderSettings = this.validateRenderSettings(
+      this.getMultipartString(multipart, 'renderSettings', false)
+    );
 
     const metadata = this.validateMetadata(this.getMultipartString(multipart, 'metadata', false));
 
     try {
-      const fileBuffer = await multipart.toBuffer();
+      const file = await multipart.toBuffer();
 
-      const screenshot = await this.screenshotService.ingestScreenshot(
-        authorization.hwid,
-        ip,
+      const screenshot = await this.screenshotService.ingestScreenshot({
+        ip: authorization.ip,
+        hwid: authorization.hwid,
         creator,
         cityName,
         cityMilestone,
         cityPopulation,
-        modIds,
+        paradoxModIds,
+        renderSettings,
         metadata,
-        new Date(),
-        fileBuffer,
+        createdAt: new Date(),
+        file,
         healthcheck
-      );
+      });
 
       return this.screenshotService.serialize({ ...screenshot, creator }, req);
     } catch (error) {
@@ -399,22 +403,57 @@ export class ScreenshotController {
     return new Set(modIds);
   }
 
-  private validateMetadata(metadata: string | undefined): JsonObject {
-    if (!metadata) {
+  private validateRenderSettings(settingsJson: string | undefined): Record<string, number> {
+    if (!settingsJson) {
       return {};
     }
 
     try {
-      const json = JSON.parse(metadata);
+      const settings = JSON.parse(settingsJson);
 
-      if (typeof json != 'object' || Array.isArray(json)) {
+      if (typeof settings != 'object' || Array.isArray(settings)) {
         // noinspection ExceptionCaughtLocallyJS
-        throw new Error(`Expected a JSON object.`);
+        throw new Error(`expected a JSON object`);
       }
 
-      return json;
+      return Object.entries(settings).reduce<Record<string, number>>((map, [key, value]) => {
+        if (typeof value != 'number') {
+          throw new Error(`expected a number value for the key "${key}", got "${value}"`);
+        }
+
+        map[key] = value;
+
+        return map;
+      }, {});
     } catch (error) {
-      throw new InvalidPayloadError(`Invalid JSON for the metadata field.`, { cause: error });
+      const message = error instanceof Error ? error.message : String(error);
+
+      throw new InvalidPayloadError(`Invalid JSON for render settings field (${message}).`, {
+        cause: error
+      });
+    }
+  }
+
+  private validateMetadata(metadataJson: string | undefined): JsonObject {
+    if (!metadataJson) {
+      return {};
+    }
+
+    try {
+      const metadata = JSON.parse(metadataJson);
+
+      if (typeof metadata != 'object' || Array.isArray(metadata)) {
+        // noinspection ExceptionCaughtLocallyJS
+        throw new Error(`expected a JSON object`);
+      }
+
+      return metadata;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+
+      throw new InvalidPayloadError(`Invalid JSON for the metadata field (${message}).`, {
+        cause: error
+      });
     }
   }
 }

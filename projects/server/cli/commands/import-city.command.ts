@@ -184,19 +184,20 @@ class ImportCityCommand extends CommandRunner {
 
       const fileBytes = await Bun.file(absoluteFilePath).arrayBuffer();
 
-      const screenshot = await this.screenshotService.ingestScreenshot(
-        undefined,
-        undefined,
+      const screenshot = await this.screenshotService.ingestScreenshot({
+        ip: undefined,
+        hwid: undefined,
         creator,
-        cityInfo.cityName,
-        cityInfo.cityMilestone,
-        cityInfo.cityPopulation,
-        new Set(),
-        {},
-        cityInfo.date,
-        Buffer.from(fileBytes),
-        false
-      );
+        cityName: cityInfo.cityName,
+        cityMilestone: cityInfo.cityMilestone,
+        cityPopulation: cityInfo.cityPopulation,
+        paradoxModIds: new Set(),
+        renderSettings: {},
+        metadata: {},
+        createdAt: cityInfo.date,
+        file: Buffer.from(fileBytes),
+        healthcheck: false
+      });
 
       console.info(`Imported screenshot "${filePath}", #${screenshot.id}`);
     }

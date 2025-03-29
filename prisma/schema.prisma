@@ -156,6 +156,10 @@ model Screenshot {
   /// Paradox Mods IDs of the active mods when the screenshot was taken.
   /// A Paradox mod ID is an auto-incremented integer.
   paradoxModIds        Int[]
+  /// Rendering settings used to take a screenshot.
+  /// Each setting that has a non-default value is recorded here, otherwise it is simply not present.
+  /// It is a map of "setting code => float value" and validated by application code.
+  renderSettings       Json
   /// Schema-less JSON object of metadata sent by the client.
   /// Used for analytical/debugging purposes; not used by business logic.
   metadata             Json

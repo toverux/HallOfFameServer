@@ -84,42 +84,48 @@ export class ScreenshotService {
    * - Uploading the screenshots to Azure Blob Storage.
    * - Creating a {@link Screenshot} record in the database.
    */
-  public async ingestScreenshot(
-    hwid: Maybe<HardwareID>,
-    ip: Maybe<IPAddress>,
-    creator: Pick<Creator, 'id' | 'creatorName' | 'creatorNameSlug'>,
-    cityName: string,
-    cityMilestone: number,
-    cityPopulation: number,
-    paradoxModIds: ReadonlySet<ParadoxModID>,
-    metadata: JsonObject,
-    createdAt: Date,
-    file: Buffer,
-    healthcheck: boolean
-  ): Promise<Screenshot> {
+  public async ingestScreenshot({
+    ip,
+    hwid,
+    healthcheck,
+    ...data
+  }: {
+    ip: Maybe<IPAddress>;
+    hwid: Maybe<HardwareID>;
+    creator: Pick<Creator, 'id' | 'creatorName' | 'creatorNameSlug'>;
+    cityName: string;
+    cityMilestone: number;
+    cityPopulation: number;
+    paradoxModIds: ReadonlySet<ParadoxModID>;
+    renderSettings: Record<string, number>;
+    metadata: JsonObject;
+    createdAt: Date;
+    file: Buffer;
+    healthcheck: boolean;
+  }): Promise<Screenshot> {
     const startMark = Date.now();
 
     this.logger.log(
       oneLine`
-      Ingesting screenshot "${cityName}" by "${creator.creatorName}"
-      (#${creator.id}), size ${filesize(file.length)}.`
+      Ingesting screenshot "${data.cityName}" by "${data.creator.creatorName}"
+      (#${data.creator.id}), size ${filesize(data.file.length)}.`
     );
 
     if (hwid && ip) {
       // Check upload limit, throws if reached.
-      await this.checkUploadLimit(creator.id, hwid, ip);
+      await this.checkUploadLimit(data.creator.id, hwid, ip);
     }
 
     let mark = Date.now();
 
     // Generate the two resized screenshot from the uploaded file.
     const { imageThumbnailBuffer, imageFHDBuffer, image4KBuffer } =
-      await this.screenshotProcessing.resizeScreenshots(file, {
-        creatorName: creator.creatorName,
-        cityName
+      await this.screenshotProcessing.resizeScreenshots(data.file, {
+        creatorName: data.creator.creatorName,
+        cityName: data.cityName
       });
 
-    this.logger.log(`Screenshot "${cityName}" resized (${Date.now() - mark}ms).`);
+    this.logger.log(`Screenshot "${data.cityName}" resized (${Date.now() - mark}ms).`);
     mark = Date.now();
 
     // Create the screenshot in the database and upload the screenshots, in a transaction so if
@@ -129,13 +135,15 @@ export class ScreenshotService {
     });
 
     this.logger.log(
-      `Screenshot "${cityName}" (#${screenshot.id}) uploaded and saved (${Date.now() - mark}ms).`
+      oneLine`
+      Screenshot "${data.cityName}" (#${screenshot.id}) uploaded and saved
+      (${Date.now() - mark}ms).`
     );
 
     this.logger.log(
       oneLine`
       Ingested screenshot "${screenshot.cityName}" (#${screenshot.id})
-      by "${creator.creatorName}" (#${creator.id})
+      by "${data.creator.creatorName}" (#${data.creator.id})
       (total ${Date.now() - startMark}ms).`,
       this.getBlobUrl(screenshot.imageUrlFHD)
     );
@@ -150,25 +158,26 @@ export class ScreenshotService {
       const screenshotWithoutBlobs = await prisma.screenshot.create({
         select: { id: true, cityName: true },
         data: {
-          createdAt,
+          createdAt: data.createdAt,
           hwid: hwid ?? null,
           ip: ip ?? null,
-          creatorId: creator.id,
-          cityName,
-          cityMilestone,
-          cityPopulation,
+          creatorId: data.creator.id,
+          cityName: data.cityName,
+          cityMilestone: data.cityMilestone,
+          cityPopulation: data.cityPopulation,
           imageUrlThumbnail: '',
           imageUrlFHD: '',
           imageUrl4K: '',
-          paradoxModIds: Array.from(paradoxModIds),
-          metadata,
+          paradoxModIds: Array.from(data.paradoxModIds),
+          renderSettings: data.renderSettings,
+          metadata: data.metadata,
           isReported: healthcheck // make sure healthcheck uploads are never shown
         }
       });
 
       // Upload the screenshots.
       const blobUrls = await this.screenshotStorage.uploadScreenshots(
-        creator,
+        data.creator,
         screenshotWithoutBlobs,
         imageThumbnailBuffer,
         imageFHDBuffer,
@@ -758,6 +767,7 @@ export class ScreenshotService {
       imageUrlFHD: screenshot.imageUrlFHD,
       imageUrl4K: screenshot.imageUrl4K,
       paradoxModIds: screenshot.paradoxModIds,
+      renderSettings: screenshot.renderSettings,
       metadata: screenshot.metadata
     };
   }

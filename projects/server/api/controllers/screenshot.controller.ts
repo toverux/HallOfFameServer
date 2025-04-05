@@ -266,7 +266,6 @@ export class ScreenshotController {
       limits: {
         files: 1,
         fields: 6,
-        fieldSize: 1024,
         fileSize: config.screenshots.maxFileSizeBytes
       }
     });

@@ -3,6 +3,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { Creator, Prisma, Screenshot } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+import * as sentry from '@sentry/bun';
 import Bun from 'bun';
 import { oneLine } from 'common-tags';
 import * as dfns from 'date-fns';
@@ -18,6 +19,7 @@ import {
   optionallySerialized
 } from '../common';
 import { config } from '../config';
+import { AiTranslatorService } from './ai-translator.service';
 import { CreatorService } from './creator.service';
 import { DateFnsLocalizationService } from './date-fns-localization.service';
 import { PrismaService } from './prisma.service';
@@ -53,6 +55,9 @@ export class ScreenshotService {
 
   @Inject(DateFnsLocalizationService)
   private readonly dateFnsLocalization!: DateFnsLocalizationService;
+
+  @Inject(AiTranslatorService)
+  private readonly aiTranslator!: AiTranslatorService;
 
   @Inject(CreatorService)
   private readonly creatorService!: CreatorService;
@@ -147,6 +152,16 @@ export class ScreenshotService {
       (total ${Date.now() - startMark}ms).`,
       this.getBlobUrl(screenshot.imageUrlFHD)
     );
+
+    // Translate city name asynchronously.
+    this.updateCityNameTranslation(screenshot).catch(error => {
+      this.logger.error(
+        `Failed to translate city name "${screenshot.cityName}" (#${screenshot.id}).`,
+        error
+      );
+
+      sentry.captureException(error);
+    });
 
     return screenshot;
 
@@ -298,6 +313,79 @@ export class ScreenshotService {
   }
 
   /**
+   * Update of the transliteration and translation of the city name for the given screenshot,
+   * ignoring {@link Screenshot.needsTranslation}.
+   * Skips screenshots with city names that are not eligible to transliteration/translation (see
+   * {@link AiTranslatorService.isEligibleForTranslation}).
+   * If another screenshot with the same city name is found that was already translated, its values
+   * are reused. This serves both the purpose of saving on OpenAI requests but most importantly make
+   * sure we have a stable translation for different uploads of the same city.
+   */
+  public async updateCityNameTranslation(
+    screenshot: Pick<Screenshot, 'id' | 'creatorId' | 'cityName'>
+  ): Promise<
+    { translated: false } | { translated: true; cached: boolean; screenshot: Screenshot }
+  > {
+    // If no translation is needed, mark the screenshot as not needing translation.
+    if (!AiTranslatorService.isEligibleForTranslation(screenshot.cityName)) {
+      await this.prisma.screenshot.update({
+        where: { id: screenshot.id },
+        data: { needsTranslation: false }
+      });
+
+      return { translated: false };
+    }
+
+    // Attempt to find a screenshot with the same city name that was already translated.
+    const screenshotWithSameName = await this.prisma.screenshot.findFirst({
+      where: {
+        needsTranslation: false,
+        cityName: screenshot.cityName
+      },
+      select: { cityNameLocale: true, cityNameLatinized: true, cityNameTranslated: true }
+    });
+
+    let cached: boolean;
+    let updateInput: Prisma.ScreenshotUpdateInput;
+
+    // If a screenshot with the same city name was found, reuse its values.
+    if (screenshotWithSameName?.cityNameLocale) {
+      cached = true;
+
+      updateInput = {
+        needsTranslation: false,
+        cityNameLocale: screenshotWithSameName.cityNameLocale,
+        cityNameLatinized: screenshotWithSameName.cityNameLatinized,
+        cityNameTranslated: screenshotWithSameName.cityNameTranslated
+      };
+    }
+    // Otherwise, call the AI translator to translate the city name.
+    else {
+      cached = false;
+
+      const result = await this.aiTranslator.translateCityName({
+        creatorId: screenshot.creatorId,
+        input: screenshot.cityName
+      });
+
+      updateInput = {
+        needsTranslation: false,
+        cityNameLocale: result.twoLetterLocaleCode,
+        cityNameLatinized: result.transliteration,
+        cityNameTranslated: result.translation
+      };
+    }
+
+    // Update the screenshot with the new values.
+    const updatedScreenshot = await this.prisma.screenshot.update({
+      where: { id: screenshot.id },
+      data: updateInput
+    });
+
+    return { translated: true, cached, screenshot: updatedScreenshot };
+  }
+
+  /**
    * Retrieves a random screenshot from the Hall of Fame, with weights to assign probabilities to
    * select the algorithm used to find a screenshot ({@link RandomScreenshotAlgorithm}),
    * algorithms with a higher weight have a higher probability of being selected.
@@ -373,6 +461,9 @@ export class ScreenshotService {
       viewsCount: screenshot.viewsCount,
       viewsPerDay: screenshot.viewsPerDay,
       cityName: screenshot.cityName,
+      cityNameLocale: screenshot.cityNameLocale,
+      cityNameLatinized: screenshot.cityNameLatinized,
+      cityNameTranslated: screenshot.cityNameTranslated,
       cityMilestone: screenshot.cityMilestone,
       cityPopulation: screenshot.cityPopulation,
       imageUrlThumbnail: this.getBlobUrl(screenshot.imageUrlThumbnail),
@@ -763,6 +854,10 @@ export class ScreenshotService {
       ip: screenshot.ip,
       creatorId: screenshot.creatorId.$oid,
       cityName: screenshot.cityName,
+      cityNameLocale: screenshot.cityNameLocale,
+      cityNameLatinized: screenshot.cityNameLatinized,
+      cityNameTranslated: screenshot.cityNameTranslated,
+      needsTranslation: screenshot.needsTranslation,
       cityMilestone: screenshot.cityMilestone,
       cityPopulation: screenshot.cityPopulation,
       imageUrlThumbnail: screenshot.imageUrlThumbnail,

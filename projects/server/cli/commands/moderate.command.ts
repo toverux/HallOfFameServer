@@ -32,9 +32,7 @@ type ModerationAction = keyof typeof moderationActions;
 
 @Command({
   name: 'moderate',
-  description: oneLine`
-    Interactive command to moderate screenshots that have been reported by
-    users.`
+  description: `Interactive command to moderate screenshots that have been reported by users.`
 })
 class ModerateCommand extends CommandRunner {
   @Inject(InquirerService)

@@ -27,6 +27,10 @@ export const config = {
     screenshotsContainer: getString('HOF_AZURE_SCREENSHOTS_CONTAINER')
   },
 
+  openAi: {
+    apiKey: getString('HOF_OPENAI_API_KEY')
+  },
+
   sentry: {
     dsn: getString('HOF_SENTRY_DSN')
   },

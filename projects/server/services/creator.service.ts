@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 import { ForbiddenException, Inject, Injectable, Logger } from '@nestjs/common';
-import type { Creator, CreatorSocial } from '@prisma/client';
+import { Creator, CreatorSocial } from '@prisma/client';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
+import * as sentry from '@sentry/bun';
 import { oneLine } from 'common-tags';
 import * as uuid from 'uuid';
 import { HardwareID, IPAddress, JsonObject, StandardError } from '../common';
 import { CreatorAuthorization } from '../guards';
+import { AiTranslatorService } from './ai-translator.service';
 import { PrismaService } from './prisma.service';
 
 type SocialLinkMapper = {
@@ -53,6 +55,9 @@ export class CreatorService {
 
   @Inject(PrismaService)
   private readonly prisma!: PrismaService;
+
+  @Inject(AiTranslatorService)
+  private readonly aiTranslator!: AiTranslatorService;
 
   private readonly logger = new Logger(CreatorService.name);
 
@@ -157,6 +162,10 @@ export class CreatorService {
         creator
       );
 
+      if (updatedCreator.creatorName != creator.creatorName) {
+        backgroundUpdateCreatorNameTranslation.call(this);
+      }
+
       creator = updatedCreator;
 
       if (modified) {
@@ -176,10 +185,65 @@ export class CreatorService {
         }
       });
 
+      backgroundUpdateCreatorNameTranslation.call(this);
+
       this.logger.log(`Created creator "${creator.creatorName}".`);
     }
 
     return creator;
+
+    function backgroundUpdateCreatorNameTranslation(this: CreatorService): void {
+      assert(creator);
+
+      this.updateCreatorNameTranslation(creator).catch(error => {
+        this.logger.error(
+          `Failed to translate creator name "${creator.creatorName}" (#${creator.id}).`,
+          error
+        );
+
+        sentry.captureException(error);
+      });
+    }
+  }
+
+  /**
+   * Update of the transliteration and translation of the creator name for the given screenshot,
+   * ignoring {@link Creator.needsTranslation}.
+   * Skips creators with names that are not eligible to transliteration/translation (see
+   * {@link AiTranslatorService.isEligibleForTranslation}).
+   */
+  public async updateCreatorNameTranslation(
+    creator: Pick<Creator, 'id' | 'creatorName'>
+  ): Promise<{ translated: false } | { translated: true; creator: Creator }> {
+    // If no translation is needed, mark the screenshot as not needing translation.
+    if (
+      !(creator.creatorName && AiTranslatorService.isEligibleForTranslation(creator.creatorName))
+    ) {
+      await this.prisma.creator.update({
+        where: { id: creator.id },
+        data: { needsTranslation: false }
+      });
+
+      return { translated: false };
+    }
+
+    const result = await this.aiTranslator.translateCreatorName({
+      creatorId: creator.id,
+      input: creator.creatorName
+    });
+
+    // Update the screenshot with the new values.
+    const updatedCreator = await this.prisma.creator.update({
+      where: { id: creator.id },
+      data: {
+        needsTranslation: false,
+        creatorNameLocale: result.twoLetterLocaleCode,
+        creatorNameLatinized: result.transliteration,
+        creatorNameTranslated: result.translation
+      }
+    });
+
+    return { translated: true, creator: updatedCreator };
   }
 
   /**
@@ -190,6 +254,9 @@ export class CreatorService {
       id: creator.id,
       creatorName: creator.creatorName,
       creatorNameSlug: creator.creatorNameSlug,
+      creatorNameLocale: creator.creatorNameLocale,
+      creatorNameLatinized: creator.creatorNameLatinized,
+      creatorNameTranslated: creator.creatorNameTranslated,
       createdAt: creator.createdAt.toISOString(),
       social: Object.entries(creator.social)
         .filter(

@@ -1,4 +1,5 @@
 import { Provider } from '@nestjs/common';
+import { AiTranslatorService } from './ai-translator.service';
 import { AzureService } from './azure.service';
 import { BanService } from './ban.service';
 import { CreatorService } from './creator.service';
@@ -10,6 +11,7 @@ import { ScreenshotStorageService } from './screenshot-storage.service';
 import { ScreenshotService } from './screenshot.service';
 import { ViewService } from './view.service';
 
+export * from './ai-translator.service';
 export * from './azure.service';
 export * from './ban.service';
 export * from './creator.service';
@@ -22,6 +24,7 @@ export * from './screenshot-storage.service';
 export * from './view.service';
 
 export const services: Provider[] = [
+  AiTranslatorService,
   AzureService,
   BanService,
   CreatorService,

@@ -7,7 +7,7 @@ import { PrismaService } from '../../services';
 @Command({
   name: 'merge-creators',
   arguments: '<duplicate> <target>',
-  description: `Merges two creator accounts.`
+  description: `Merge two creator accounts.`
 })
 class MergeCreatorsCommand extends CommandRunner {
   @Inject(PrismaService)

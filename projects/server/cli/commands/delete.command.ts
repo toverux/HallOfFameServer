@@ -5,7 +5,7 @@ import { DeleteScreenshotCommand } from './delete-screenshot';
 
 @Command({
   name: 'delete',
-  description: `Command for deletion of various resources.`,
+  description: `Delete various resources.`,
   subCommands: [DeleteScreenshotCommand, DeleteCreatorCommand]
 })
 class DeleteCommand extends CommandRunner {

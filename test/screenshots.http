@@ -6,8 +6,8 @@ X-Timezone-Offset: {{utcOffset}}
 X-Forwarded-For: {{ip}}
 
 > {%
-    client.global.set("screenshot", response.body);
-    client.global.set("creator", response.body.creator);
+  client.global.set("screenshot", response.body);
+  client.global.set("creator", response.body.creator);
 %}
 
 ### Get random screenshot (anonymous)
@@ -18,8 +18,8 @@ X-Timezone-Offset: {{utcOffset}}
 X-Forwarded-For: {{ip}}
 
 > {%
-    client.global.set("screenshot", response.body);
-    client.global.set("creator", response.body.creator);
+  client.global.set("screenshot", response.body);
+  client.global.set("creator", response.body.creator);
 %}
 
 ### Get random screenshot
@@ -31,27 +31,27 @@ X-Timezone-Offset: {{utcOffset}}
 X-Forwarded-For: {{ip}}
 
 > {%
-    client.global.set("screenshot", response.body);
-    client.global.set("creator", response.body.creator);
+  client.global.set("screenshot", response.body);
+  client.global.set("creator", response.body.creator);
 %}
 
 ### Get random screenshot weighted algorithms
 
 GET {{url}}/api/v1/screenshots/weighted
-    ?random=10
-    &trending=10
-    &recent=10
-    &archeologist=10
-    &supporter=10
-    &viewMaxAge=1
+  ?random=10
+  &trending=10
+  &recent=10
+  &archeologist=10
+  &supporter=10
+  &viewMaxAge=1
 Authorization: Creator name={{creatorName}}&id={{creatorId}}&provider=paradox&hwid={{hwid}}
 Accept-Language: {{locale}}
 X-Timezone-Offset: {{utcOffset}}
 X-Forwarded-For: {{ip}}
 
 > {%
-    client.global.set("screenshot", response.body);
-    client.global.set("creator", response.body.creator);
+  client.global.set("screenshot", response.body);
+  client.global.set("creator", response.body.creator);
 %}
 
 ### Add a screenshot to favorites
@@ -118,9 +118,7 @@ Content-Disposition: form-data; name="modIds"
 --WebAppBoundary
 Content-Disposition: form-data; name="renderSettings"
 
-{
-  "aperture": 2.4
-}
+{ "aperture": 2.4 }
 
 --WebAppBoundary
 Content-Disposition: form-data; name="metadata"
@@ -138,5 +136,5 @@ Content-Disposition: form-data; name="screenshot"; filename="screenshot.png"
 --WebAppBoundary--
 
 > {%
-    client.global.set("screenshot", response.body);
+  client.global.set("screenshot", response.body);
 %}

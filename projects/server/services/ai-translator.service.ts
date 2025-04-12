@@ -18,10 +18,12 @@ export interface TranslationResponse {
 export class AiTranslatorService {
   private static readonly cityNamePrompt = oneLine`
     You are an assistant translating and transliterating city names to English.
+    For the twoLetterLocaleCode field, put the locale code of the source language.
     Use tone marks for the transliteration field.`;
 
   private static readonly creatorNamePrompt = oneLine`
     You are an assistant translating and transliterating usernames.
+    For the twoLetterLocaleCode field, put the locale code of the source language.
     Use tone marks for the transliteration field.`;
 
   /**

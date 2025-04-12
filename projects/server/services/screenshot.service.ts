@@ -154,14 +154,16 @@ export class ScreenshotService {
     );
 
     // Translate city name asynchronously.
-    this.updateCityNameTranslation(screenshot).catch(error => {
-      this.logger.error(
-        `Failed to translate city name "${screenshot.cityName}" (#${screenshot.id}).`,
-        error
-      );
+    if (!healthcheck) {
+      this.updateCityNameTranslation(screenshot).catch(error => {
+        this.logger.error(
+          `Failed to translate city name "${screenshot.cityName}" (#${screenshot.id}).`,
+          error
+        );
 
-      sentry.captureException(error);
-    });
+        sentry.captureException(error);
+      });
+    }
 
     return screenshot;
 

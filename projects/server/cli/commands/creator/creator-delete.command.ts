@@ -1,14 +1,16 @@
 import { Inject, Provider } from '@nestjs/common';
 import chalk from 'chalk';
 import { CommandRunner, SubCommand } from 'nest-commander';
-import { PrismaService } from '../../services';
+import { PrismaService } from '../../../services';
 
 @SubCommand({
-  name: 'creator',
+  name: 'delete',
   arguments: '<id>',
   description: `Delete a creator from the database and all related entities.`
 })
-export class DeleteCreatorCommand extends CommandRunner {
+export class CreatorDeleteCommand extends CommandRunner {
+  public static readonly providers: () => Provider[] = () => [CreatorDeleteCommand];
+
   @Inject(PrismaService)
   private readonly prisma!: PrismaService;
 
@@ -20,5 +22,3 @@ export class DeleteCreatorCommand extends CommandRunner {
     console.info(chalk.bold`Creator ${id} deleted successfully!`);
   }
 }
-
-export const deleteCreatorCommandProviders: Provider[] = [DeleteCreatorCommand];

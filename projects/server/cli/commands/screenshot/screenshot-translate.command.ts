@@ -2,13 +2,15 @@ import { Inject, Provider } from '@nestjs/common';
 import chalk from 'chalk';
 import { oneLine, stripIndent } from 'common-tags';
 import { CommandRunner, SubCommand } from 'nest-commander';
-import { PrismaService, ScreenshotService } from '../../services';
+import { PrismaService, ScreenshotService } from '../../../services';
 
 @SubCommand({
-  name: 'translate-cities',
+  name: 'translate',
   description: `Translate all city names that have not been translated yet.`
 })
-export class AiTranslateCitiesCommand extends CommandRunner {
+export class ScreenshotTranslateCommand extends CommandRunner {
+  public static readonly providers: () => Provider[] = () => [ScreenshotTranslateCommand];
+
   @Inject(PrismaService)
   private readonly prisma!: PrismaService;
 
@@ -55,5 +57,3 @@ export class AiTranslateCitiesCommand extends CommandRunner {
     );
   }
 }
-
-export const aiTranslateCitiesCommandProviders: Provider[] = [AiTranslateCitiesCommand];

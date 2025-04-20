@@ -6,21 +6,21 @@ import { Creator, Screenshot } from '@prisma/client';
 import chalk from 'chalk';
 import { oneLine } from 'common-tags';
 import {
-  Command,
   CommandRunner,
   InquirerService,
   Option,
   Question,
-  QuestionSet
+  QuestionSet,
+  SubCommand
 } from 'nest-commander';
 import open from 'open';
-import { assertUnreachable } from '../../common';
+import { assertUnreachable } from '../../../common';
 import {
   BanService,
   PrismaService,
   ScreenshotService,
   ScreenshotStorageService
-} from '../../services';
+} from '../../../services';
 
 const moderationActions = {
   approve: 'APPROVE Screenshot (discard report, mark approved)',
@@ -30,11 +30,16 @@ const moderationActions = {
 
 type ModerationAction = keyof typeof moderationActions;
 
-@Command({
+@SubCommand({
   name: 'moderate',
   description: `Interactive command to moderate screenshots that have been reported by users.`
 })
-class ModerateCommand extends CommandRunner {
+export class ScreenshotModerateCommand extends CommandRunner {
+  public static readonly providers: () => Provider[] = () => [
+    ScreenshotModerateCommand,
+    ModerationActionQuestions
+  ];
+
   @Inject(InquirerService)
   private readonly inquirer!: InquirerService;
 
@@ -163,5 +168,3 @@ class ModerationActionQuestions {
     ) as ModerationAction;
   }
 }
-
-export const moderateCommandProviders: Provider[] = [ModerateCommand, ModerationActionQuestions];

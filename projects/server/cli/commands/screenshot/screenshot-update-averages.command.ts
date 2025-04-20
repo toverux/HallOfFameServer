@@ -1,13 +1,15 @@
 import { Inject, Provider } from '@nestjs/common';
 import chalk from 'chalk';
-import { Command, CommandRunner } from 'nest-commander';
-import { ScreenshotService } from '../../services';
+import { CommandRunner, SubCommand } from 'nest-commander';
+import { ScreenshotService } from '../../../services';
 
-@Command({
-  name: 'update-screenshots-averages',
+@SubCommand({
+  name: 'update-averages',
   description: `Update average view and favorites per day for each screenshot.`
 })
-class UpdateScreenshotsAveragesCommand extends CommandRunner {
+export class ScreenshotUpdateAveragesCommand extends CommandRunner {
+  public static readonly providers: () => Provider[] = () => [ScreenshotUpdateAveragesCommand];
+
   @Inject(ScreenshotService)
   private readonly screenshotService!: ScreenshotService;
 
@@ -17,7 +19,3 @@ class UpdateScreenshotsAveragesCommand extends CommandRunner {
     console.info(chalk.bold`Done.`);
   }
 }
-
-export const updateScreenshotsAveragesCommandProviders: Provider[] = [
-  UpdateScreenshotsAveragesCommand
-];

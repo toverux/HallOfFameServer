@@ -1,15 +1,17 @@
 import { Inject, Provider } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import chalk from 'chalk';
-import { Command, CommandRunner } from 'nest-commander';
-import { PrismaService } from '../../services';
+import { CommandRunner, SubCommand } from 'nest-commander';
+import { PrismaService } from '../../../services';
 
-@Command({
-  name: 'merge-creators',
+@SubCommand({
+  name: 'merge',
   arguments: '<duplicate> <target>',
   description: `Merge two creator accounts.`
 })
-class MergeCreatorsCommand extends CommandRunner {
+export class CreatorMergeCommand extends CommandRunner {
+  public static readonly providers: () => Provider[] = () => [CreatorMergeCommand];
+
   @Inject(PrismaService)
   private readonly prisma!: PrismaService;
 
@@ -78,5 +80,3 @@ class MergeCreatorsCommand extends CommandRunner {
     console.info(chalk.bold`Deleted duplicate creator ${duplicateCreator.id}.`);
   }
 }
-
-export const mergeCreatorsCommandProviders: Provider[] = [MergeCreatorsCommand];

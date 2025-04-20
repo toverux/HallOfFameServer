@@ -36,11 +36,18 @@ const milestones = [
 @Command({
   name: 'import-city',
   description: oneLine`
-    Interactive command to import screenshots images for a new or existing
-    Creator from a directory.`,
+    Interactive command to import screenshots images for a new or existing Creator from a
+    directory.`,
   arguments: '<directoryPath>'
 })
-class ImportCityCommand extends CommandRunner {
+export class ImportCityCommand extends CommandRunner {
+  public static readonly providers: () => Provider[] = () => [
+    ImportCityCommand,
+    CityInfoQuestions,
+    ConfirmCityInfoQuestions,
+    ConfirmUpdateQuestions
+  ];
+
   @Inject(InquirerService)
   private readonly inquirer!: InquirerService;
 
@@ -323,10 +330,3 @@ class ConfirmUpdateQuestions {
     return val;
   }
 }
-
-export const importCityCommandProviders: Provider[] = [
-  ImportCityCommand,
-  CityInfoQuestions,
-  ConfirmCityInfoQuestions,
-  ConfirmUpdateQuestions
-];

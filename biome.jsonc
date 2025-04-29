@@ -2,7 +2,7 @@
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "files": {
     "include": ["**/*.ts", "**/*.tsx", "**/*.json"],
-    "ignore": [".idea", "dist"]
+    "ignore": [".idea", "dist", "efficientnetv2"]
   },
   "organizeImports": {
     "enabled": true
@@ -85,7 +85,7 @@
         "noConsole": {
           "level": "warn",
           "options": {
-            "allow": ["info", "warn", "error"]
+            "allow": ["info", "warn", "error", "table"]
           }
         },
         // Double equals is not THAT bad, although I understand why the rule exists.

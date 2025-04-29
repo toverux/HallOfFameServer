@@ -17,6 +17,10 @@ export class ScreenshotStorageService {
     );
   }
 
+  public downloadScreenshotToBuffer(blobName: string): Promise<Buffer> {
+    return this.containerClient.getBlobClient(blobName).downloadToBuffer();
+  }
+
   public async downloadScreenshotToFile(blobName: string, filePath: string): Promise<void> {
     await this.containerClient.getBlobClient(blobName).downloadToFile(filePath);
   }

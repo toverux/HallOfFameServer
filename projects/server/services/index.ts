@@ -7,6 +7,7 @@ import { DateFnsLocalizationService } from './date-fns-localization.service';
 import { FavoriteService } from './favorite.service';
 import { PrismaService } from './prisma.service';
 import { ScreenshotProcessingService } from './screenshot-processing.service';
+import { ScreenshotSimilarityDetectorService } from './screenshot-similarity-detector.service';
 import { ScreenshotStorageService } from './screenshot-storage.service';
 import { ScreenshotService } from './screenshot.service';
 import { ViewService } from './view.service';
@@ -20,6 +21,7 @@ export * from './favorite.service';
 export * from './prisma.service';
 export * from './screenshot.service';
 export * from './screenshot-processing.service';
+export * from './screenshot-similarity-detector.service';
 export * from './screenshot-storage.service';
 export * from './view.service';
 
@@ -33,6 +35,7 @@ export const services: Provider[] = [
   PrismaService,
   ScreenshotService,
   ScreenshotProcessingService,
+  ScreenshotSimilarityDetectorService,
   ScreenshotStorageService,
   ViewService
 ];

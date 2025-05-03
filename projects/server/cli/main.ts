@@ -4,7 +4,7 @@ import { StandardError } from '../common';
 import { config } from '../config';
 import { CliModule } from './cli.module';
 
-await CommandFactory.run(CliModule, {
+void CommandFactory.run(CliModule, {
   logger: {
     ...(config.verbose
       ? {

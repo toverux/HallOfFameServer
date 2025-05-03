@@ -43,7 +43,7 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
 
   private readonly workerResponses = new Subject<WorkerResponse>();
 
-  private workerProcess!: Bun.Subprocess;
+  private workerProcess!: Bun.Subprocess<'ignore', 'inherit', 'inherit'>;
 
   private isWorkerProcessExiting = false;
 
@@ -54,10 +54,10 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
     this.workerProcess = Bun.spawn({
       cmd: [
         'bun',
-        path.join(import.meta.dir, './screenshot-similarity-detector.worker.ts'),
         // Use bun --smol to consume less memory for the worker, we don't need a big heap for non-TF
         // stuff, so there is no significant impact on performance.
-        '--smol'
+        '--smol',
+        path.join(import.meta.dir, './screenshot-similarity-detector.worker.ts')
       ],
       stdio: ['ignore', 'inherit', 'inherit'],
       windowsHide: true,

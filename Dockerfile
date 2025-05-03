@@ -1,10 +1,12 @@
-# use the official Bun image
-FROM oven/bun:1.2.5-alpine AS base
+# => Use the official Bun image
+#    We had to switch from alpine to slim because TensorFlow doesn't run on musl, it needs a glibc
+#    distro. Other than that alpine was fine if we could switch back.
+FROM oven/bun:1.2.11-slim AS base
 WORKDIR /usr/src/app
 
 # => Install Node.js.
 #    Needed for Angular to build correctly, 'ng build' does not run well under Bun (hangs).
-RUN apk add --update nodejs
+RUN apt-get update && apt-get install -y nodejs ca-certificates --no-install-recommends && rm -rf /var/lib/apt/lists/*
 
 # => Install dependencies into temp directory.
 #    This will cache them and speed up future builds.
@@ -31,6 +33,7 @@ RUN bun run build
 # => Copy production dependencies and source code into final image.
 FROM base AS release
 
+# copy production node_modules
 COPY --from=install /temp/prod/node_modules node_modules
 # needed for default environment values
 COPY --from=prerelease /usr/src/app/.env .
@@ -42,7 +45,11 @@ COPY --from=prerelease /usr/src/app/package.json .
 COPY --from=prerelease /usr/src/app/dist dist
 # server source code, ran directly by Bun (no transpilation)
 COPY --from=prerelease /usr/src/app/projects/server projects/server
-# needed for Prisma ORM
+# EfficientNet V2 TensoFlow model
+COPY --from=prerelease /usr/src/app/efficientnetv2 efficientnetv2
+# Prisma ORM files
+COPY --from=prerelease /usr/src/app/node_modules/.prisma node_modules/.prisma
+COPY --from=prerelease /usr/src/app/node_modules/.prisma node_modules/.prisma
 COPY --from=prerelease /usr/src/app/prisma prisma
 
 FROM release AS run

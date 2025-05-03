@@ -8,14 +8,14 @@ void CommandFactory.run(CliModule, {
   logger: {
     ...(config.verbose
       ? {
-          debug: message => console.debug(chalk.dim(message)),
-          verbose: message => console.debug(chalk.dim(message))
+          debug: (message, scope) => console.debug(chalk.dim(message), chalk.dim`[${scope}]`),
+          verbose: (message, scope) => console.debug(chalk.dim(message), chalk.dim`[${scope}]`)
         }
       : {}),
-    log: message => console.log(message),
-    warn: message => console.warn(chalk.yellowBright(message)),
-    error: message => console.error(chalk.redBright(message)),
-    fatal: message => console.error(chalk.bgRedBright(message))
+    log: (message, scope) => console.log(message, chalk.dim`[${scope}]`),
+    warn: (message, scope) => console.warn(chalk.yellowBright(message), chalk.dim`[${scope}]`),
+    error: (message, scope) => console.error(chalk.redBright(message), chalk.dim`[${scope}]`),
+    fatal: (message, scope) => console.error(chalk.bgRedBright(message), chalk.dim`[${scope}]`)
   },
   errorHandler: handleError,
   serviceErrorHandler: handleError

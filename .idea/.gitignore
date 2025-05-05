@@ -7,3 +7,5 @@
 /dataSources*
 # Biome plugin preferences (ie. enable format-on-save)
 /biome.xml
+# Developer Tools plugin preferences
+/developer-tools.xml

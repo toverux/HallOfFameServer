@@ -48,7 +48,7 @@ export class ScreenshotService {
   /**
    * Timeout after which the upload process and database transaction are cancelled.
    */
-  private static readonly ingestScreenshotTransactionTimeout = 20_000;
+  private static readonly ingestScreenshotTransactionTimeout = 30_000;
 
   @Inject(PrismaService)
   private readonly prisma!: PrismaService;

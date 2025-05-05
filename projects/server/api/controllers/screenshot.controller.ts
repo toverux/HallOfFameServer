@@ -15,10 +15,10 @@ import {
   Req,
   UseGuards
 } from '@nestjs/common';
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { oneLine } from 'common-tags';
 import type { FastifyRequest } from 'fastify';
 import { JsonObject, ParadoxModID, StandardError } from '../../common';
+import { isPrismaError } from '../../common/prisma-errors';
 import { config } from '../../config';
 import { CreatorAuthorizationGuard } from '../../guards';
 import { FavoriteService, PrismaService, ScreenshotService, ViewService } from '../../services';
@@ -231,7 +231,7 @@ export class ScreenshotController {
 
       return this.screenshotService.serialize(screenshot, req);
     } catch (error) {
-      if (error instanceof PrismaClientKnownRequestError && error.code == 'P2025') {
+      if (isPrismaError(error) && error.code == 'P2025') {
         throw new BadRequestException(`Could not find Screenshot #${screenshotId}.`, {
           cause: error
         });

@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { Creator, Prisma, Screenshot } from '@prisma/client';
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import * as sentry from '@sentry/bun';
 import Bun from 'bun';
 import { oneLine } from 'common-tags';
@@ -18,6 +17,7 @@ import {
   StandardError,
   optionallySerialized
 } from '../common';
+import { isPrismaError } from '../common/prisma-errors';
 import { config } from '../config';
 import { AiTranslatorService } from './ai-translator.service';
 import { CreatorService } from './creator.service';
@@ -234,7 +234,7 @@ export class ScreenshotService {
 
       return screenshot;
     } catch (error) {
-      if (error instanceof PrismaClientKnownRequestError && error.code == 'P2025') {
+      if (isPrismaError(error) && error.code == 'P2025') {
         throw new ScreenshotNotFoundError(screenshotId, {
           cause: error
         });
@@ -279,7 +279,7 @@ export class ScreenshotService {
         include: { creator: true }
       });
     } catch (error) {
-      if (error instanceof PrismaClientKnownRequestError && error.code == 'P2025') {
+      if (isPrismaError(error) && error.code == 'P2025') {
         throw new ScreenshotNotFoundError(screenshotId, {
           cause: error
         });
@@ -304,7 +304,7 @@ export class ScreenshotService {
         include: { creator: true }
       });
     } catch (error) {
-      if (error instanceof PrismaClientKnownRequestError && error.code == 'P2025') {
+      if (isPrismaError(error) && error.code == 'P2025') {
         throw new ScreenshotNotFoundError(screenshotId, {
           cause: error
         });

@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { ForbiddenException, Inject, Injectable, Logger } from '@nestjs/common';
 import { Creator, CreatorSocial } from '@prisma/client';
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import * as sentry from '@sentry/bun';
 import { oneLine } from 'common-tags';
 import * as uuid from 'uuid';
 import { HardwareID, IPAddress, JsonObject, StandardError } from '../common';
+import { isPrismaError } from '../common/prisma-errors';
 import { CreatorAuthorization } from '../guards';
 import { AiTranslatorService } from './ai-translator.service';
 import { PrismaService } from './prisma.service';
@@ -44,7 +44,7 @@ export class CreatorService {
   /**
    * Regular expression to validate a Creator Name:
    * - Must contain only letters, numbers, spaces, hyphens, apostrophes and underscores.
-   * - Must be between 1 and 25 characters long. 1-character-long names are for languages like
+   * - Must be between 1 and 25 characters long. One-character-long names are for languages like
    *   Chinese.
    *
    * @see validateCreatorName
@@ -67,8 +67,8 @@ export class CreatorService {
 
   /**
    * Creates a new Creator or retrieves an existing one.
-   * This method is intended to be used as authentication and account creation as it performs
-   * Creator Name/Creator ID validation and updates.
+   * This method is to be used as authentication and account creation as it performs Creator Name/
+   * Creator ID validation and updates.
    *
    * There are two possible outcomes:
    * - If the Creator ID doesn't match any record, a new Creator is created with the provided
@@ -76,8 +76,8 @@ export class CreatorService {
    * - If the Creator ID matches a record, the request is authenticated, and the Creator Name is
    *   updated if it changed.
    *
-   * Just a wrapper around {@link authenticateCreatorUnsafe} that handles concurrent requests
-   * conflicts.
+   * This is only a wrapper around {@link authenticateCreatorUnsafe} that handles concurrent
+   * requests conflicts.
    */
   public async authenticateCreator(authorization: CreatorAuthorization): Promise<Creator> {
     try {
@@ -85,9 +85,9 @@ export class CreatorService {
     } catch (error) {
       // This can happen if a Creator account didn't exist and that user simultaneously sends
       // two authenticated requests that lead to the creation of the same Creator account due
-      // to race condition, for example "/me" and "/me/stats" when launching the mod.
-      // In that case we just have to retry the authentication.
-      if (error instanceof PrismaClientKnownRequestError && error.code == 'P2002') {
+      // to race condition, for example, "/me" and "/me/stats" when launching the mod.
+      // In that case we only have to retry the authentication.
+      if (isPrismaError(error) && error.code == 'P2002') {
         return await this.authenticateCreatorUnsafe(authorization);
       }
 
@@ -96,7 +96,7 @@ export class CreatorService {
   }
 
   /**
-   * See {@link authenticateCreator} for the method's purpose, this is just the part of the
+   * See {@link authenticateCreator} for the method's purpose, this is only the part of the
    * authentication that can be retried in case of error due to concurrent requests leading to an
    * account creation (and therefore a unique constraint violation).
    */
@@ -151,7 +151,7 @@ export class CreatorService {
     let creator = creators[0];
 
     if (creator) {
-      // Check if the Creator ID and Creator Name are correct and update info if needed.
+      // Check if the Creator ID and Creator Name are correct and update information if needed.
       const { creator: updatedCreator, modified } = await this.authenticateAndUpdateCreator(
         creatorId,
         creatorIdProvider,
@@ -283,7 +283,12 @@ export class CreatorService {
   }
 
   /**
-   * Verifies that the Creator ID and Creator Name are correct and updates
+   * Authenticates and updates a creator's information (like its Creator Name), ensuring the
+   * provided details match or are updated in the database.
+   *
+   * @throws IncorrectCreatorIDError If the provided Creator ID doesn't match the Creator Name.
+   *
+   * @return A promise that resolves with the updated creator entity, and a boolean indicating if modifications were made.
    */
   private async authenticateAndUpdateCreator(
     creatorId: Creator['creatorId'],

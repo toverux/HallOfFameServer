@@ -4,7 +4,7 @@ import { CommandRunner, SubCommand } from 'nest-commander';
 import { ScreenshotService } from '../../../services';
 
 @SubCommand({
-  name: 'screenshot',
+  name: 'delete',
   arguments: '<id>',
   description: `Delete a screenshot from the database and blob storage.`
 })

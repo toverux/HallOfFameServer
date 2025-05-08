@@ -24,6 +24,7 @@ import { CreatorService } from './creator.service';
 import { DateFnsLocalizationService } from './date-fns-localization.service';
 import { PrismaService } from './prisma.service';
 import { ScreenshotProcessingService } from './screenshot-processing.service';
+import { ScreenshotSimilarityDetectorService } from './screenshot-similarity-detector.service';
 import { ScreenshotStorageService } from './screenshot-storage.service';
 import { ViewService } from './view.service';
 
@@ -67,6 +68,9 @@ export class ScreenshotService {
 
   @Inject(ScreenshotProcessingService)
   private readonly screenshotProcessing!: ScreenshotProcessingService;
+
+  @Inject(ScreenshotSimilarityDetectorService)
+  private readonly screenshotSimilarityDetector!: ScreenshotSimilarityDetectorService;
 
   @Inject(ScreenshotStorageService)
   private readonly screenshotStorage!: ScreenshotStorageService;
@@ -153,8 +157,8 @@ export class ScreenshotService {
       this.getBlobUrl(screenshot.imageUrlFHD)
     );
 
-    // Translate city name asynchronously.
     if (!healthcheck) {
+      // Translate city name asynchronously.
       this.updateCityNameTranslation(screenshot).catch(error => {
         this.logger.error(
           `Failed to translate city name "${screenshot.cityName}" (#${screenshot.id}).`,
@@ -163,6 +167,19 @@ export class ScreenshotService {
 
         sentry.captureException(error);
       });
+
+      // Infer embeddings asynchronously.
+      this.screenshotSimilarityDetector
+        .batchUpdateEmbeddings(screenshot.id, [
+          { id: screenshot.id, imageUrlOrBuffer: screenshot.imageUrlFHD }
+        ])
+        .catch(error => {
+          this.logger.error(
+            `Failed to infer embeddings for screenshot "${screenshot.cityName}" (#${screenshot.id}).`
+          );
+
+          sentry.captureException(error);
+        });
     }
 
     return screenshot;
@@ -219,28 +236,39 @@ export class ScreenshotService {
     }
   }
 
-  public async deleteScreenshot(
+  public deleteScreenshot(
     screenshotId: Screenshot['id'],
-    prisma: Prisma.TransactionClient = this.prisma
+    prisma?: Prisma.TransactionClient
   ): Promise<Screenshot> {
-    try {
-      const screenshot = await prisma.screenshot.delete({
-        where: { id: screenshotId }
-      });
+    return prisma
+      ? transaction.call(this, prisma)
+      : this.prisma.$transaction(transaction.bind(this));
 
-      await this.screenshotStorage.deleteScreenshots(screenshot);
+    async function transaction(
+      this: ScreenshotService,
+      prisma: Prisma.TransactionClient
+    ): Promise<Screenshot> {
+      try {
+        await this.screenshotSimilarityDetector.deleteEmbedding(screenshotId, prisma);
 
-      this.logger.log(`Deleted screenshot #${screenshot.id} "${screenshot.cityName}".`);
-
-      return screenshot;
-    } catch (error) {
-      if (isPrismaError(error) && error.code == 'P2025') {
-        throw new ScreenshotNotFoundError(screenshotId, {
-          cause: error
+        const screenshot = await prisma.screenshot.delete({
+          where: { id: screenshotId }
         });
-      }
 
-      throw error;
+        await this.screenshotStorage.deleteScreenshots(screenshot);
+
+        this.logger.log(`Deleted screenshot #${screenshot.id} "${screenshot.cityName}".`);
+
+        return screenshot;
+      } catch (error) {
+        if (isPrismaError(error) && error.code == 'P2025') {
+          throw new ScreenshotNotFoundError(screenshotId, {
+            cause: error
+          });
+        }
+
+        throw error;
+      }
     }
   }
 

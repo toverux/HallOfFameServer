@@ -59,7 +59,7 @@ export class ScreenshotFindSimilarCommand extends CommandRunner {
       }
 
       const matchesIterator = this.imageSimilarityDetector.findSimilarScreenshots(
-        screenshot,
+        { id: screenshot.id, imageUrlOrBuffer: screenshot.imageUrlFHD },
         options.distance
       );
 

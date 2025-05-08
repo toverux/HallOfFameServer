@@ -126,7 +126,10 @@ export class ScreenshotInferFeatureEmbeddingsCommand extends CommandRunner {
 
           await this.imageSimilarityDetector.batchUpdateEmbeddings(
             (index + 1).toString(),
-            screenshotsBatch
+            screenshotsBatch.map(screenshot => ({
+              id: screenshot.id,
+              imageUrlOrBuffer: screenshot.imageUrlFHD
+            }))
           );
 
           processedCount += screenshotsBatch.length;

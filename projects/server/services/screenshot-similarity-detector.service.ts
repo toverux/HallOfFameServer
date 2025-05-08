@@ -4,13 +4,20 @@ import * as path from 'node:path';
 import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { Prisma, Screenshot, ScreenshotFeatureEmbedding } from '@prisma/client';
 import Bun from 'bun';
+import { oneLine } from 'common-tags';
 import PLazy from 'p-lazy';
 import { Subject, first, firstValueFrom, timeout } from 'rxjs';
 import usearch, { Index, MetricKind } from 'usearch';
 import { allFulfilled } from '../common';
+import { config } from '../config';
 import { PrismaService } from './prisma.service';
 import type { WorkerRequest, WorkerResponse } from './screenshot-similarity-detector.worker';
 import { ScreenshotStorageService } from './screenshot-storage.service';
+
+type InputScreenshot = {
+  readonly id: Screenshot['id'];
+  readonly imageUrlOrBuffer: Screenshot['imageUrlFHD'] | ArrayBuffer;
+};
 
 /**
  * Service for detecting similar screenshots based on their embeddings, extracted through a feature
@@ -33,7 +40,12 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
    * USearch index for embeddings.
    * @see https://unum-cloud.github.io/usearch
    */
-  private readonly usearchIndex = PLazy.from(() => this.buildUSearchIndex());
+  private readonly usearchIndex = PLazy.from(() => {
+    this.wasUsearchIndexRequired = true;
+    return this.buildUSearchIndex();
+  });
+
+  private wasUsearchIndexRequired = false;
 
   @Inject(PrismaService)
   private readonly prisma!: PrismaService;
@@ -41,42 +53,33 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
   @Inject(ScreenshotStorageService)
   private readonly screenshotStorage!: ScreenshotStorageService;
 
+  private readonly workerProcess = PLazy.from(() => {
+    this.wasWorkerProcessRequired = true;
+    return this.spawnInferenceWorker();
+  });
+
   private readonly workerResponses = new Subject<WorkerResponse>();
 
-  private workerProcess!: Bun.Subprocess<'ignore', 'inherit', 'inherit'>;
+  private wasWorkerProcessRequired = false;
 
   private isWorkerProcessExiting = false;
 
   private lastWorkerMessageId = 0;
 
   public onModuleInit(): void {
-    // noinspection JSUnusedGlobalSymbols
-    this.workerProcess = Bun.spawn({
-      cmd: [
-        'bun',
-        // Use bun --smol to consume less memory for the worker, we don't need a big heap for non-TF
-        // stuff, so there is no significant impact on performance.
-        '--smol',
-        path.join(import.meta.dir, './screenshot-similarity-detector.worker.ts')
-      ],
-      stdio: ['ignore', 'inherit', 'inherit'],
-      windowsHide: true,
-      ipc: (message: WorkerResponse) => {
-        this.workerResponses.next(message);
-      },
-      onExit: (_, exitCode) => {
-        if (!this.isWorkerProcessExiting) {
-          throw new Error(`Worker process unexpectedly exited with code ${exitCode}.`);
-        }
-      }
-    });
-
-    this.logger.log(`Inference worker process running (pid=${this.workerProcess.pid}).`);
+    // In production, trigger immediate warmup of inference worker and USearch index.
+    if (config.env == 'production') {
+      this.workerProcess.then();
+      this.usearchIndex.then();
+    }
   }
 
-  public onModuleDestroy(): void {
-    this.isWorkerProcessExiting = true;
-    this.workerProcess.kill();
+  public async onModuleDestroy(): Promise<void> {
+    if (this.wasWorkerProcessRequired) {
+      this.isWorkerProcessExiting = true;
+
+      (await this.workerProcess).kill();
+    }
   }
 
   /**
@@ -93,7 +96,7 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
    *         closer).
    */
   public async *findSimilarScreenshots(
-    screenshot: Pick<Screenshot, 'id' | 'imageUrlFHD'>,
+    screenshot: InputScreenshot,
     maxDistance: number
   ): AsyncIterable<{ screenshotId: Screenshot['id']; distance: number }, void, undefined> {
     // Load/retrieve the embedding for that screenshot.
@@ -140,13 +143,10 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
    */
   public async batchUpdateEmbeddings(
     batchName: string,
-    screenshots: readonly Pick<Screenshot, 'id' | 'imageUrlFHD'>[],
+    screenshots: readonly InputScreenshot[],
     prisma: Prisma.TransactionClient = this.prisma
   ): Promise<ScreenshotFeatureEmbedding[]> {
-    const embeddings = await this.inferEmbedding(
-      batchName,
-      screenshots.map(screenshot => screenshot.imageUrlFHD)
-    );
+    const embeddings = await this.inferEmbedding(batchName, screenshots);
 
     const embeddingDocs: ScreenshotFeatureEmbedding[] = [];
 
@@ -167,14 +167,36 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
 
       embeddingDocs.push(embeddingDoc);
 
-      const index = await this.usearchIndex;
-      const key = BigInt(`0x${embeddingDoc.id}`);
+      if (this.wasUsearchIndexRequired) {
+        const index = await this.usearchIndex;
+        const key = BigInt(`0x${embeddingDoc.id}`);
 
-      index.remove(key);
-      index.add(key, new Float32Array(embeddingDoc.embedding));
+        index.remove(key);
+        index.add(key, new Float32Array(embeddingDoc.embedding));
+      }
     }
 
     return embeddingDocs;
+  }
+
+  /**
+   * Deletes an embedding associated with the given screenshot ID from the database and removes it
+   * from the USearch index.
+   */
+  public async deleteEmbedding(
+    screenshotId: Screenshot['id'],
+    prisma: Prisma.TransactionClient = this.prisma
+  ): Promise<void> {
+    const embedding = await prisma.screenshotFeatureEmbedding.delete({
+      where: { screenshotId }
+    });
+
+    if (this.wasUsearchIndexRequired) {
+      const index = await this.usearchIndex;
+      const key = BigInt(`0x${embedding.id}`);
+
+      index.remove(key);
+    }
   }
 
   /**
@@ -212,10 +234,41 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
   }
 
   /**
+   * Starts the inference worker process to handle computational tasks.
+   * Throws a top-level error whenever the worker exits.
+   */
+  private spawnInferenceWorker(): Bun.Subprocess<'ignore', 'inherit', 'inherit'> {
+    // noinspection JSUnusedGlobalSymbols
+    const process = Bun.spawn({
+      cmd: [
+        'bun',
+        // Use bun --smol to consume less memory for the worker, we don't need a big heap for non-TF
+        // stuff, so there is no significant impact on performance.
+        '--smol',
+        path.join(import.meta.dir, './screenshot-similarity-detector.worker.ts')
+      ],
+      stdio: ['ignore', 'inherit', 'inherit'],
+      windowsHide: true,
+      ipc: (message: WorkerResponse) => {
+        this.workerResponses.next(message);
+      },
+      onExit: (_, exitCode) => {
+        if (!this.isWorkerProcessExiting) {
+          throw new Error(`Worker process unexpectedly exited with code ${exitCode}.`);
+        }
+      }
+    });
+
+    this.logger.log(`Inference worker process running (pid=${process.pid}).`);
+
+    return process;
+  }
+
+  /**
    * Generates embeddings (calling the inference worker) for the given set of image blob names.
    *
-   * @param batchName A name for logging/debugging.
-   * @param blobNames An array of blob names for which embeddings will be computed.
+   * @param batchName   A name for logging/debugging.
+   * @param screenshots An array of screenshots for which embeddings will be computed.
    *
    * @return A promise that resolves to a two-dimensional array of embeddings where each subarray
    *         corresponds to the embedding for a single image, the order mapping 1:1 to the input
@@ -223,22 +276,32 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
    */
   private async inferEmbedding(
     batchName: string,
-    blobNames: readonly string[]
+    screenshots: readonly InputScreenshot[]
   ): Promise<number[][]> {
-    this.logger.log(`Embedding batch ${batchName} of ${blobNames.length} image(s).`);
+    this.logger.log(
+      oneLine`
+      Embedding ${screenshots.length == 1 ? 'image' : 'batch'} ${batchName}
+      of ${screenshots.length} image(s).`
+    );
 
     const downloadStartTime = Date.now();
 
     const buffers = await allFulfilled(
-      blobNames.map(name =>
-        this.screenshotStorage
-          .downloadScreenshotToBuffer(name)
-          // To ArrayBuffer.
-          .then(buffer => buffer.buffer as ArrayBuffer)
+      screenshots.map(({ imageUrlOrBuffer }) =>
+        typeof imageUrlOrBuffer == 'string'
+          ? this.screenshotStorage
+              .downloadScreenshotToBuffer(imageUrlOrBuffer)
+              // To ArrayBuffer.
+              .then(buffer => buffer.buffer as ArrayBuffer)
+          : Promise.resolve(imageUrlOrBuffer)
       )
     );
 
-    this.logger.log(`Batch ${batchName} downloaded in ${Date.now() - downloadStartTime}ms.`);
+    this.logger.log(
+      oneLine`
+      ${screenshots.length == 1 ? 'Image' : 'Batch'} ${batchName} downloaded in
+      ${Date.now() - downloadStartTime}ms.`
+    );
 
     const inferenceStartTime = Date.now();
 
@@ -249,7 +312,7 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
       imagesData: buffers
     };
 
-    this.workerProcess.send(request);
+    (await this.workerProcess).send(request);
 
     const response = await firstValueFrom(
       this.workerResponses.pipe(
@@ -262,10 +325,12 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
       throw response.payload;
     }
 
-    assert(response.payload.length == blobNames.length);
+    assert(response.payload.length == screenshots.length);
 
     this.logger.log(
-      `Batch ${batchName} embeddings generated in ${Date.now() - inferenceStartTime}ms.`
+      oneLine`
+      ${screenshots.length == 1 ? 'image' : 'batch'} ${batchName} embeddings generated in
+      ${Date.now() - inferenceStartTime}ms.`
     );
 
     return response.payload;

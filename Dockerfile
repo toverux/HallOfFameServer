@@ -1,7 +1,7 @@
 # => Use the official Bun image
 #    We had to switch from alpine to slim because TensorFlow doesn't run on musl, it needs a glibc
 #    distro. Other than that alpine was fine if we could switch back.
-FROM oven/bun:1.2.11-slim AS base
+FROM oven/bun:1.2.12-slim AS base
 WORKDIR /usr/src/app
 
 # => Install Node.js.

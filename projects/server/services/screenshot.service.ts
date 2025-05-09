@@ -47,9 +47,9 @@ export class ScreenshotService {
   private static readonly sampleSizeForDeterministicAlgorithms = 100;
 
   /**
-   * Timeout after which the upload process and database transaction are cancelled.
+   * Timeout after which the upload process and database transaction are canceled.
    */
-  private static readonly ingestScreenshotTransactionTimeout = 30_000;
+  private static readonly ingestScreenshotTransactionTimeout = 60_000;
 
   @Inject(PrismaService)
   private readonly prisma!: PrismaService;

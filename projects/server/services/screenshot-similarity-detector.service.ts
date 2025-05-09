@@ -9,6 +9,7 @@ import PLazy from 'p-lazy';
 import { Subject, first, firstValueFrom, timeout } from 'rxjs';
 import usearch, { Index, MetricKind } from 'usearch';
 import { allFulfilled } from '../common';
+import { isPrismaError } from '../common/prisma-errors';
 import { config } from '../config';
 import { PrismaService } from './prisma.service';
 import type { WorkerRequest, WorkerResponse } from './screenshot-similarity-detector.worker';
@@ -187,15 +188,21 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
     screenshotId: Screenshot['id'],
     prisma: Prisma.TransactionClient = this.prisma
   ): Promise<void> {
-    const embedding = await prisma.screenshotFeatureEmbedding.delete({
-      where: { screenshotId }
-    });
+    try {
+      const embedding = await prisma.screenshotFeatureEmbedding.delete({
+        where: { screenshotId }
+      });
 
-    if (this.wasUsearchIndexRequired) {
-      const index = await this.usearchIndex;
-      const key = BigInt(`0x${embedding.id}`);
+      if (this.wasUsearchIndexRequired) {
+        const index = await this.usearchIndex;
+        const key = BigInt(`0x${embedding.id}`);
 
-      index.remove(key);
+        index.remove(key);
+      }
+    } catch (error) {
+      if (!(isPrismaError(error) && error.code == 'P2025')) {
+        throw error;
+      }
     }
   }
 

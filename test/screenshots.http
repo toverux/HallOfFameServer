@@ -54,6 +54,14 @@ X-Forwarded-For: {{ip}}
   client.global.set("creator", response.body.creator);
 %}
 
+### Delete a screenshot
+
+DELETE {{url}}/api/v1/screenshots/{{screenshot.id}}
+Authorization: Creator name={{creatorName}}&id={{creatorId}}&provider=paradox&hwid={{hwid}}
+Accept-Language: {{locale}}
+X-Timezone-Offset: {{utcOffset}}
+X-Forwarded-For: {{ip}}
+
 ### Add a screenshot to favorites
 
 POST {{url}}/api/v1/screenshots/{{screenshot.id}}/favorites

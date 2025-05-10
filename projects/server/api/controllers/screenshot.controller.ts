@@ -4,6 +4,7 @@ import {
   BadRequestException,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Inject,
   NotFoundException,
@@ -154,6 +155,35 @@ export class ScreenshotController {
       ));
 
     return payload;
+  }
+
+  /**
+   * Delete a screenshot by ID.
+   *
+   * @throws NotFoundException if the screenshot cannot be found.
+   * @throws ForbiddenException if the authenticated creator is not the one who posted the
+   *                            screenshot.
+   */
+  @Delete(':id')
+  public async deleteOne(@Req() req: FastifyRequest, @Param('id') id: string): Promise<JsonObject> {
+    const authed = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
+
+    const screenshot = await this.prisma.screenshot.findUnique({
+      where: { id },
+      select: { creatorId: true }
+    });
+
+    if (!screenshot) {
+      throw new NotFoundException(`Could not find Screenshot #${id}.`);
+    }
+
+    if (screenshot.creatorId != authed.creator.id) {
+      throw new ForbiddenException(`You cannot delete screenshots that are not yours.`);
+    }
+
+    const deletedScreenshot = await this.screenshotService.deleteScreenshot(id);
+
+    return this.screenshotService.serialize(deletedScreenshot, req);
   }
 
   /**

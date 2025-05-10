@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { CanActivate, ExecutionContext, ForbiddenException, Inject } from '@nestjs/common';
+import { CanActivate, ExecutionContext, Inject, UnauthorizedException } from '@nestjs/common';
 import { Creator } from '@prisma/client';
 import * as sentry from '@sentry/node';
 import { FastifyRequest } from 'fastify';
@@ -27,7 +27,7 @@ export interface CreatorAuthorization {
  * Guard that handles Creator authentication and authorization.
  * It ALLOWS anonymous requests (empty Authorization header), it is to the guarded consumer to
  * finally decide if the Creator is required or not by calling {@link getAuthenticatedCreator},
- * which will throw a {@link ForbiddenException} if the request is not authenticated.
+ * which will throw a {@link UnauthorizedException} if the request is not authenticated.
  */
 export class CreatorAuthorizationGuard implements CanActivate {
   public static readonly authenticatedCreatorKey = Symbol(
@@ -47,7 +47,7 @@ export class CreatorAuthorizationGuard implements CanActivate {
     const authentication = request[CreatorAuthorizationGuard.authenticatedCreatorKey];
 
     if (!authentication) {
-      throw new ForbiddenException(`Creator is not authenticated.`);
+      throw new UnauthorizedException(`Creator is not authenticated.`);
     }
 
     return authentication;
@@ -131,7 +131,7 @@ export class CreatorAuthorizationGuard implements CanActivate {
     } catch (error) {
       // biome-ignore lint/suspicious/noMisplacedAssertion: false positive
       if (error instanceof assert.AssertionError) {
-        throw new ForbiddenException(`Invalid Authorization header (${error.message}).`);
+        throw new UnauthorizedException(`Invalid Authorization header (${error.message}).`);
       }
 
       throw error;

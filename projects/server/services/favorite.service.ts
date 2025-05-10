@@ -26,7 +26,7 @@ export class FavoriteService {
         OR: [
           { screenshotId, creatorId },
           { screenshotId, hwid },
-          ...(ip.startsWith('172') ? [] : [{ screenshotId, ip }])
+          { screenshotId, ip }
         ]
       }
     });
@@ -53,7 +53,7 @@ export class FavoriteService {
         OR: [
           { screenshotId, creatorId },
           { screenshotId, hwid },
-          ...(ip.startsWith('172') ? [] : [{ screenshotId, ip }])
+          { screenshotId, ip }
         ]
       }
     });
@@ -100,7 +100,7 @@ export class FavoriteService {
         OR: [
           { screenshotId, creatorId },
           { screenshotId, hwid },
-          ...(ip.startsWith('172') ? [] : [{ screenshotId, ip }])
+          { screenshotId, ip }
         ]
       }
     });

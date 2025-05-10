@@ -16,6 +16,7 @@ import {
   Req,
   UseGuards
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { oneLine } from 'common-tags';
 import type { FastifyRequest } from 'fastify';
 import { JsonObject, ParadoxModID, StandardError } from '../../common';
@@ -48,7 +49,49 @@ export class ScreenshotController {
   private readonly viewService!: ViewService;
 
   /**
+   * Retrieves all screenshots optionally filtered by a specific creator ID.
+   * Provides additional metadata such as favorited status if the user is authenticated.
+   */
+  @Get()
+  public async getAll(
+    @Req() req: FastifyRequest,
+    @Query('creatorId') creatorId: string | undefined
+  ): Promise<JsonObject[]> {
+    const authed = req[CreatorAuthorizationGuard.authenticatedCreatorKey];
+
+    // If the creatorId filter is 'me', replace it with the logged-in creator ID.
+    if (creatorId == 'me') {
+      // biome-ignore lint/style/noParameterAssign: legitimate case
+      creatorId = CreatorAuthorizationGuard.getAuthenticatedCreator(req).creator.id;
+    }
+
+    const screenshots = await this.prisma.screenshot.findMany({
+      where: { creatorId: creatorId ?? Prisma.skip },
+      include: { creator: true }
+    });
+
+    // If the user is authenticated, we check whether each screenshot has been favorited.
+    const favorited =
+      authed &&
+      (await this.favoriteService.isFavoriteBatched(
+        screenshots.map(s => s.id),
+        authed.creator.id,
+        authed.authorization.ip,
+        authed.authorization.hwid
+      ));
+
+    return screenshots.map((screenshot, index) => {
+      const payload = this.screenshotService.serialize(screenshot, req);
+
+      payload.__favorited = favorited?.[index] ?? false;
+
+      return payload;
+    });
+  }
+
+  /**
    * Returns a single screenshot by its ID.
+   * Provides additional metadata such as favorited status if the user is authenticated.
    */
   @Get(':id')
   public async getOne(@Req() req: FastifyRequest, @Param('id') id: string): Promise<JsonObject> {

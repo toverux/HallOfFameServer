@@ -1,3 +1,18 @@
+### List screenshots (anonymous)
+
+GET {{url}}/api/v1/screenshots
+Accept-Language: {{locale}}
+X-Timezone-Offset: {{utcOffset}}
+X-Forwarded-For: {{ip}}
+
+### List my screenshots
+
+GET {{url}}/api/v1/screenshots?creatorId=me
+Authorization: Creator name={{creatorName}}&id={{creatorId}}&provider=paradox&hwid={{hwid}}
+Accept-Language: {{locale}}
+X-Timezone-Offset: {{utcOffset}}
+X-Forwarded-For: {{ip}}
+
 ### Get a screenshot by ID
 
 GET {{url}}/api/v1/screenshots/{{screenshot.id}}

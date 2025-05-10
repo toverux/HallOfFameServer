@@ -10,6 +10,8 @@ export class FavoriteService {
 
   /**
    * Checks if a screenshot is favorited by a unique user.
+   *
+   * @see isFavoriteBatched
    */
   public async isFavorite(
     screenshotId: Screenshot['id'],
@@ -32,6 +34,39 @@ export class FavoriteService {
     });
 
     return favorite != null;
+  }
+
+  /**
+   * Determines whether each screenshot in a batch is marked as a favorite by a unique user.
+   *
+   * @return A promise that resolves to an array of booleans, where each element corresponds to
+   *         whether the given screenshot ID is marked as a favorite, ordered 1:1 to the input.
+   *
+   * @see isFavorite
+   */
+  public async isFavoriteBatched(
+    screenshotIds: readonly Screenshot['id'][],
+    creatorId: Creator['id'],
+    ip: IPAddress,
+    hwid: HardwareID
+  ): Promise<boolean[]> {
+    // Same as isFavorite(), see its comments.
+    const favorites = await this.prisma.favorite.findMany({
+      select: { id: true, screenshotId: true },
+      where: {
+        // biome-ignore lint/style/useNamingConvention: prisma
+        OR: [
+          // `as string[]`: because prisma type unnecessarily takes a mutable array.
+          { screenshotId: { in: screenshotIds as string[] }, creatorId },
+          { screenshotId: { in: screenshotIds as string[] }, hwid },
+          { screenshotId: { in: screenshotIds as string[] }, ip }
+        ]
+      }
+    });
+
+    return screenshotIds.map(screenshotId =>
+      favorites.some(favorite => favorite.screenshotId == screenshotId)
+    );
   }
 
   /**

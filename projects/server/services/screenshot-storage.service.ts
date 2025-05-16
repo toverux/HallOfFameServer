@@ -94,7 +94,7 @@ export class ScreenshotStorageService {
     ]);
 
     function deleteBlob(blobName: string) {
-      return containerClient.getBlobClient(blobName).delete({ deleteSnapshots: 'include' });
+      return containerClient.getBlobClient(blobName).deleteIfExists({ deleteSnapshots: 'include' });
     }
   }
 }

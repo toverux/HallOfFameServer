@@ -9,6 +9,7 @@
     "check": "bun check:rw",
     "build:client:watch": "ng build --watch --configuration development",
     "run:cli": "TF_CPP_MIN_LOG_LEVEL=1 bun projects/server/cli/main.ts",
+    "run:cli:remote": "bun --env-file=.env.remote run:cli",
     "run:server": "TF_CPP_MIN_LOG_LEVEL=1 bun projects/server/main.ts",
     "run:server:watch": "TF_CPP_MIN_LOG_LEVEL=1 bun --watch --no-clear-screen --inspect projects/server/main.ts",
     "// Useful when working on the mod with the editor and game open so the server does not consume too much memory": "",

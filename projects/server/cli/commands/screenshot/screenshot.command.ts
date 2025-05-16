@@ -3,6 +3,7 @@ import { Command, CommandRunner } from 'nest-commander';
 import { ScreenshotDeleteCommand } from './screenshot-delete.command';
 import { ScreenshotFindSimilarCommand } from './screenshot-find-similar.command';
 import { ScreenshotInferFeatureEmbeddingsCommand } from './screenshot-infer-feature-embeddings.command';
+import { ScreenshotMergeCommand } from './screenshot-merge.command';
 import { ScreenshotModerateCommand } from './screenshot-moderate.command';
 import { ScreenshotTranslateCommand } from './screenshot-translate.command';
 import { ScreenshotUpdateAveragesCommand } from './screenshot-update-averages.command';
@@ -14,6 +15,7 @@ import { ScreenshotUpdateAveragesCommand } from './screenshot-update-averages.co
     ScreenshotDeleteCommand,
     ScreenshotFindSimilarCommand,
     ScreenshotInferFeatureEmbeddingsCommand,
+    ScreenshotMergeCommand,
     ScreenshotModerateCommand,
     ScreenshotTranslateCommand,
     ScreenshotUpdateAveragesCommand
@@ -25,6 +27,7 @@ export class ScreenshotCommand extends CommandRunner {
     ...ScreenshotDeleteCommand.providers(),
     ...ScreenshotFindSimilarCommand.providers(),
     ...ScreenshotInferFeatureEmbeddingsCommand.providers(),
+    ...ScreenshotMergeCommand.providers(),
     ...ScreenshotModerateCommand.providers(),
     ...ScreenshotTranslateCommand.providers(),
     ...ScreenshotUpdateAveragesCommand.providers()

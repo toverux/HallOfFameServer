@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
-import { Creator, Prisma, Screenshot } from '@prisma/client';
+import { type Creator, Prisma, type Screenshot } from '@prisma/client';
 import * as sentry from '@sentry/bun';
 import Bun from 'bun';
 import { oneLine } from 'common-tags';
@@ -528,18 +528,33 @@ export class ScreenshotService {
   /**
    * Updates the average views and favorites per day for each screenshot in the database.
    *
-   * Averages are rounded to one decimal place and updates are only made if the difference between
+   * Averages are rounded to one decimal place, and updates are only made if the difference between
    * the calculated average and the stored average is greater than 0.1.
    *
    * The cron is scheduled to run every hour. It can also be run from the CLI with
    * `bun run:cli update-screenshots-averages`.
+   *
+   * @param nice If true, sleeps for 100 ms between each update. Useful for background work (cron).
+   * @param screenshotId If set, only updates the averages for the screenshot with this ID.
+   * @param prisma The Prisma client to use.
+   *
+   * @returns The number of screenshots updated.
    */
   @Cron('0 0 * * * *')
-  public async updateAverageViewsAndFavoritesPerDay(nice = true): Promise<number> {
+  public async updateAverageViewsAndFavoritesPerDay({
+    nice = true,
+    screenshotId,
+    prisma = this.prisma
+  }: {
+    nice?: boolean;
+    screenshotId?: string;
+    prisma?: Prisma.TransactionClient;
+  }): Promise<number> {
     this.logger.log(`Start updating screenshots average views and favorites per day.`);
 
-    const screenshots = await this.prisma.screenshot.findMany({
+    const screenshots = await prisma.screenshot.findMany({
       where: {
+        id: screenshotId ?? Prisma.skip,
         // biome-ignore lint/style/useNamingConvention: prisma
         OR: [{ favoritesCount: { gt: 0 } }, { viewsCount: { gt: 0 } }]
       },
@@ -605,14 +620,14 @@ export class ScreenshotService {
         Math.abs(screenshot.viewsPerDay - viewsPerDay) > 0.1 ||
         screenshot.favoritingPercentage != favoritingPercentage
       ) {
-        await this.prisma.screenshot.update({
+        await prisma.screenshot.update({
           where: { id: screenshot.id },
           data: { viewsPerDay, favoritesPerDay, favoritingPercentage }
         });
 
         updatedCount++;
 
-        if (nice) {
+        if (nice && index < screenshots.length - 1) {
           await Bun.sleep(100);
         }
       }

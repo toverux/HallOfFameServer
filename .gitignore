@@ -1,5 +1,6 @@
 # Machine-specific configuration
 /.env.local
+/.env.remote
 
 # Toolchain
 /node_modules

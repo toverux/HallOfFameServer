@@ -6,8 +6,8 @@ import { PrismaService } from '../../../services';
 
 @SubCommand({
   name: 'merge',
-  arguments: '<duplicate> <target>',
-  description: `Merge two creator accounts.`
+  arguments: '<target> <duplicate>',
+  description: `Merge two creator accounts, by database ID, Creator ID, or Creator Name.`
 })
 export class CreatorMergeCommand extends CommandRunner {
   public static readonly providers: () => Provider[] = () => [CreatorMergeCommand];
@@ -16,15 +16,15 @@ export class CreatorMergeCommand extends CommandRunner {
   private readonly prisma!: PrismaService;
 
   public override async run(args: [string, string]): Promise<void> {
-    const [duplicate, target] = args;
+    const [target, duplicate] = args;
 
-    await this.prisma.$transaction(prisma => this.runTransaction(prisma, duplicate, target));
+    await this.prisma.$transaction(prisma => this.runTransaction(prisma, target, duplicate));
   }
 
   private async runTransaction(
     prisma: Prisma.TransactionClient,
-    duplicate: string,
-    target: string
+    target: string,
+    duplicate: string
   ): Promise<void> {
     const duplicateCreator = await prisma.creator.findFirst({
       where: {

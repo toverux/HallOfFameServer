@@ -1,4 +1,8 @@
-import { type ApplicationConfig, provideExperimentalZonelessChangeDetection } from '@angular/core';
+import {
+  type ApplicationConfig,
+  provideBrowserGlobalErrorListeners,
+  provideZonelessChangeDetection
+} from '@angular/core';
 import { provideClientHydration } from '@angular/platform-browser';
 import { provideRouter } from '@angular/router';
 
@@ -6,8 +10,9 @@ import { routes } from './app.routes';
 
 export const appConfig: ApplicationConfig = {
   providers: [
-    provideExperimentalZonelessChangeDetection(),
-    provideRouter(routes),
-    provideClientHydration()
+    provideZonelessChangeDetection(),
+    provideBrowserGlobalErrorListeners(),
+    provideClientHydration(),
+    provideRouter(routes)
   ]
 };

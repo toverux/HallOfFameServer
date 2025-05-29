@@ -14,5 +14,6 @@ Sentry.init({
       : config.sentry.dsn,
   environment: config.env,
   sampleRate: 1.0,
-  tracesSampleRate: config.env == 'development' ? 1.0 : 0.05
+  tracesSampleRate: config.env == 'development' ? 1.0 : 0.05,
+  _experiments: { enableLogs: true }
 });

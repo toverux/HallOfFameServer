@@ -549,7 +549,7 @@ export class ScreenshotService {
     nice?: boolean;
     screenshotId?: string;
     prisma?: Prisma.TransactionClient;
-  }): Promise<number> {
+  } = {}): Promise<number> {
     this.logger.log(`Start updating screenshots average views and favorites per day.`);
 
     const screenshots = await prisma.screenshot.findMany({

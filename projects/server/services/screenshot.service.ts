@@ -526,13 +526,23 @@ export class ScreenshotService {
   }
 
   /**
+   * Calls {@link updateAverageViewsAndFavoritesPerDay} every hour.
+   * Updating averages can also be done from the CLI with `bun run:cli update-screenshots-averages`.
+   */
+  @Cron('0 0 * * * *')
+  public cronUpdateAverageViewsAndFavoritesPerDay(): void {
+    this.updateAverageViewsAndFavoritesPerDay().catch(error => {
+      this.logger.error(`Failed CRON update of screenshot averages.`, error);
+
+      sentry.captureException(error);
+    });
+  }
+
+  /**
    * Updates the average views and favorites per day for each screenshot in the database.
    *
    * Averages are rounded to one decimal place, and updates are only made if the difference between
    * the calculated average and the stored average is greater than 0.1.
-   *
-   * The cron is scheduled to run every hour. It can also be run from the CLI with
-   * `bun run:cli update-screenshots-averages`.
    *
    * @param nice If true, sleeps for 100 ms between each update. Useful for background work (cron).
    * @param screenshotId If set, only updates the averages for the screenshot with this ID.
@@ -540,7 +550,6 @@ export class ScreenshotService {
    *
    * @returns The number of screenshots updated.
    */
-  @Cron('0 0 * * * *')
   public async updateAverageViewsAndFavoritesPerDay({
     nice = true,
     screenshotId,

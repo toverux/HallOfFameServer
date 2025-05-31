@@ -1,24 +1,58 @@
-# => Use the official Bun image
-#    We had to switch from alpine to slim because TensorFlow doesn't run on musl, it needs a glibc
-#    distro. Other than that alpine was fine if we could switch back.
-FROM oven/bun:1.2.15-slim AS base
+# => Use Debian Slim, we could migrate back to the official bun image once Node.js is no longer
+#    required.
+#    I also had to switch from alpine to slim because TensorFlow doesn't run on musl, it needs a
+#    glibc distro. Other than that alpine was fine if we could switch back.
+FROM debian:bookworm-slim AS base
 WORKDIR /usr/src/app
 
-# => Install Node.js.
-#    Needed for Angular to build correctly, 'ng build' does not run well under Bun (hangs).
-RUN apt-get update && apt-get install -y nodejs ca-certificates --no-install-recommends && rm -rf /var/lib/apt/lists/*
+# Fail fast!
+SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
+
+# => Install mise-en-place to handle Bun and Node installation from mise.toml
+#    Node is needed for Angular to build correctly, 'ng build' does not run well under Bun (hangs).
+
+RUN apt-get update  \
+    && apt-get -y --no-install-recommends install curl ca-certificates \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV MISE_DATA_DIR="/mise"
+ENV MISE_CONFIG_DIR="/mise"
+ENV MISE_CACHE_DIR="/mise/cache"
+ENV MISE_INSTALL_PATH="/usr/local/bin/mise"
+ENV PATH="/mise/shims:$PATH"
+
+COPY mise.toml $MISE_CONFIG_DIR/config.toml
+
+RUN curl https://mise.run | sh
+RUN mise install
+
+# => Configure Bun
+
+RUN groupadd bun \
+      --gid 1000 \
+    && useradd bun \
+      --uid 1000 \
+      --gid bun \
+      --shell /bin/sh \
+      --create-home
+
+# Disable the runtime transpiler cache by default inside Docker containers.
+# On ephemeral containers, the cache is not useful.
+ENV BUN_RUNTIME_TRANSPILER_CACHE_PATH=0
+
+FROM base AS install
 
 # => Install dependencies into temp directory.
 #    This will cache them and speed up future builds.
-FROM base AS install
 RUN mkdir -p /temp/dev /temp/prod
 COPY package.json bun.lock prisma /temp/dev/
 RUN cd /temp/dev && bun install --frozen-lockfile
 
 # => Install with --production (exclude devDependencies)
 RUN cp -r /temp/dev/* /temp/prod/ \
-    && cd /temp/prod && \
-    bun install --frozen-lockfile --production
+    && cd /temp/prod \
+    && bun install --frozen-lockfile --production
 
 # => Copy node_modules from temp directory.
 #    Then copy all (non-ignored) project files into the image.

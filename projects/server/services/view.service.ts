@@ -2,13 +2,17 @@ import { Inject, Injectable } from '@nestjs/common';
 import { Creator, Screenshot, View } from '@prisma/client';
 import * as dateFns from 'date-fns';
 import { LRUCache } from 'lru-cache';
-import { JsonObject } from '../common';
+import { JsonObject, optionallySerialized } from '../common';
+import { CreatorService } from './creator.service';
 import { PrismaService } from './prisma.service';
 
 @Injectable()
 export class ViewService {
   @Inject(PrismaService)
   private readonly prisma!: PrismaService;
+
+  @Inject(CreatorService)
+  private readonly creatorService!: CreatorService;
 
   /**
    * Cache of Creator ID (database one, not the UUID v4) to viewed screenshot IDs to avoid
@@ -113,10 +117,11 @@ export class ViewService {
   /**
    * Serializes a {@link View} to a JSON object for API responses.
    */
-  public serialize(view: View): JsonObject {
+  public serialize(view: View & { creator?: Creator }): JsonObject {
     return {
       id: view.id,
       creatorId: view.creatorId,
+      creator: optionallySerialized(view.creator && this.creatorService.serialize(view.creator)),
       screenshotId: view.screenshotId,
       viewedAt: view.viewedAt.toISOString()
     };

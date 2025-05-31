@@ -1,12 +1,16 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Creator, Favorite, Screenshot } from '@prisma/client';
-import { HardwareID, IPAddress, JsonObject, StandardError } from '../common';
+import { HardwareID, IPAddress, JsonObject, StandardError, optionallySerialized } from '../common';
+import { CreatorService } from './creator.service';
 import { PrismaService } from './prisma.service';
 
 @Injectable()
 export class FavoriteService {
   @Inject(PrismaService)
   private readonly prisma!: PrismaService;
+
+  @Inject(CreatorService)
+  private readonly creatorService!: CreatorService;
 
   /**
    * Checks if a screenshot is favorited by a unique user.
@@ -162,11 +166,14 @@ export class FavoriteService {
   /**
    * Serializes a {@link Favorite} to a JSON object for API responses.
    */
-  public serialize(favorite: Favorite): JsonObject {
+  public serialize(favorite: Favorite & { creator?: Creator }): JsonObject {
     return {
       id: favorite.id,
       favoritedAt: favorite.favoritedAt.toISOString(),
       creatorId: favorite.creatorId,
+      creator: optionallySerialized(
+        favorite.creator && this.creatorService.serialize(favorite.creator)
+      ),
       screenshotId: favorite.screenshotId
     };
   }

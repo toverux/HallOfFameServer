@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
-import { type Creator, Prisma, type Screenshot } from '@prisma/client';
+import { type Creator, type Favorite, Prisma, type Screenshot, type View } from '@prisma/client';
 import * as sentry from '@sentry/bun';
 import Bun from 'bun';
 import { oneLine } from 'common-tags';
@@ -22,6 +22,7 @@ import { config } from '../config';
 import { AiTranslatorService } from './ai-translator.service';
 import { CreatorService } from './creator.service';
 import { DateFnsLocalizationService } from './date-fns-localization.service';
+import { FavoriteService } from './favorite.service';
 import { PrismaService } from './prisma.service';
 import { ScreenshotProcessingService } from './screenshot-processing.service';
 import { ScreenshotSimilarityDetectorService } from './screenshot-similarity-detector.service';
@@ -62,6 +63,9 @@ export class ScreenshotService {
 
   @Inject(CreatorService)
   private readonly creatorService!: CreatorService;
+
+  @Inject(FavoriteService)
+  private readonly favoriteService!: FavoriteService;
 
   @Inject(ViewService)
   private readonly viewService!: ViewService;
@@ -471,7 +475,11 @@ export class ScreenshotService {
    * Serializes a {@link Screenshot} to a JSON object for API responses.
    */
   public serialize(
-    screenshot: Screenshot & { creator?: Creator },
+    screenshot: Screenshot & {
+      creator?: Creator;
+      favorites?: Favorite[];
+      views?: View[];
+    },
     req: FastifyRequest
   ): JsonObject {
     const dfnsLocale = this.dateFnsLocalization.getLocaleForRequest(req);
@@ -514,7 +522,11 @@ export class ScreenshotService {
       creatorId: screenshot.creatorId,
       creator: optionallySerialized(
         screenshot.creator && this.creatorService.serialize(screenshot.creator)
-      )
+      ),
+      favorites: optionallySerialized(
+        screenshot.favorites?.map(favorite => this.favoriteService.serialize(favorite))
+      ),
+      views: optionallySerialized(screenshot.views?.map(view => this.viewService.serialize(view)))
     };
   }
 

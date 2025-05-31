@@ -55,8 +55,16 @@ export class ScreenshotController {
   @Get()
   public async getAll(
     @Req() req: FastifyRequest,
-    @Query('creatorId') creatorId: string | undefined
+    @Query('creatorId') creatorId: string | undefined,
+    @Query('favorites', new ParseBoolPipe({ optional: true })) includeFavorites = false,
+    @Query('views', new ParseBoolPipe({ optional: true })) includeViews = false
   ): Promise<JsonObject[]> {
+    if (!creatorId && (includeFavorites || includeViews)) {
+      throw new BadRequestException(
+        `The 'favorites' and 'views' query parameters are only supported when filtering by creator ID.`
+      );
+    }
+
     const authed = req[CreatorAuthorizationGuard.authenticatedCreatorKey];
 
     // If the creatorId filter is 'me', replace it with the logged-in creator ID.
@@ -67,7 +75,11 @@ export class ScreenshotController {
 
     const screenshots = await this.prisma.screenshot.findMany({
       where: { creatorId: creatorId ?? Prisma.skip },
-      include: { creator: true }
+      include: {
+        creator: true,
+        favorites: includeFavorites ? { include: { creator: true } } : Prisma.skip,
+        views: includeViews ? { include: { creator: true } } : Prisma.skip
+      }
     });
 
     // If the user is authenticated, we check whether each screenshot has been favorited.
@@ -94,12 +106,21 @@ export class ScreenshotController {
    * Provides additional metadata such as favorited status if the user is authenticated.
    */
   @Get(':id')
-  public async getOne(@Req() req: FastifyRequest, @Param('id') id: string): Promise<JsonObject> {
+  public async getOne(
+    @Req() req: FastifyRequest,
+    @Param('id') id: string,
+    @Query('favorites', new ParseBoolPipe({ optional: true })) includeFavorites = false,
+    @Query('views', new ParseBoolPipe({ optional: true })) includeViews = false
+  ): Promise<JsonObject> {
     const authed = req[CreatorAuthorizationGuard.authenticatedCreatorKey];
 
     const screenshot = await this.prisma.screenshot.findUnique({
       where: { id },
-      include: { creator: true }
+      include: {
+        creator: true,
+        favorites: includeFavorites ? { include: { creator: true } } : Prisma.skip,
+        views: includeViews ? { include: { creator: true } } : Prisma.skip
+      }
     });
 
     if (!screenshot) {

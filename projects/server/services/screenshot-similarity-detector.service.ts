@@ -1,9 +1,7 @@
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
-import * as path from 'node:path';
 import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { Prisma, Screenshot, ScreenshotFeatureEmbedding } from '@prisma/client';
-import Bun from 'bun';
 import { oneLine } from 'common-tags';
 import PLazy from 'p-lazy';
 import { Subject, first, firstValueFrom, timeout } from 'rxjs';
@@ -17,7 +15,7 @@ import { ScreenshotStorageService } from './screenshot-storage.service';
 
 type InputScreenshot = {
   readonly id: Screenshot['id'];
-  readonly imageUrlOrBuffer: Screenshot['imageUrlFHD'] | ArrayBuffer;
+  readonly imageUrlOrBuffer: Screenshot['imageUrlFHD'] | Uint8Array;
 };
 
 /**
@@ -54,33 +52,27 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
   @Inject(ScreenshotStorageService)
   private readonly screenshotStorage!: ScreenshotStorageService;
 
-  private readonly workerProcess = PLazy.from(() => {
-    this.wasWorkerProcessRequired = true;
-    return this.spawnInferenceWorker();
+  private readonly inferenceWorker = PLazy.from(() => {
+    this.maybeInferenceWorker = this.spawnInferenceWorker();
+    return this.maybeInferenceWorker;
   });
 
+  private maybeInferenceWorker?: Worker;
+
   private readonly workerResponses = new Subject<WorkerResponse>();
-
-  private wasWorkerProcessRequired = false;
-
-  private isWorkerProcessExiting = false;
 
   private lastWorkerMessageId = 0;
 
   public onModuleInit(): void {
     // In production, trigger immediate warmup of inference worker and USearch index.
     if (config.env == 'production') {
-      this.workerProcess.then();
+      this.inferenceWorker.then();
       this.usearchIndex.then();
     }
   }
 
-  public async onModuleDestroy(): Promise<void> {
-    if (this.wasWorkerProcessRequired) {
-      this.isWorkerProcessExiting = true;
-
-      (await this.workerProcess).kill();
-    }
+  public onModuleDestroy(): void {
+    this.maybeInferenceWorker?.terminate();
   }
 
   /**
@@ -241,34 +233,30 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
   }
 
   /**
-   * Starts the inference worker process to handle computational tasks.
-   * Throws a top-level error whenever the worker exits.
+   * Starts the inference worker to handle computational tasks.
+   * Throws a top-level error whenever the worker encounters an error.
    */
-  private spawnInferenceWorker(): Bun.Subprocess<'ignore', 'inherit', 'inherit'> {
-    // noinspection JSUnusedGlobalSymbols
-    const process = Bun.spawn({
-      cmd: [
-        'bun',
-        // Use bun --smol to consume less memory for the worker, we don't need a big heap for non-TF
-        // stuff, so there is no significant impact on performance.
-        '--smol',
-        path.join(import.meta.dir, './screenshot-similarity-detector.worker.ts')
-      ],
-      stdio: ['ignore', 'inherit', 'inherit'],
-      windowsHide: true,
-      ipc: (message: WorkerResponse) => {
-        this.workerResponses.next(message);
-      },
-      onExit: (_, exitCode) => {
-        if (!this.isWorkerProcessExiting) {
-          throw new Error(`Worker process unexpectedly exited with code ${exitCode}.`);
-        }
+  private spawnInferenceWorker(): Worker {
+    const worker = new Worker(
+      new URL('screenshot-similarity-detector.worker.ts', import.meta.url),
+      {
+        // Use smol mode to consume less memory for the worker, we don't need a big heap for non-TF
+        // stuff, so there is little to no impact on performance.
+        smol: true
       }
+    );
+
+    worker.addEventListener('message', (event: MessageEvent<WorkerResponse>) => {
+      this.workerResponses.next(event.data);
     });
 
-    this.logger.log(`Inference worker process running (pid=${process.pid}).`);
+    worker.addEventListener('error', event => {
+      throw event.error ?? new Error(event.message);
+    });
 
-    return process;
+    this.logger.log(`Inference worker running.`);
+
+    return worker;
   }
 
   /**
@@ -296,17 +284,14 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
     const buffers = await allFulfilled(
       screenshots.map(({ imageUrlOrBuffer }) =>
         typeof imageUrlOrBuffer == 'string'
-          ? this.screenshotStorage
-              .downloadScreenshotToBuffer(imageUrlOrBuffer)
-              // To ArrayBuffer.
-              .then(buffer => buffer.buffer as ArrayBuffer)
+          ? this.screenshotStorage.downloadScreenshotToBuffer(imageUrlOrBuffer)
           : Promise.resolve(imageUrlOrBuffer)
       )
     );
 
     this.logger.log(
       oneLine`
-      ${screenshots.length == 1 ? 'Image' : 'Batch'} ${batchName} downloaded in
+      ${screenshots.length == 1 ? 'Image' : 'Batch'} ${batchName} data acquired in
       ${Date.now() - downloadStartTime}ms.`
     );
 
@@ -319,7 +304,11 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
       imagesData: buffers
     };
 
-    (await this.workerProcess).send(request);
+    (await this.inferenceWorker).postMessage(
+      request,
+      // Transfer ownership of underlying ArrayBuffers to the worker.
+      buffers.map(buffer => buffer.buffer)
+    );
 
     const response = await firstValueFrom(
       this.workerResponses.pipe(
@@ -340,6 +329,6 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
       ${Date.now() - inferenceStartTime}ms.`
     );
 
-    return response.payload;
+    return response.payload.map(buffer => Array.from(buffer));
   }
 }

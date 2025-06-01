@@ -1,21 +1,14 @@
 /**
  * Sidecar worker for {@link ScreenshotSimilarityDetectorService}.
- * As most TensorFlow operations are blocking, inference was choking the event loop.
+ * As most TensorFlow operations are blocking, the process was choking the event loop.
  *
- * This is written to run as a separate process because running in a Bun Web Worker didn't work,
- * as requiring N-API modules (TensorFlow) in a worker crashes right now.
- * However, conversion to a web worker will only require "minor" changes.
- *
- * The benefit of a worker is that it would allow zero-copy transfer of image data and embeddings,
- * as well as being leaner and more robust/clean to implement.
- * For the time being, while this is a separate process, keep the import list small, so the process'
- * runtime is as lean as possible.
+ * Keep the import list small, so the worker's runtime is as lean as possible.
  *
  * ! DO NOT import the file anywhere else (except types with `import type`).
  * ! DO NOT import other project files as well (keep the process lean).
- *
- * @see https://github.com/oven-sh/bun/issues/19339
  */
+
+declare const self: Worker;
 
 import assert from 'node:assert/strict';
 import path from 'node:path';
@@ -28,7 +21,7 @@ import * as tf from '@tensorflow/tfjs-node';
  */
 export type WorkerRequest = {
   readonly id: number;
-  readonly imagesData: ArrayBuffer[];
+  readonly imagesData: Uint8Array[];
 };
 
 /**
@@ -40,7 +33,7 @@ export type WorkerResponse = {
   id: number;
   payload:
     | Error // Note: `Error` is serializable — non-standard subclasses are converted to `Error`.
-    | number[][];
+    | Float32Array[];
 };
 
 /**
@@ -65,38 +58,34 @@ const modelInfo = {
   inputSize: [480, 480] satisfies [number, number]
 };
 
-assert(process.send, 'Worker process must be started with IPC');
-
 // Load TensorFlow model.
 const model = await tf.loadGraphModel(`file://${modelInfo.path}`);
 
 // Start listening for requests.
-process.on('message', handleRequest);
+self.addEventListener('message', event => handleRequest(event.data));
 
 /**
- * Handles a {@link WorkerRequest} received through IPC, by processing image data into embeddings
- * and sending a response through IPC as well, using a {@link WorkerResponse} with the same ID as
+ * Handles a {@link WorkerRequest} received through posted messages, by processing image data into
+ * embeddings and posting those as a response, using a {@link WorkerResponse} with the same ID as
  * the request.
  */
-async function handleRequest(request: WorkerRequest): Promise<void> {
+function handleRequest(request: WorkerRequest): void {
   try {
-    const buffers = request.imagesData.map(buffer => new Uint8Array(buffer));
+    const embeddings = inferEmbeddings(request.imagesData);
 
-    const embeddings = inferEmbeddings(buffers).map(embedding => Array.from(embedding));
-
-    return respond(embeddings);
+    self.postMessage(
+      {
+        id: request.id,
+        payload: embeddings
+      } satisfies WorkerResponse,
+      // Transfer ownership of underlying ArrayBuffers to the main thread.
+      embeddings.map(embedding => embedding.buffer)
+    );
   } catch (error) {
-    return respond(error instanceof Error ? error : new Error(String(error)));
-  }
-
-  function respond(response: WorkerResponse['payload']): void {
-    const message: WorkerResponse = {
+    self.postMessage({
       id: request.id,
-      payload: response
-    };
-
-    // biome-ignore lint/style/noNonNullAssertion: cannot be null (assert preceding).
-    process.send!(message);
+      payload: error instanceof Error ? error : new Error(String(error))
+    } satisfies WorkerResponse);
   }
 }
 
@@ -144,7 +133,7 @@ function inferEmbeddings(buffers: readonly Uint8Array[]): Float32Array[] {
     // asynchronously, however, in practice it didn't really help here, and that's the only place we
     // could use an async call. The other operations preceding are already quite intensive (ex.
     // image resizing) and synchronous. This is what justified moving the logic in a
-    // worker/subprocess and make it all sync.
+    // worker and make it all sync.
     // Moreover, this has the benefit that this function MUST NOT be reentrant as there can only be
     // one active scope at a time, so with sync function we do not need to add a mutex.
     const flatEmbeddings = normalizedEmbedding.dataSync();

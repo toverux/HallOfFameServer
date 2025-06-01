@@ -175,7 +175,7 @@ export class ScreenshotService {
       // Infer embeddings asynchronously.
       this.screenshotSimilarityDetector
         .batchUpdateEmbeddings(screenshot.id, [
-          { id: screenshot.id, imageUrlOrBuffer: screenshot.imageUrlFHD }
+          { id: screenshot.id, imageUrlOrBuffer: imageFHDBuffer }
         ])
         .catch(error => {
           this.logger.error(

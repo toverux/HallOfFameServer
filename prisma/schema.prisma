@@ -288,3 +288,14 @@ model View {
   @@index([creatorId, viewedAt])
   @@map("views")
 }
+
+/// A record of a database migration that has been executed.
+model Migration {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  /// The name of the migration file (in prisma/migrations).
+  name        String   @unique
+  /// When the migration was executed.
+  executedAt  DateTime @default(now())
+
+  @@map("migrations")
+}

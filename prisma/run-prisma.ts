@@ -5,6 +5,7 @@
  * Otherwise, Prisma only loads the .env file.
  */
 
+import process from 'node:process';
 import { $ } from 'bun';
 
 const { exitCode } = await $`prisma ${process.argv.slice(2)}`.nothrow();

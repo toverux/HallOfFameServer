@@ -1,119 +1,57 @@
 {
-  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "$schema": "node_modules/@biomejs/biome/configuration_schema.json",
+  "extends": [
+    "@toverux/blanc-hopital/biome/formatting",
+    "@toverux/blanc-hopital/biome/all",
+    "@toverux/blanc-hopital/biome/barrels",
+    "@toverux/blanc-hopital/biome/vanilla",
+    "@toverux/blanc-hopital/biome/node"
+  ],
   "files": {
-    "include": ["**/*.ts", "**/*.tsx", "**/*.json"],
-    "ignore": [".idea", "dist", "efficientnetv2"]
+    "includes": ["**", "!package.json", "!efficientnetv2"]
   },
-  "organizeImports": {
-    "enabled": true
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "defaultBranch": "main",
+    "useIgnoreFile": true
   },
   "linter": {
-    "enabled": true,
+    "domains": {
+      "next": "none",
+      "react": "none",
+      "solid": "none",
+      "test": "none"
+    },
     "rules": {
-      // Enable ALL by default (not just recommended), disable as-needed.
-      "all": true,
-      "nursery": {
-        "recommended": true,
-        "useConsistentMemberAccessibility": {
-          "level": "warn",
-          "options": {
-            "accessibility": "explicit"
-          }
-        }
-      },
-      "complexity": {
-        // Learn the language.
-        "noVoid": "off"
-      },
-      "correctness": {
-        // I generally know what I'm doing.
-        "noNodejsModules": "off",
-        // I'd like to use it but with an ignore list, which is not possible atm.
-        "noUndeclaredDependencies": "off",
-        // PROJECT-SPECIFIC: We do not use React and this rule gives false positives on NestJS.
-        "useHookAtTopLevel": "off",
-        // PROJECT-SPECIFIC: We do not use a runtime/bundler that necessitates this.
-        "useImportExtensions": "off"
-      },
-      "performance": {
-        // Virtually not an issue with modern bundlers.
-        // It can indeed cause slower builds though, but my projects generally
-        // don't have much unused symbols.
-        "noBarrelFile": "off",
-        // Same as noBarrelFile.
-        "noReExportAll": "off"
-      },
-      "security": {
-        // It's already pretty clear when you use it
-        // (`dangerouslySetInnerHTML={{ __html: html }}`)
-        "noDangerouslySetInnerHtml": "off"
-      },
       "style": {
-        // I must admit I just like it.
-        "noCommaOperator": "off",
-        // Same reason as performance.noBarrelFile.
-        "noNamespaceImport": "off",
-        "noParameterProperties": "off",
-        // I like using template literals for hardcoded english strings, ex. exception error
-        // messages. This makes spotting them easier, and also it makes it easier to use double or
-        // single quotes.
-        "noUnusedTemplateLiteral": "off",
-        // I don't like that it forces "===" over "==" on 0, and it doesn't support undefined values
-        // well, i.e. it thinks `arr?.length > 0` is valid, while in TS it is not, so a simple
-        // `arr?.length` would need to be rewritten to `(arr?.length ?? 0) > 0`.
-        "useExplicitLengthCheck": "off",
-        "useFilenamingConvention": {
-          "level": "error",
-          "options": {
-            "filenameCases": ["kebab-case"]
-          }
-        },
-        // PROJECT-SPECIFIC: The rule does not play well with DI in NestJS and Angular.
-        // No fix is easily conceivable, see:
-        // https://biomejs.dev/linter/rules/use-import-type
-        "useImportType": "off",
-        // Keep it but with a few exceptions.
         "useNamingConvention": {
-          "level": "error",
+          "level": "on",
           "options": {
+            // Project was created without it, a bit annoying to change right now (database schema).
             "strictCase": false
           }
         }
-      },
-      "suspicious": {
-        // If I use any level above ".log()", I know what I'm doing.
-        "noConsole": {
-          "level": "warn",
-          "options": {
-            "allow": ["info", "warn", "error", "table"]
-          }
-        },
-        // Double equals is not THAT bad, although I understand why the rule exists.
-        // If you know the language you can avoid the pitfalls and even enjoy the benefits of loose
-        // equality! Yep, hot take.
-        "noDoubleEquals": "off"
       }
     }
-  },
-  "formatter": {
-    "formatWithErrors": true,
-    "lineEnding": "lf",
-    "indentStyle": "space",
-    "indentWidth": 2,
-    "lineWidth": 100
   },
   "javascript": {
     "parser": {
       "unsafeParameterDecoratorsEnabled": true
-    },
-    "formatter": {
-      "quoteStyle": "single",
-      "jsxQuoteStyle": "single",
-      "semicolons": "always",
-      "arrowParentheses": "asNeeded",
-      "quoteProperties": "preserve",
-      "trailingCommas": "none",
-      "bracketSameLine": true
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["**/*.command.ts"],
+      "linter": {
+        "rules": {
+          "nursery": {
+            // In CLI commands, either we need to await in loops for interactive CLIs, or we don't
+            // really need speed at the expense of readability.
+            "noAwaitInLoop": "off"
+          }
+        }
+      }
+    }
+  ]
 }

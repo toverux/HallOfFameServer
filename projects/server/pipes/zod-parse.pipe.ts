@@ -1,10 +1,14 @@
 import assert from 'node:assert/strict';
-import { ArgumentMetadata, BadRequestException, PipeTransform } from '@nestjs/common';
+import { type ArgumentMetadata, BadRequestException, type PipeTransform } from '@nestjs/common';
 import { oneLine } from 'common-tags';
-import { ZodError, ZodSchema } from 'zod';
+import { ZodError, type ZodSchema } from 'zod';
 
 export class ZodParsePipe implements PipeTransform<unknown, unknown> {
-  public constructor(private readonly schema: ZodSchema<unknown>) {}
+  private readonly schema: ZodSchema<unknown>;
+
+  public constructor(schema: ZodSchema<unknown>) {
+    this.schema = schema;
+  }
 
   public transform(value: unknown, metadata: ArgumentMetadata): unknown {
     try {

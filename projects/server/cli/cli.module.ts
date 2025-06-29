@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { Command } from 'commander';
+import type { Command } from 'commander';
 import { InjectCommander } from 'nest-commander';
 import { SharedModule } from '../shared.module';
 import { commands } from './commands';

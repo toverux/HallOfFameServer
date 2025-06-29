@@ -15,7 +15,7 @@ import {
 import type { Creator, CreatorSocial } from '@prisma/client';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { JsonObject, allFulfilled } from '../../common';
+import { allFulfilled, type JsonObject } from '../../common';
 import { CreatorAuthorizationGuard } from '../../guards';
 import { ZodParsePipe } from '../../pipes';
 import { CreatorService, PrismaService } from '../../services';

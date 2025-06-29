@@ -1,7 +1,8 @@
-import { Inject, Provider } from '@nestjs/common';
+import { Inject, type Provider } from '@nestjs/common';
 import chalk from 'chalk';
 import { oneLine, stripIndent } from 'common-tags';
 import { CommandRunner, SubCommand } from 'nest-commander';
+import { iconsole } from '../../../iconsole';
 import { PrismaService, ScreenshotService } from '../../../services';
 
 @SubCommand({
@@ -23,7 +24,7 @@ export class ScreenshotTranslateCommand extends CommandRunner {
       select: { id: true, creatorId: true, cityName: true }
     });
 
-    console.info(chalk.bold`Found ${screenshots.length} screenshots to process.`);
+    iconsole.info(chalk.bold`Found ${screenshots.length} screenshots to process.`);
 
     let translatedCount = 0;
     let translatedCachedCount = 0;
@@ -47,10 +48,10 @@ export class ScreenshotTranslateCommand extends CommandRunner {
         message = chalk.dim`${message} (cached)`;
       }
 
-      console.info(message);
+      iconsole.info(message);
     }
 
-    console.info(
+    iconsole.info(
       stripIndent`
       ${chalk.bold`Done processing ${screenshots.length} screenshots.`}
       Translated ${translatedCount} screenshots ${chalk.dim`(${translatedCachedCount} cached)`}.`

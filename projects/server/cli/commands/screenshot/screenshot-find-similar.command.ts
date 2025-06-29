@@ -1,7 +1,8 @@
-import { Inject, Provider } from '@nestjs/common';
-import { Screenshot } from '@prisma/client';
+import { Inject, type Provider } from '@nestjs/common';
+import type { Screenshot } from '@prisma/client';
 import chalk from 'chalk';
 import { CommandRunner, Option, SubCommand } from 'nest-commander';
+import { iconsole } from '../../../iconsole';
 import {
   PrismaService,
   ScreenshotService,
@@ -53,19 +54,19 @@ export class ScreenshotFindSimilarCommand extends CommandRunner {
 
     const alreadyReportedIds = new Set<Screenshot['id']>();
 
-    for (const screenshot of screenshots) {
-      if (alreadyReportedIds.has(screenshot.id)) {
+    for (const sourceScreenshot of screenshots) {
+      if (alreadyReportedIds.has(sourceScreenshot.id)) {
         continue;
       }
 
       const matchesIterator = this.imageSimilarityDetector.findSimilarScreenshots(
-        { id: screenshot.id, imageUrlOrBuffer: screenshot.imageUrlFHD },
+        { id: sourceScreenshot.id, imageUrlOrBuffer: sourceScreenshot.imageUrlFHD },
         options.distance
       );
 
       const rawMatches = await Array.fromAsync(matchesIterator);
 
-      const matches = [{ screenshotId: screenshot.id, distance: 0 }]
+      const matches = [{ screenshotId: sourceScreenshot.id, distance: 0 }]
         .concat(rawMatches)
         .map(({ screenshotId, distance }) => {
           // biome-ignore lint/style/noNonNullAssertion: should not be allowed to happen.
@@ -73,7 +74,7 @@ export class ScreenshotFindSimilarCommand extends CommandRunner {
 
           return { screenshot, distance };
         })
-        .filter(match => match.screenshot.creator.id == screenshot.creator.id);
+        .filter(match => match.screenshot.creator.id == sourceScreenshot.creator.id);
 
       if (matches.length <= 1) {
         continue;
@@ -83,7 +84,7 @@ export class ScreenshotFindSimilarCommand extends CommandRunner {
         alreadyReportedIds.add(match.screenshot.id);
       }
 
-      console.table(
+      iconsole.table(
         matches.map(({ screenshot, distance }) => ({
           '↔': distance.toFixed(3),
           'id': screenshot.id,
@@ -95,6 +96,6 @@ export class ScreenshotFindSimilarCommand extends CommandRunner {
       );
     }
 
-    console.info(chalk.bold(`Found ${alreadyReportedIds.size} similar images.`));
+    iconsole.info(chalk.bold(`Found ${alreadyReportedIds.size} similar images.`));
   }
 }

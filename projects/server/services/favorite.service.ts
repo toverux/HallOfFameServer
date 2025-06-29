@@ -1,6 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { Creator, Favorite, Screenshot } from '@prisma/client';
-import { HardwareID, IPAddress, JsonObject, StandardError, optionallySerialized } from '../common';
+import type { Creator, Favorite, Screenshot } from '@prisma/client';
+import {
+  type HardwareId,
+  type IpAddress,
+  type JsonObject,
+  optionallySerialized,
+  StandardError
+} from '../common';
 import { CreatorService } from './creator.service';
 import { PrismaService } from './prisma.service';
 
@@ -20,8 +26,8 @@ export class FavoriteService {
   public async isFavorite(
     screenshotId: Screenshot['id'],
     creatorId: Creator['id'],
-    ip: IPAddress,
-    hwid: HardwareID
+    ip: IpAddress,
+    hwid: HardwareId
   ): Promise<boolean> {
     // Find a favorite with any of the provided identifiers, multi-accounting is not allowed for
     // favorites so a favorite is shared by any of these, hence the OR clause.
@@ -51,8 +57,8 @@ export class FavoriteService {
   public async isFavoriteBatched(
     screenshotIds: readonly Screenshot['id'][],
     creatorId: Creator['id'],
-    ip: IPAddress,
-    hwid: HardwareID
+    ip: IpAddress,
+    hwid: HardwareId
   ): Promise<boolean[]> {
     // Same as isFavorite(), see its comments.
     const favorites = await this.prisma.favorite.findMany({
@@ -79,8 +85,8 @@ export class FavoriteService {
   public async addFavorite(
     screenshotId: Screenshot['id'],
     creatorId: Creator['id'],
-    ip: IPAddress,
-    hwid: HardwareID
+    ip: IpAddress,
+    hwid: HardwareId
   ): Promise<Favorite> {
     // Check if the user has already favorited this screenshot.
     // We can't use .findUnique() because of the OR clause.
@@ -127,8 +133,8 @@ export class FavoriteService {
   public async removeFavorite(
     screenshotId: Screenshot['id'],
     creatorId: Creator['id'],
-    ip: IPAddress,
-    hwid: HardwareID
+    ip: IpAddress,
+    hwid: HardwareId
   ): Promise<Favorite> {
     // Find the favorite to remove.
     // We can't use .remove() directly because we can't use .remove() which requires a where

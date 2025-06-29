@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import OpenAI from 'openai';
+import OpenAi from 'openai';
 import { config } from './config';
 import { services } from './services';
 
@@ -10,15 +10,15 @@ import { services } from './services';
   providers: [
     ...services,
     {
-      provide: OpenAI,
+      provide: OpenAi,
       useFactory() {
-        return new OpenAI({
+        return new OpenAi({
           apiKey: config.openAi.apiKey,
           timeout: 30_000
         });
       }
     }
   ],
-  exports: [...services, OpenAI]
+  exports: [...services, OpenAi]
 })
 export class SharedModule {}

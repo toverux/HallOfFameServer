@@ -1,6 +1,6 @@
-import { ContainerClient } from '@azure/storage-blob';
-import { Injectable } from '@nestjs/common';
-import { Creator, Screenshot } from '@prisma/client';
+import type { ContainerClient } from '@azure/storage-blob';
+import { Inject, Injectable } from '@nestjs/common';
+import type { Creator, Screenshot } from '@prisma/client';
 import * as dateFns from 'date-fns';
 import slug from 'slug';
 import { allFulfilled } from '../common';
@@ -11,7 +11,7 @@ import { AzureService } from './azure.service';
 export class ScreenshotStorageService {
   private readonly containerClient: ContainerClient;
 
-  public constructor(azure: AzureService) {
+  public constructor(@Inject(AzureService) azure: AzureService) {
     this.containerClient = azure.blobServiceClient.getContainerClient(
       config.azure.screenshotsContainer
     );
@@ -29,9 +29,9 @@ export class ScreenshotStorageService {
     creator: Pick<Creator, 'id' | 'creatorNameSlug'>,
     screenshot: Pick<Screenshot, 'id' | 'cityName'>,
     bufferThumbnail: Buffer,
-    bufferFHD: Buffer,
+    bufferFhd: Buffer,
     buffer4K: Buffer
-  ): Promise<{ blobThumbnail: string; blobFHD: string; blob4K: string }> {
+  ): Promise<{ blobThumbnail: string; blobFhd: string; blob4k: string }> {
     const containerClient = this.containerClient;
 
     const date = dateFns.format(new Date(), 'yyyy-MM-dd-HH-mm-ss');
@@ -42,7 +42,7 @@ export class ScreenshotStorageService {
       creator.creatorNameSlug && slug(creator.creatorNameSlug, { fallback: false });
 
     // slug will return an empty string if the input only has characters that it cannot slugify
-    // or transliterate, for example Chinese, so we need to handle fallbacks.
+    // or transliterate, ex. Chinese, so we need to handle fallbacks.
     const contextSlug =
       cityNameSlug && creatorNameSlug
         ? `${cityNameSlug}-by-${creatorNameSlug}`
@@ -50,16 +50,16 @@ export class ScreenshotStorageService {
 
     const blobNameBase = `${creator.id}/${screenshot.id}/${contextSlug}-${date}`;
 
-    const [blobNameThumbnail, blobNameFHD, blobName4K] = await allFulfilled([
+    const [blobNameThumbnail, blobNameFhd, blobName4K] = await allFulfilled([
       upload(`${blobNameBase}-thumbnail.jpg`, bufferThumbnail),
-      upload(`${blobNameBase}-fhd.jpg`, bufferFHD),
+      upload(`${blobNameBase}-fhd.jpg`, bufferFhd),
       upload(`${blobNameBase}-4k.jpg`, buffer4K)
     ]);
 
     return {
       blobThumbnail: blobNameThumbnail,
-      blobFHD: blobNameFHD,
-      blob4K: blobName4K
+      blobFhd: blobNameFhd,
+      blob4k: blobName4K
     };
 
     async function upload(blobName: string, buffer: Buffer) {

@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { ForbiddenException, Inject, Injectable, Logger } from '@nestjs/common';
-import { Creator, CreatorSocial } from '@prisma/client';
+import type { Creator, CreatorSocial } from '@prisma/client';
 import * as sentry from '@sentry/bun';
 import { oneLine } from 'common-tags';
 import * as uuid from 'uuid';
-import { HardwareID, IPAddress, JsonObject, StandardError } from '../common';
+import { type HardwareId, type IpAddress, type JsonObject, StandardError } from '../common';
 import { isPrismaError } from '../common/prisma-errors';
-import { CreatorAuthorization } from '../guards';
+import type { CreatorAuthorization } from '../guards';
 import { AiTranslatorService } from './ai-translator.service';
 import { PrismaService } from './prisma.service';
 
@@ -109,7 +109,7 @@ export class CreatorService {
   }: CreatorAuthorization): Promise<Creator> {
     // Validate the Creator ID.
     if (!uuid.validate(creatorId) || uuid.version(creatorId) != 4) {
-      throw new InvalidCreatorIDError(creatorId);
+      throw new InvalidCreatorIdError(creatorId);
     }
 
     // Note: we do NOT validate the Creator Name immediately, as we need to support legacy
@@ -143,7 +143,7 @@ export class CreatorService {
 
       assert(creatorName, `Creator Name can only be non-null if >1 creators are found.`);
 
-      throw new IncorrectCreatorIDError(creatorName);
+      throw new IncorrectCreatorIdError(creatorName);
     }
 
     // After this previous check we know that the first and only creator is the one we want to
@@ -261,7 +261,7 @@ export class CreatorService {
       social: Object.entries(creator.social)
         .filter(
           (kv): kv is [keyof CreatorSocial, NonNullable<CreatorSocial[keyof CreatorSocial]>] =>
-            CreatorService.isValidSocialPlatform(kv[0]) && !!kv[1]
+            CreatorService.isValidSocialPlatform(kv[0]) && kv[1] != null
         )
         .reduce<Record<string, JsonObject>>((social, [platform, link]) => {
           social[platform] = {
@@ -286,7 +286,7 @@ export class CreatorService {
    * Authenticates and updates a creator's information (like its Creator Name), ensuring the
    * provided details match or are updated in the database.
    *
-   * @throws IncorrectCreatorIDError If the provided Creator ID doesn't match the Creator Name.
+   * @throws IncorrectCreatorIdError If the provided Creator ID doesn't match the Creator Name.
    *
    * @return A promise that resolves with the updated creator entity, and a boolean indicating if modifications were made.
    */
@@ -295,8 +295,8 @@ export class CreatorService {
     creatorIdProvider: Creator['creatorIdProvider'],
     creatorName: Creator['creatorName'],
     creatorNameSlug: Creator['creatorNameSlug'],
-    hwid: HardwareID,
-    ip: IPAddress,
+    hwid: HardwareId,
+    ip: IpAddress,
     creator: Creator
   ): Promise<{ creator: Creator; modified: boolean }> {
     // Check if the Creator ID match, unless the reset flag is set.
@@ -305,7 +305,7 @@ export class CreatorService {
       // on the Creator Name and not the Creator ID.
       assert(creator.creatorName);
 
-      throw new IncorrectCreatorIDError(creator.creatorName);
+      throw new IncorrectCreatorIdError(creator.creatorName);
     }
 
     // If no changes are needed, return the creator as is.
@@ -382,27 +382,37 @@ export class CreatorService {
 
 export abstract class CreatorError extends StandardError {}
 
-export class InvalidCreatorIDError extends CreatorError {
-  public constructor(public readonly creatorId: string) {
+export class InvalidCreatorIdError extends CreatorError {
+  public readonly creatorId: string;
+
+  public constructor(creatorId: string) {
     super(`Invalid Creator ID "${creatorId}", an UUID v4 sequence was expected.`);
+
+    this.creatorId = creatorId;
   }
 }
 
 export class InvalidCreatorNameError extends CreatorError {
-  public constructor(public readonly incorrectName: string) {
+  public readonly incorrectName: string;
+
+  public constructor(incorrectName: string) {
     super(
       oneLine`
       Creator Name "${incorrectName}" is invalid, it must contain only
       letters, numbers, spaces, hyphens and apostrophes, and be between 1
       and 25 characters long.`
     );
+
+    this.incorrectName = incorrectName;
   }
 }
 
-export class IncorrectCreatorIDError extends CreatorError {
+export class IncorrectCreatorIdError extends CreatorError {
   public override httpErrorType = ForbiddenException;
 
-  public constructor(public readonly creatorName: string) {
+  public readonly creatorName: string;
+
+  public constructor(creatorName: string) {
     super(
       oneLine`
       Incorrect Creator ID for user "${creatorName}".
@@ -411,5 +421,7 @@ export class IncorrectCreatorIDError extends CreatorError {
       Otherwise, check that you are logged in with the correct Paradox
       account.`
     );
+
+    this.creatorName = creatorName;
   }
 }

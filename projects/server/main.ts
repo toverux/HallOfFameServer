@@ -1,7 +1,7 @@
 import './sentry';
 import * as path from 'node:path';
 import { NestFactory } from '@nestjs/core';
-import { type NestFastifyApplication } from '@nestjs/platform-fastify';
+import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from './app.module';
 import { config } from './config';
 import * as filters from './exception-filters';
@@ -47,9 +47,9 @@ async function bootstrap(): Promise<void> {
  */
 async function linkEnvFilesForWatchMode(): Promise<void> {
   try {
-    // @ts-ignore
+    // @ts-expect-error
     await import('../../.env', { with: { type: 'text' } });
-    // @ts-ignore
+    // @ts-expect-error
     await import('../../.env.local', { with: { type: 'text' } });
   } catch {
     // Ignore, we're just checking if the files exist.

@@ -1,6 +1,6 @@
-import { ArgumentsHost, Catch, NotFoundException } from '@nestjs/common';
+import { type ArgumentsHost, Catch, NotFoundException } from '@nestjs/common';
 import { BaseExceptionFilter } from '@nestjs/core';
-import { FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import {
   angularAppEngine,
   createWebRequestFromNodeRequest,
@@ -43,8 +43,8 @@ export class NotFoundExceptionFilter extends BaseExceptionFilter {
         // handler handle it.
         super.catch(error, host);
       }
-    } catch (error) {
-      super.catch(error, host);
+    } catch (innerError) {
+      super.catch(innerError, host);
     }
   }
 }

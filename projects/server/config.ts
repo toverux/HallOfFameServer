@@ -1,3 +1,4 @@
+import process from 'node:process';
 import { oneLine } from 'common-tags';
 
 /**

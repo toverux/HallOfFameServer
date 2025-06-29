@@ -1,8 +1,8 @@
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { Inject, Provider } from '@nestjs/common';
-import { Creator, Screenshot } from '@prisma/client';
+import { Inject, type Provider } from '@nestjs/common';
+import type { Creator, Screenshot } from '@prisma/client';
 import chalk from 'chalk';
 import { oneLine } from 'common-tags';
 import {
@@ -15,6 +15,7 @@ import {
 } from 'nest-commander';
 import open from 'open';
 import { assertUnreachable } from '../../../common';
+import { iconsole } from '../../../iconsole';
 import {
   BanService,
   PrismaService,
@@ -76,7 +77,7 @@ export class ScreenshotModerateCommand extends CommandRunner {
       });
 
       if (!screenshot) {
-        console.info(chalk.bold`All screenshots have been moderated.`);
+        iconsole.info(chalk.bold`All screenshots have been moderated.`);
         break;
       }
 
@@ -84,16 +85,16 @@ export class ScreenshotModerateCommand extends CommandRunner {
         where: { isReported: true }
       });
 
-      console.info(`There are ${reportedCount} screenshots left to moderate.`);
+      iconsole.info(`There are ${reportedCount} screenshots left to moderate.`);
 
-      console.info(
+      iconsole.info(
         oneLine`
         Screenshot: City "${screenshot.cityName}",
         Creator "${screenshot.creator.creatorName ?? '<anonymous>'}"
         (reported by "${screenshot.reportedBy?.creatorName ?? '<anonymous>'}")`
       );
 
-      console.info(`URL: ${this.screenshotService.getBlobUrl(screenshot.imageUrlFHD)}`);
+      iconsole.info(`URL: ${this.screenshotService.getBlobUrl(screenshot.imageUrlFHD)}`);
 
       if (options.download) {
         await this.screenshotStorage.downloadScreenshotToFile(
@@ -113,19 +114,19 @@ export class ScreenshotModerateCommand extends CommandRunner {
         case 'approve': {
           await this.screenshotService.unmarkReported(screenshot.id);
 
-          console.info(`APPROVED screenshot.`);
+          iconsole.info(`APPROVED screenshot.`);
           break;
         }
         case 'delete': {
           await this.screenshotService.deleteScreenshot(screenshot.id);
 
-          console.info(`DELETED screenshot.`);
+          iconsole.info(`DELETED screenshot.`);
           break;
         }
         case 'ban': {
           await this.banCreator(screenshot.creator, screenshot);
 
-          console.info(`DELETED screenshot and BANNED creator.`);
+          iconsole.info(`DELETED screenshot and BANNED creator.`);
           break;
         }
         default:

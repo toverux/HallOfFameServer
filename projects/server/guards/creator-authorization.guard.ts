@@ -1,12 +1,18 @@
 import assert from 'node:assert/strict';
-import { CanActivate, ExecutionContext, Inject, UnauthorizedException } from '@nestjs/common';
-import { Creator } from '@prisma/client';
+import {
+  type CanActivate,
+  type ExecutionContext,
+  Inject,
+  UnauthorizedException
+} from '@nestjs/common';
+import type { Creator } from '@prisma/client';
 import * as sentry from '@sentry/node';
-import { FastifyRequest } from 'fastify';
-import { CreatorID, HardwareID, IPAddress } from '../common';
+import type { FastifyRequest } from 'fastify';
+import type { CreatorId, HardwareId, IpAddress } from '../common';
 import { BanService, CreatorService } from '../services';
 
 declare module 'fastify' {
+  // biome-ignore lint/nursery/noShadow: intended declaration merging.
   interface FastifyRequest {
     [CreatorAuthorizationGuard.authenticatedCreatorKey]?: {
       readonly authorization: CreatorAuthorization;
@@ -17,10 +23,10 @@ declare module 'fastify' {
 
 export interface CreatorAuthorization {
   readonly creatorName: Creator['creatorName'];
-  readonly creatorId: CreatorID;
+  readonly creatorId: CreatorId;
   readonly creatorIdProvider: Creator['creatorIdProvider'];
-  readonly hwid: HardwareID;
-  readonly ip: IPAddress;
+  readonly hwid: HardwareId;
+  readonly ip: IpAddress;
 }
 
 /**
@@ -34,10 +40,10 @@ export class CreatorAuthorizationGuard implements CanActivate {
     `${CreatorAuthorizationGuard.name}#authenticatedCreator`
   );
 
-  @Inject()
+  @Inject(BanService)
   private readonly ban!: BanService;
 
-  @Inject()
+  @Inject(CreatorService)
   private readonly creatorService!: CreatorService;
 
   public static getAuthenticatedCreator(request: FastifyRequest): {
@@ -86,10 +92,10 @@ export class CreatorAuthorizationGuard implements CanActivate {
   private getAuthorizationFromRequest(request: FastifyRequest): CreatorAuthorization | undefined {
     const header = request.headers.authorization;
     if (!header) {
-      return undefined;
+      return;
     }
 
-    const ip = request.ip as IPAddress;
+    const ip = request.ip as IpAddress;
 
     try {
       const firstSpace = header.indexOf(' ');
@@ -123,9 +129,9 @@ export class CreatorAuthorizationGuard implements CanActivate {
 
       return {
         creatorName,
-        creatorId: creatorId as CreatorID,
+        creatorId: creatorId as CreatorId,
         creatorIdProvider: provider,
-        hwid: hwid as HardwareID,
+        hwid: hwid as HardwareId,
         ip
       };
     } catch (error) {

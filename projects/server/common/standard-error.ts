@@ -1,5 +1,5 @@
-import { BadRequestException, HttpException } from '@nestjs/common';
-import { HttpExceptionOptions } from '@nestjs/common/exceptions/http.exception';
+import { BadRequestException, type HttpException } from '@nestjs/common';
+import type { HttpExceptionOptions } from '@nestjs/common/exceptions/http.exception';
 
 /**
  * Base application-layer error class.

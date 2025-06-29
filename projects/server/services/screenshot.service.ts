@@ -6,16 +6,16 @@ import * as sentry from '@sentry/bun';
 import Bun from 'bun';
 import { oneLine } from 'common-tags';
 import * as dfns from 'date-fns';
-import { FastifyRequest } from 'fastify';
+import type { FastifyRequest } from 'fastify';
 import { filesize } from 'filesize';
 import {
-  HardwareID,
-  IPAddress,
-  JsonObject,
-  Maybe,
-  ParadoxModID,
-  StandardError,
-  optionallySerialized
+  type HardwareId,
+  type IpAddress,
+  type JsonObject,
+  type Maybe,
+  optionallySerialized,
+  type ParadoxModId,
+  StandardError
 } from '../common';
 import { isPrismaError } from '../common/prisma-errors';
 import { config } from '../config';
@@ -103,13 +103,13 @@ export class ScreenshotService {
     healthcheck,
     ...data
   }: {
-    ip: Maybe<IPAddress>;
-    hwid: Maybe<HardwareID>;
+    ip: Maybe<IpAddress>;
+    hwid: Maybe<HardwareId>;
     creator: Pick<Creator, 'id' | 'creatorName' | 'creatorNameSlug'>;
     cityName: string;
     cityMilestone: number;
     cityPopulation: number;
-    paradoxModIds: ReadonlySet<ParadoxModID>;
+    paradoxModIds: ReadonlySet<ParadoxModId>;
     renderSettings: Record<string, number>;
     metadata: JsonObject;
     createdAt: Date;
@@ -132,7 +132,7 @@ export class ScreenshotService {
     let mark = Date.now();
 
     // Generate the two resized screenshot from the uploaded file.
-    const { imageThumbnailBuffer, imageFHDBuffer, image4KBuffer } =
+    const { imageThumbnailBuffer, imageFhdBuffer, image4kBuffer } =
       await this.screenshotProcessing.resizeScreenshots(data.file, {
         creatorName: data.creator.creatorName,
         cityName: data.cityName
@@ -175,7 +175,7 @@ export class ScreenshotService {
       // Infer embeddings asynchronously.
       this.screenshotSimilarityDetector
         .batchUpdateEmbeddings(screenshot.id, [
-          { id: screenshot.id, imageUrlOrBuffer: imageFHDBuffer }
+          { id: screenshot.id, imageUrlOrBuffer: imageFhdBuffer }
         ])
         .catch(error => {
           this.logger.error(
@@ -218,25 +218,25 @@ export class ScreenshotService {
         data.creator,
         screenshotWithoutBlobs,
         imageThumbnailBuffer,
-        imageFHDBuffer,
-        image4KBuffer
+        imageFhdBuffer,
+        image4kBuffer
       );
 
       // Update the screenshot with the blob URLs.
-      const screenshot = await prisma.screenshot.update({
+      const updatedScreenshot = await prisma.screenshot.update({
         where: { id: screenshotWithoutBlobs.id },
         data: {
           imageUrlThumbnail: blobUrls.blobThumbnail,
-          imageUrlFHD: blobUrls.blobFHD,
-          imageUrl4K: blobUrls.blob4K
+          imageUrlFHD: blobUrls.blobFhd,
+          imageUrl4K: blobUrls.blob4k
         }
       });
 
       if (healthcheck) {
-        await this.deleteScreenshot(screenshot.id, prisma);
+        await this.deleteScreenshot(updatedScreenshot.id, prisma);
       }
 
-      return screenshot;
+      return updatedScreenshot;
     }
   }
 
@@ -250,12 +250,12 @@ export class ScreenshotService {
 
     async function transaction(
       this: ScreenshotService,
-      prisma: Prisma.TransactionClient
+      tx: Prisma.TransactionClient
     ): Promise<Screenshot> {
       try {
-        await this.screenshotSimilarityDetector.deleteEmbedding(screenshotId, prisma);
+        await this.screenshotSimilarityDetector.deleteEmbedding(screenshotId, tx);
 
-        const screenshot = await prisma.screenshot.delete({
+        const screenshot = await tx.screenshot.delete({
           where: { id: screenshotId }
         });
 
@@ -641,6 +641,7 @@ export class ScreenshotService {
         Math.abs(screenshot.viewsPerDay - viewsPerDay) > 0.1 ||
         screenshot.favoritingPercentage != favoritingPercentage
       ) {
+        // biome-ignore lint/nursery/noAwaitInLoop: we want to avoid making to much calls at once.
         await prisma.screenshot.update({
           where: { id: screenshot.id },
           data: { viewsPerDay, favoritesPerDay, favoritingPercentage }
@@ -687,7 +688,7 @@ export class ScreenshotService {
 
       // If the total weight is 0, we have tried all algorithms, bail out.
       if (totalWeight == 0) {
-        return undefined;
+        return;
       }
 
       // Get a random number between 0 and the total weight.
@@ -718,6 +719,7 @@ export class ScreenshotService {
         this.logger.debug(`Try screenshot selection algorithm: ${algorithm}`);
 
         // We found a winner, try to get a screenshot!
+        // biome-ignore lint/nursery/noAwaitInLoop: algorithmically needed.
         const screenshot = await this.randomScreenshotFunctions[algorithm](viewedIds);
 
         // If we found a screenshot, return it with the algorithm name.
@@ -745,8 +747,8 @@ export class ScreenshotService {
    */
   private async checkUploadLimit(
     creatorId: Creator['id'],
-    hwid: HardwareID,
-    ip: IPAddress
+    hwid: HardwareId,
+    ip: IpAddress
   ): Promise<void> {
     // Let's find out by retrieving the screenshots uploaded in the last 24 hours, oldest first,
     // so if the limit is reached, we can check based on the date when the next screenshot can
@@ -939,20 +941,25 @@ export class ScreenshotService {
 export abstract class ScreenshotError extends StandardError {}
 
 export class ScreenshotNotFoundError extends ScreenshotError {
-  public constructor(
-    public readonly id: Screenshot['id'],
-    options?: ErrorOptions
-  ) {
+  public readonly id: Screenshot['id'];
+
+  public constructor(id: Screenshot['id'], options?: ErrorOptions) {
     super(`Could not find screenshot #${id}.`, options);
+
+    this.id = id;
   }
 }
 
 export class ScreenshotApprovedError extends ScreenshotError {
+  public readonly screenshot: Pick<Screenshot, 'cityName'> & {
+    creator: Pick<Creator, 'creatorName'>;
+  };
+
+  public readonly supportContact: string;
+
   public constructor(
-    public readonly screenshot: Pick<Screenshot, 'cityName'> & {
-      creator: Pick<Creator, 'creatorName'>;
-    },
-    public readonly supportContact: string,
+    screenshot: ScreenshotApprovedError['screenshot'],
+    supportContact: string,
     options?: ErrorOptions
   ) {
     super(
@@ -962,18 +969,25 @@ export class ScreenshotApprovedError extends ScreenshotError {
       If you think this is a mistake, please contact support (${supportContact}).`,
       options
     );
+
+    this.supportContact = supportContact;
+    this.screenshot = screenshot;
   }
 }
 
 export class ScreenshotRateLimitExceededError extends ScreenshotError {
-  public constructor(
-    public readonly limit: number,
-    public readonly notBefore: Date
-  ) {
+  public readonly limit: number;
+
+  public readonly notBefore: Date;
+
+  public constructor(limit: number, notBefore: Date) {
     super(
       oneLine`
       You can only upload a maximum of ${limit} screenshots every 24 hours.
       Your next slot will not open before ${notBefore.toLocaleString()} UTC.`
     );
+
+    this.notBefore = notBefore;
+    this.limit = limit;
   }
 }

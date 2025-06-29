@@ -1,12 +1,14 @@
 import assert from 'node:assert/strict';
 import * as path from 'node:path';
-import { Inject, Provider } from '@nestjs/common';
-import { Creator, Screenshot } from '@prisma/client';
+import process from 'node:process';
+import { Inject, type Provider } from '@nestjs/common';
+import type { Creator, Screenshot } from '@prisma/client';
 import Bun from 'bun';
 import { oneLine } from 'common-tags';
 import * as dateFns from 'date-fns';
 import { Command, CommandRunner, InquirerService, Question, QuestionSet } from 'nest-commander';
-import { Maybe } from '../../common';
+import type { Maybe } from '../../common';
+import { iconsole } from '../../iconsole';
 import { PrismaService, ScreenshotService } from '../../services';
 
 // https://cs2.paradoxwikis.com/Progression#Milestones
@@ -68,7 +70,7 @@ export class ImportCityCommand extends CommandRunner {
       // Ask the user for the city information.
       const cityInfo = await this.askForCityInfo();
 
-      confirm = !!cityInfo;
+      confirm = cityInfo != null;
       if (!confirm) {
         continue;
       }
@@ -81,7 +83,7 @@ export class ImportCityCommand extends CommandRunner {
       });
 
       if (!creator) {
-        console.error(`Creator "${cityInfo.creatorId}" not found.`);
+        iconsole.error(`Creator "${cityInfo.creatorId}" not found.`);
         continue;
       }
 
@@ -123,11 +125,11 @@ export class ImportCityCommand extends CommandRunner {
 
     // If no files are found, log an error and exit.
     if (!filePaths.length) {
-      console.error(`No screenshots found in the directory.`);
+      iconsole.error(`No screenshots found in the directory.`);
       process.exit(1);
     }
 
-    console.info(`Found ${filePaths.length} candidate file(s) in directory.`);
+    iconsole.info(`Found ${filePaths.length} candidate file(s) in directory.`);
 
     return filePaths;
   }
@@ -136,25 +138,25 @@ export class ImportCityCommand extends CommandRunner {
     const cityInfo = await this.inquirer.ask<CityInfoQuestionsResult>('city-info', undefined);
 
     // Log the city information for the user to review.
-    console.info(`\nPlease review the city information:`, cityInfo);
+    iconsole.info(`\nPlease review the city information:`, cityInfo);
 
     return await this.inquirer
       .ask<ConfirmCityInfoQuestionsResult>('confirm-city-info', undefined)
       .then(result => (result.confirm ? cityInfo : undefined));
   }
 
-  private async confirmChanges(
+  private confirmChanges(
     existingCity: Maybe<Screenshot>,
     cityInfo: CityInfoQuestionsResult,
     filePaths: readonly string[]
   ): Promise<boolean> {
-    console.info(`\nPlease review this carefully:`);
+    iconsole.info(`\nPlease review this carefully:`);
 
     existingCity
-      ? console.info(` - Add to EXISTING City "${existingCity.cityName}" #${existingCity.id}.`)
-      : console.info(` - Create screenshot(s) for a NEW City "${cityInfo.cityName}".`);
+      ? iconsole.info(` - Add to EXISTING City "${existingCity.cityName}" #${existingCity.id}.`)
+      : iconsole.info(` - Create screenshot(s) for a NEW City "${cityInfo.cityName}".`);
 
-    console.info(
+    iconsole.info(
       ` - Create Screenshot record(s) for each of those ${filePaths.length} files:`,
       filePaths.join(', ')
     );
@@ -175,7 +177,7 @@ export class ImportCityCommand extends CommandRunner {
         data: { isSupporter: true }
       });
 
-      console.info(`Made Creator "${creator.creatorName ?? '<anonymous>'}" a supporter.`);
+      iconsole.info(`Made Creator "${creator.creatorName ?? '<anonymous>'}" a supporter.`);
     }
   }
 
@@ -206,7 +208,7 @@ export class ImportCityCommand extends CommandRunner {
         healthcheck: false
       });
 
-      console.info(`Imported screenshot "${filePath}", #${screenshot.id}`);
+      iconsole.info(`Imported screenshot "${filePath}", #${screenshot.id}`);
     }
   }
 }

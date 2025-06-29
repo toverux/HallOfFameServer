@@ -3,7 +3,7 @@ import { Injectable } from '@nestjs/common';
 import Bun from 'bun';
 import * as dateFns from 'date-fns';
 import sharp from 'sharp';
-import { Maybe, allFulfilled } from '../common';
+import { allFulfilled, type Maybe } from '../common';
 import { config } from '../config';
 
 @Injectable()
@@ -11,14 +11,14 @@ export class ScreenshotProcessingService {
   private static readonly debugImagesDir = path.join(import.meta.dir, '../../../test');
 
   public async resizeScreenshots(
-    buffer: Buffer,
+    imageData: Buffer,
     metadata: { creatorName: Maybe<string>; cityName: string }
   ): Promise<{
     imageThumbnailBuffer: Buffer;
-    imageFHDBuffer: Buffer;
-    image4KBuffer: Buffer;
+    imageFhdBuffer: Buffer;
+    image4kBuffer: Buffer;
   }> {
-    const image = sharp(buffer)
+    const image = sharp(imageData)
       // Use well-known and standard EXIF fields.
       // https://exiftool.org/TagNames/EXIF.html
       .withExif({
@@ -56,14 +56,14 @@ export class ScreenshotProcessingService {
     };
 
     const imageThumbnail = image.clone().resize(256, 144, options);
-    const imageFHD = image.clone().resize(1920, 1080, options);
-    const image4K = image.clone().resize(3840, 2160, options);
+    const imageFhd = image.clone().resize(1920, 1080, options);
+    const image4k = image.clone().resize(3840, 2160, options);
 
     // Wait for all images to be processed.
-    const [imageThumbnailBuffer, imageFHDBuffer, image4KBuffer] = await allFulfilled([
+    const [imageThumbnailBuffer, imageFhdBuffer, image4kBuffer] = await allFulfilled([
       imageThumbnail.toBuffer(),
-      imageFHD.toBuffer(),
-      image4K.toBuffer()
+      imageFhd.toBuffer(),
+      image4k.toBuffer()
     ]);
 
     // Write debug images to the test directory.
@@ -74,8 +74,8 @@ export class ScreenshotProcessingService {
           // settings.
           'noresize': await image.toBuffer(),
           'thumbnail': imageThumbnailBuffer,
-          'fhd': imageFHDBuffer,
-          '4k': image4KBuffer
+          'fhd': imageFhdBuffer,
+          '4k': image4kBuffer
         }).map(([name, buffer]) => {
           const imagePath = path.join(
             ScreenshotProcessingService.debugImagesDir,
@@ -87,6 +87,6 @@ export class ScreenshotProcessingService {
       );
     }
 
-    return { imageThumbnailBuffer, imageFHDBuffer, image4KBuffer };
+    return { imageThumbnailBuffer, imageFhdBuffer, image4kBuffer };
   }
 }

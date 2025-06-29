@@ -1,10 +1,11 @@
 import * as os from 'node:os';
-import { Inject, Provider } from '@nestjs/common';
+import { Inject, type Provider } from '@nestjs/common';
 import chalk from 'chalk';
 import { oneLine } from 'common-tags';
 import { filesize } from 'filesize';
 import { CommandRunner, Option, SubCommand } from 'nest-commander';
 import { bufferCount, from, lastValueFrom, mergeMap, retry } from 'rxjs';
+import { iconsole } from '../../../iconsole';
 import { PrismaService, ScreenshotSimilarityDetectorService } from '../../../services';
 
 @SubCommand({
@@ -40,7 +41,7 @@ export class ScreenshotInferFeatureEmbeddingsCommand extends CommandRunner {
     defaultValue: 100
   })
   public parseBatchSize(val: string): number {
-    const batchSize = Number.parseInt(val);
+    const batchSize = Number.parseInt(val, 10);
 
     if (batchSize < 1 || Number.isNaN(batchSize)) {
       // biome-ignore lint/style/useThrowOnlyError: normal pattern w/Commander
@@ -58,7 +59,7 @@ export class ScreenshotInferFeatureEmbeddingsCommand extends CommandRunner {
     defaultValue: 2
   })
   public parseConcurrency(val: string): number {
-    const concurrency = Number.parseInt(val);
+    const concurrency = Number.parseInt(val, 10);
 
     if (concurrency < 1 || Number.isNaN(concurrency)) {
       // biome-ignore lint/style/useThrowOnlyError: normal pattern w/Commander
@@ -74,7 +75,7 @@ export class ScreenshotInferFeatureEmbeddingsCommand extends CommandRunner {
     defaultValue: 4
   })
   public parseRetries(val: string): number {
-    const retries = Number.parseInt(val);
+    const retries = Number.parseInt(val, 10);
 
     if (retries < 0 || Number.isNaN(retries)) {
       // biome-ignore lint/style/useThrowOnlyError: normal pattern w/Commander
@@ -103,11 +104,11 @@ export class ScreenshotInferFeatureEmbeddingsCommand extends CommandRunner {
     });
 
     if (screenshots.length == 0) {
-      console.info(chalk.bold`No screenshots to process.`);
+      iconsole.info(chalk.bold`No screenshots to process.`);
       return;
     }
 
-    console.info(chalk.bold`Found ${screenshots.length} screenshots to process.`);
+    iconsole.info(chalk.bold`Found ${screenshots.length} screenshots to process.`);
 
     let processedCount = 0;
 
@@ -118,7 +119,7 @@ export class ScreenshotInferFeatureEmbeddingsCommand extends CommandRunner {
       from(screenshots).pipe(
         bufferCount(options.batchSize),
         mergeMap(async (screenshotsBatch, index) => {
-          console.info(
+          iconsole.info(
             oneLine`
             ${chalk.bold.blueBright`Starting batch ${index + 1} of ${totalBatches}`}
             ${this.getFreeMemText()}`
@@ -134,7 +135,7 @@ export class ScreenshotInferFeatureEmbeddingsCommand extends CommandRunner {
 
           processedCount += screenshotsBatch.length;
 
-          console.info(
+          iconsole.info(
             oneLine`
             ${chalk.bold.greenBright`Batch ${index + 1} of ${totalBatches} successful`}
             (${processedCount}/${screenshots.length})
@@ -145,7 +146,7 @@ export class ScreenshotInferFeatureEmbeddingsCommand extends CommandRunner {
       )
     );
 
-    console.info(chalk.bold`Done processing ${screenshots.length} screenshots.`);
+    iconsole.info(chalk.bold`Done processing ${screenshots.length} screenshots.`);
   }
 
   private getFreeMemText(): string {

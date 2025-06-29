@@ -1,47 +1,15 @@
 {
-  "compileOnSave": false,
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": ["@toverux/blanc-hopital/tsconfig/strict", "@toverux/blanc-hopital/tsconfig/bun"],
   "compilerOptions": {
-    // Not used as we use a bundler, but just for safeguarding.
-    "outDir": "./dist/out-tsc",
-
-    "sourceMap": true,
-    "declaration": false,
-    "importHelpers": true,
-    "target": "ES2022",
-    "module": "ES2022",
-    "lib": ["ES2022", "dom"],
-    "moduleResolution": "Bundler",
+    "lib": ["ESNext", "DOM"],
     "resolveJsonModule": true,
-    "isolatedModules": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-
-    // Strictness options following.
-    // I want the strictest possible TypeScript settings.
-    // https://github.com/tsconfig/bases/blob/main/bases/strictest.json
-    "allowJs": false,
-    "forceConsistentCasingInFileNames": true,
-    "strict": true,
-    "allowUnusedLabels": false,
-    "allowUnreachableCode": false,
-    "exactOptionalPropertyTypes": true,
-    "noFallthroughCasesInSwitch": true,
-    "noImplicitOverride": true,
-    "noImplicitReturns": true,
-    // Just not this one because it's not really a strictness thing and I don't like it.
-    "noPropertyAccessFromIndexSignature": false,
-    "noUncheckedIndexedAccess": true,
-    "noUncheckedSideEffectImports": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true
-  },
-  "angularCompilerOptions": {
-    "enableI18nLegacyMessageIdFormat": false,
-    "strictInjectionParameters": true,
-    "strictInputAccessModifiers": true,
-    "strictStandalone": true,
-    "strictTemplates": true
+    "importHelpers": true,
+    "declaration": false,
+    "sourceMap": true,
+    // restore noEmit to true (set to false by bun config) otherwise Angular CLI cannot build.
+    "noEmit": false
   }
 }

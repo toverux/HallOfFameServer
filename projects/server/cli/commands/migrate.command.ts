@@ -1,10 +1,11 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import { Inject, Provider } from '@nestjs/common';
+import { Inject, type Provider } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import chalk from 'chalk';
 import { Command, CommandRunner } from 'nest-commander';
 import type { MigrationModule } from '../../../../prisma/migrations';
+import { iconsole } from '../../iconsole';
 import { PrismaService } from '../../services';
 
 @Command({
@@ -23,11 +24,11 @@ export class MigrateCommand extends CommandRunner {
     const pendingMigrations = await this.getPendingMigrations();
 
     if (!pendingMigrations.length) {
-      console.info(chalk.bold.greenBright(`No pending migrations to run.`));
+      iconsole.info(chalk.bold.greenBright(`No pending migrations to run.`));
       return;
     }
 
-    console.info(
+    iconsole.info(
       chalk.bold(
         `Found ${pendingMigrations.length} pending migrations: ${pendingMigrations.join(', ')}.`
       )
@@ -36,17 +37,17 @@ export class MigrateCommand extends CommandRunner {
     try {
       await this.prisma.$transaction(async tx => {
         for (const migrationFile of pendingMigrations) {
-          console.info(`⌛ Running migration ${migrationFile}...`);
+          iconsole.info(`⌛ Running migration ${migrationFile}...`);
 
           await this.runMigration(migrationFile, tx);
 
-          console.info(`✅ Ran migration ${migrationFile}.`);
+          iconsole.info(`✅ Ran migration ${migrationFile}.`);
         }
       });
 
-      console.info(chalk.bold.greenBright(`All migrations completed successfully.`));
+      iconsole.info(chalk.bold.greenBright(`All migrations completed successfully.`));
     } catch (error) {
-      console.error(
+      iconsole.error(
         chalk.bold.redBright(
           `Error running migrations (no changes have been persisted to the database).`
         )

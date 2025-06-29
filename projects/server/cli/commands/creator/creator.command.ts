@@ -1,5 +1,6 @@
-import { Provider } from '@nestjs/common';
+import type { Provider } from '@nestjs/common';
 import { Command, CommandRunner } from 'nest-commander';
+import { iconsole } from '../../../iconsole';
 import { CreatorDeleteCommand } from './creator-delete.command';
 import { CreatorMergeCommand } from './creator-merge.command';
 import { CreatorTranslateCommand } from './creator-translate.command';
@@ -18,7 +19,7 @@ export class CreatorCommand extends CommandRunner {
   ];
 
   public override run(): Promise<void> {
-    console.error(`Please specify a subcommand.`);
+    iconsole.error(`Please specify a subcommand.`);
 
     return Promise.resolve();
   }

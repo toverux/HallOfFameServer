@@ -1,6 +1,7 @@
-import { Inject, Provider } from '@nestjs/common';
+import { Inject, type Provider } from '@nestjs/common';
 import chalk from 'chalk';
 import { CommandRunner, SubCommand } from 'nest-commander';
+import { iconsole } from '../../../iconsole';
 import { ScreenshotService } from '../../../services';
 
 @SubCommand({
@@ -16,6 +17,6 @@ export class ScreenshotUpdateAveragesCommand extends CommandRunner {
   public override async run(): Promise<void> {
     await this.screenshotService.updateAverageViewsAndFavoritesPerDay({ nice: false });
 
-    console.info(chalk.bold`Done.`);
+    iconsole.info(chalk.bold`Done.`);
   }
 }

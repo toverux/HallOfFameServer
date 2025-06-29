@@ -1,11 +1,17 @@
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
-import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { Prisma, Screenshot, ScreenshotFeatureEmbedding } from '@prisma/client';
+import {
+  Inject,
+  Injectable,
+  Logger,
+  type OnModuleDestroy,
+  type OnModuleInit
+} from '@nestjs/common';
+import type { Prisma, Screenshot, ScreenshotFeatureEmbedding } from '@prisma/client';
 import { oneLine } from 'common-tags';
-import PLazy from 'p-lazy';
-import { Subject, first, firstValueFrom, timeout } from 'rxjs';
-import usearch, { Index, MetricKind } from 'usearch';
+import LazyPromise from 'p-lazy';
+import { first, firstValueFrom, Subject, timeout } from 'rxjs';
+import usearch, { type Index, MetricKind } from 'usearch';
 import { allFulfilled } from '../common';
 import { isPrismaError } from '../common/prisma-errors';
 import { config } from '../config';
@@ -39,11 +45,12 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
    * USearch index for embeddings.
    * @see https://unum-cloud.github.io/usearch
    */
-  private readonly usearchIndex = PLazy.from(() => {
+  private readonly usearchIndex = LazyPromise.from(() => {
     this.wasUsearchIndexRequired = true;
-    return this.buildUSearchIndex();
+    return this.buildUsearchIndex();
   });
 
+  // biome-ignore lint/nursery/useReadonlyClassProperties: false positive.
   private wasUsearchIndexRequired = false;
 
   @Inject(PrismaService)
@@ -52,11 +59,12 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
   @Inject(ScreenshotStorageService)
   private readonly screenshotStorage!: ScreenshotStorageService;
 
-  private readonly inferenceWorker = PLazy.from(() => {
+  private readonly inferenceWorker = LazyPromise.from(() => {
     this.maybeInferenceWorker = this.spawnInferenceWorker();
     return this.maybeInferenceWorker;
   });
 
+  // biome-ignore lint/nursery/useReadonlyClassProperties: false positive.
   private maybeInferenceWorker?: Worker;
 
   private readonly workerResponses = new Subject<WorkerResponse>();
@@ -121,6 +129,7 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
 
       const hexId = key.toString(16).padStart(16, '0');
 
+      // biome-ignore lint/nursery/noAwaitInLoop: could be optimized, but not needed for now.
       const { screenshotId } = await this.prisma.screenshotFeatureEmbedding.findUniqueOrThrow({
         where: { id: hexId }
       });
@@ -148,6 +157,7 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
 
       assert(embedding?.length == this.embeddingDimensions);
 
+      // biome-ignore lint/nursery/noAwaitInLoop: no need for this kind of performance in this method.
       const embeddingDoc = await prisma.screenshotFeatureEmbedding.upsert({
         where: { screenshotId: screenshot.id },
         create: {
@@ -205,7 +215,7 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
    * and creates an index using the USearch library. The index is constructed based on the
    * specified embedding dimensions and the metric kind (Cosine similarity).
    */
-  private async buildUSearchIndex(): Promise<Index> {
+  private async buildUsearchIndex(): Promise<Index> {
     this.logger.log('Loading embeddings...');
 
     const docs = await this.prisma.screenshotFeatureEmbedding.findMany();

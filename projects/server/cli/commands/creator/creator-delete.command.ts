@@ -1,6 +1,7 @@
-import { Inject, Provider } from '@nestjs/common';
+import { Inject, type Provider } from '@nestjs/common';
 import chalk from 'chalk';
 import { CommandRunner, SubCommand } from 'nest-commander';
+import { iconsole } from '../../../iconsole';
 import { PrismaService } from '../../../services';
 
 @SubCommand({
@@ -19,6 +20,6 @@ export class CreatorDeleteCommand extends CommandRunner {
 
     await this.prisma.creator.delete({ where: { id } });
 
-    console.info(chalk.bold`Creator ${id} deleted successfully!`);
+    iconsole.info(chalk.bold`Creator ${id} deleted successfully!`);
   }
 }

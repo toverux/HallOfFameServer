@@ -1,7 +1,7 @@
 import fastifyMultipart from '@fastify/multipart';
-import { Injectable, Logger, NestMiddleware } from '@nestjs/common';
+import { Injectable, Logger, type NestMiddleware } from '@nestjs/common';
 import { FastifyAdapter } from '@nestjs/platform-fastify';
-import { FastifyBaseLogger, FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyBaseLogger, FastifyReply, FastifyRequest } from 'fastify';
 import { config } from './config';
 
 const httpLogger = new Logger('Fastify');

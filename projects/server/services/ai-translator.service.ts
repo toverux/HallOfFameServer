@@ -1,9 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { Creator } from '@prisma/client';
+import type { Creator } from '@prisma/client';
 import { oneLine } from 'common-tags';
-import OpenAI from 'openai';
+import OpenAi from 'openai';
 import { z } from 'zod';
-import { JsonObject } from '../common';
+import type { JsonObject } from '../common';
 
 export interface TranslationResponse {
   readonly twoLetterLocaleCode: string;
@@ -64,8 +64,8 @@ export class AiTranslatorService {
 
   private static readonly latinTextRegex = /\p{Script=Latin}/u;
 
-  @Inject(OpenAI)
-  private readonly openAi!: OpenAI;
+  @Inject(OpenAi)
+  private readonly openAi!: OpenAi;
 
   public static isEligibleForTranslation(text: string): boolean {
     return (

@@ -6,11 +6,11 @@
 import { Prisma } from '@prisma/client';
 
 export function isPrismaError(error: unknown): error is Prisma.PrismaClientKnownRequestError {
-  return !!error && error.constructor.name == Prisma.PrismaClientKnownRequestError.name;
+  return error != null && error.constructor.name == Prisma.PrismaClientKnownRequestError.name;
 }
 
 export function isPrismaValidationError(
   error: unknown
 ): error is Prisma.PrismaClientValidationError {
-  return !!error && error.constructor.name == Prisma.PrismaClientValidationError.name;
+  return error != null && error.constructor.name == Prisma.PrismaClientValidationError.name;
 }

@@ -2,7 +2,7 @@ import { Controller, Get, Req, ServiceUnavailableException, UseGuards } from '@n
 import Bun from 'bun';
 import { oneLine } from 'common-tags';
 import type { FastifyRequest } from 'fastify';
-import { JsonObject } from '../../common';
+import type { JsonObject } from '../../common';
 import { SystemAuthorizationGuard } from '../../guards';
 
 @Controller('system')

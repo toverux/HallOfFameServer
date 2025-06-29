@@ -1,8 +1,9 @@
-import { Inject, Provider } from '@nestjs/common';
-import { Favorite, Prisma, View } from '@prisma/client';
+import { Inject, type Provider } from '@nestjs/common';
+import type { Favorite, Prisma, View } from '@prisma/client';
 import chalk from 'chalk';
 import { oneLine } from 'common-tags';
 import { CommandRunner, SubCommand } from 'nest-commander';
+import { iconsole } from '../../../iconsole';
 import { PrismaService, ScreenshotService } from '../../../services';
 
 @SubCommand({
@@ -70,7 +71,7 @@ export class ScreenshotMergeCommand extends CommandRunner {
       });
     }
 
-    console.info(
+    iconsole.info(
       chalk.bold`Merged ${deduplicatedFavorites.length} favorite(s), removed ${allFavorites.length - deduplicatedFavorites.length} duplicate(s).`
     );
   }
@@ -108,7 +109,7 @@ export class ScreenshotMergeCommand extends CommandRunner {
       });
     }
 
-    console.info(
+    iconsole.info(
       chalk.bold`Merged ${deduplicatedViews.length} views(s), removed ${allViews.length - deduplicatedViews.length} duplicate(s).`
     );
   }
@@ -125,7 +126,7 @@ export class ScreenshotMergeCommand extends CommandRunner {
       await this.screenshotService.deleteScreenshot(source.id, prisma);
     }
 
-    console.info(chalk.bold`Deleted ${sources.length} source screenshot(s).`);
+    iconsole.info(chalk.bold`Deleted ${sources.length} source screenshot(s).`);
   }
 
   private async updateScreenshotStats(
@@ -150,6 +151,6 @@ export class ScreenshotMergeCommand extends CommandRunner {
       screenshotId: targetId
     });
 
-    console.info(chalk.bold`Updated target screenshot stats.`);
+    iconsole.info(chalk.bold`Updated target screenshot stats.`);
   }
 }

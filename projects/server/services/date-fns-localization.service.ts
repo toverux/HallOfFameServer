@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import * as dfns from 'date-fns';
 import * as locales from 'date-fns/locale';
-import { FastifyRequest } from 'fastify';
+import type { FastifyRequest } from 'fastify';
 import { resolveAcceptLanguage } from 'resolve-accept-language';
 
 @Injectable()

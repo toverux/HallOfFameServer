@@ -1,4 +1,4 @@
-import { Provider } from '@nestjs/common';
+import type { Provider } from '@nestjs/common';
 import { AiTranslatorService } from './ai-translator.service';
 import { AzureService } from './azure.service';
 import { BanService } from './ban.service';
@@ -6,10 +6,10 @@ import { CreatorService } from './creator.service';
 import { DateFnsLocalizationService } from './date-fns-localization.service';
 import { FavoriteService } from './favorite.service';
 import { PrismaService } from './prisma.service';
+import { ScreenshotService } from './screenshot.service';
 import { ScreenshotProcessingService } from './screenshot-processing.service';
 import { ScreenshotSimilarityDetectorService } from './screenshot-similarity-detector.service';
 import { ScreenshotStorageService } from './screenshot-storage.service';
-import { ScreenshotService } from './screenshot.service';
 import { ViewService } from './view.service';
 
 export * from './ai-translator.service';

@@ -1,8 +1,8 @@
 import {
-  MiddlewareConsumer,
+  type MiddlewareConsumer,
   Module,
-  NestMiddleware,
-  NestModule,
+  type NestMiddleware,
+  type NestModule,
   ServiceUnavailableException
 } from '@nestjs/common';
 import { RouterModule } from '@nestjs/core';

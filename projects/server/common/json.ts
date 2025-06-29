@@ -1,4 +1,4 @@
-import { Branded } from './branded-types';
+import type { Branded } from './branded-types';
 
 export type JsonPrimitive = string | number | boolean | null;
 

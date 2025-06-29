@@ -1,4 +1,4 @@
-import { Provider } from '@nestjs/common';
+import type { Provider } from '@nestjs/common';
 import { CreatorCommand } from './creator/creator.command';
 import { ImportCityCommand } from './import-city.command';
 import { MigrateCommand } from './migrate.command';

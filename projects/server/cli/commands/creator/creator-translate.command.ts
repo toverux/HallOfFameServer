@@ -1,7 +1,8 @@
-import { Inject, Provider } from '@nestjs/common';
+import { Inject, type Provider } from '@nestjs/common';
 import chalk from 'chalk';
 import { oneLine, stripIndent } from 'common-tags';
 import { CommandRunner, SubCommand } from 'nest-commander';
+import { iconsole } from '../../../iconsole';
 import { CreatorService, PrismaService } from '../../../services';
 
 @SubCommand({
@@ -23,7 +24,7 @@ export class CreatorTranslateCommand extends CommandRunner {
       select: { id: true, creatorId: true, creatorName: true }
     });
 
-    console.info(chalk.bold`Found ${creators.length} creators to process.`);
+    iconsole.info(chalk.bold`Found ${creators.length} creators to process.`);
 
     let translatedCount = 0;
 
@@ -36,7 +37,7 @@ export class CreatorTranslateCommand extends CommandRunner {
 
       translatedCount++;
 
-      console.info(
+      iconsole.info(
         oneLine`
         ${chalk.bold(result.creator.creatorName)} (${result.creator.creatorNameLocale})
         → ${result.creator.creatorNameLatinized}
@@ -44,7 +45,7 @@ export class CreatorTranslateCommand extends CommandRunner {
       );
     }
 
-    console.info(
+    iconsole.info(
       stripIndent`
       ${chalk.bold`Done processing ${creators.length} creators.`}
       Translated ${translatedCount} creator names.`

@@ -1,7 +1,8 @@
-import { Inject, Provider } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Inject, type Provider } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import chalk from 'chalk';
 import { CommandRunner, SubCommand } from 'nest-commander';
+import { iconsole } from '../../../iconsole';
 import { PrismaService } from '../../../services';
 
 @SubCommand({
@@ -50,33 +51,33 @@ export class CreatorMergeCommand extends CommandRunner {
       throw `Creator ${target} not found.`;
     }
 
-    console.info(chalk.bold`Merging`, duplicateCreator, chalk.bold`into`, targetCreator);
+    iconsole.info(chalk.bold`Merging`, duplicateCreator, chalk.bold`into`, targetCreator);
 
     const { count: updatedScreenshots } = await prisma.screenshot.updateMany({
       where: { creatorId: duplicateCreator.id },
       data: { creatorId: targetCreator.id }
     });
 
-    console.info(chalk.bold`Updated ${updatedScreenshots} screenshots.`);
+    iconsole.info(chalk.bold`Updated ${updatedScreenshots} screenshots.`);
 
     const { count: updatedFavorites } = await prisma.favorite.updateMany({
       where: { creatorId: duplicateCreator.id },
       data: { creatorId: targetCreator.id }
     });
 
-    console.info(chalk.bold`Updated ${updatedFavorites} favorites.`);
+    iconsole.info(chalk.bold`Updated ${updatedFavorites} favorites.`);
 
     const { count: updatedViews } = await prisma.view.updateMany({
       where: { creatorId: duplicateCreator.id },
       data: { creatorId: targetCreator.id }
     });
 
-    console.info(chalk.bold`Updated ${updatedViews} views.`);
+    iconsole.info(chalk.bold`Updated ${updatedViews} views.`);
 
     await prisma.creator.delete({
       where: { id: duplicateCreator.id }
     });
 
-    console.info(chalk.bold`Deleted duplicate creator ${duplicateCreator.id}.`);
+    iconsole.info(chalk.bold`Deleted duplicate creator ${duplicateCreator.id}.`);
   }
 }

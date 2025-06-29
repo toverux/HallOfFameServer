@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { Multipart } from '@fastify/multipart';
+import type { Multipart } from '@fastify/multipart';
 import {
   BadRequestException,
   Controller,
@@ -19,7 +19,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { oneLine } from 'common-tags';
 import type { FastifyRequest } from 'fastify';
-import { JsonObject, ParadoxModID, StandardError } from '../../common';
+import { type JsonObject, type ParadoxModId, StandardError } from '../../common';
 import { isPrismaError } from '../../common/prisma-errors';
 import { config } from '../../config';
 import { CreatorAuthorizationGuard } from '../../guards';
@@ -132,7 +132,7 @@ export class ScreenshotController {
     // If the user is authenticated, we check if the screenshot is already in their favorites.
     // Otherwise, just set it to false.
     payload.__favorited =
-      !!authed &&
+      authed != null &&
       (await this.favoriteService.isFavorite(
         screenshot.id,
         authed.creator.id,
@@ -210,7 +210,7 @@ export class ScreenshotController {
     // If the user is authenticated, we check if the screenshot is already in their favorites.
     // Otherwise, just set it to false.
     payload.__favorited =
-      !!authed &&
+      authed != null &&
       (await this.favoriteService.isFavorite(
         screenshot.id,
         authed.creator.id,
@@ -431,7 +431,7 @@ export class ScreenshotController {
 
     if (!(field && 'value' in field)) {
       if (!strict) {
-        return undefined;
+        return;
       }
 
       throw new InvalidPayloadError(`Expected a multipart field named '${fieldName}'.`);
@@ -476,7 +476,7 @@ export class ScreenshotController {
     return parsed;
   }
 
-  private validateModIds(commaSeparatedModIds: string | undefined): Set<ParadoxModID> {
+  private validateModIds(commaSeparatedModIds: string | undefined): Set<ParadoxModId> {
     if (!commaSeparatedModIds) {
       return new Set();
     }
@@ -490,7 +490,7 @@ export class ScreenshotController {
         );
       }
 
-      return parsed as ParadoxModID;
+      return parsed as ParadoxModId;
     });
 
     return new Set(modIds);
@@ -561,13 +561,17 @@ abstract class UploadError extends StandardError {}
 class InvalidPayloadError extends UploadError {}
 
 class InvalidCityNameError extends UploadError {
-  public constructor(public readonly incorrectName: string) {
+  public readonly incorrectName: string;
+
+  public constructor(incorrectName: string) {
     super(
       oneLine`
       City name "${incorrectName}" is invalid, it must contain only
       letters, numbers, spaces, hyphens and apostrophes, and be between 1
       and 25 characters long.`
     );
+
+    this.incorrectName = incorrectName;
   }
 }
 

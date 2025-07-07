@@ -30,11 +30,12 @@ import { FavoriteService, PrismaService, ScreenshotService, ViewService } from '
 export class ScreenshotController {
   /**
    * Regular expression to validate a city name:
-   * - Must contain only letters, numbers, spaces, hyphens, apostrophes and commas.
-   * - Must be between 1 and 25 characters long. 1-character-long names are for languages like
+   * - Must contain only letters, numbers, spaces, hyphens, apostrophes and commas (Latin, CJK) and
+   *   Chinese middle dot.
+   * - Must be between 1 and 35 characters long. 1-character-long names are for languages like
    *   Chinese.
    */
-  private static readonly cityNameRegex = /^[\p{L}\p{N}\- ',]{1,25}$/u;
+  private static readonly cityNameRegex = /^[\p{L}\p{N}\- '’,、•]{1,35}$/u;
 
   @Inject(PrismaService)
   private readonly prisma!: PrismaService;

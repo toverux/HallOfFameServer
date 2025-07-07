@@ -43,7 +43,8 @@ export class CreatorService {
 
   /**
    * Regular expression to validate a Creator Name:
-   * - Must contain only letters, numbers, spaces, hyphens, apostrophes and underscores.
+   * - Must contain only letters, numbers, spaces, hyphens, apostrophes, underscores and Chinese
+   *   middle dot.
    * - Must be between 1 and 25 characters long. One-character-long names are for languages like
    *   Chinese.
    *
@@ -51,7 +52,7 @@ export class CreatorService {
    * @see getCreatorNameSlug
    * @see InvalidCreatorNameError
    */
-  private static readonly nameRegex = /^[\p{L}\p{N}\- '’_]{1,25}$/u;
+  private static readonly nameRegex = /^[\p{L}\p{N}\- '’_•]{1,25}$/u;
 
   @Inject(PrismaService)
   private readonly prisma!: PrismaService;

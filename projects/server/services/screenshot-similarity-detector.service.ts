@@ -72,8 +72,9 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
   private lastWorkerMessageId = 0;
 
   public onModuleInit(): void {
-    // In production, trigger immediate warmup of inference worker and USearch index.
-    if (config.env == 'production') {
+    // In production (but not in CLI), trigger an immediate warmup of inference worker and USearch
+    // index by then-ing the lazy promises.
+    if (config.env == 'production' && config.runtimeType != 'cli') {
       this.inferenceWorker.then();
       this.usearchIndex.then();
     }

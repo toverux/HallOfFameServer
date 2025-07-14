@@ -3,9 +3,11 @@ import * as path from 'node:path';
 import { NestFactory } from '@nestjs/core';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from './app.module';
-import { config } from './config';
+import { config, setRuntimeType } from './config';
 import * as filters from './exception-filters';
 import { fastify } from './fastify';
+
+setRuntimeType('server');
 
 void linkEnvFilesForWatchMode();
 

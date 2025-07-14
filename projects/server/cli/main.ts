@@ -2,9 +2,11 @@ import process from 'node:process';
 import chalk from 'chalk';
 import { CommandFactory } from 'nest-commander';
 import { StandardError } from '../common';
-import { config } from '../config';
+import { config, setRuntimeType } from '../config';
 import { iconsole } from '../iconsole';
 import { CliModule } from './cli.module';
+
+setRuntimeType('cli');
 
 void CommandFactory.run(CliModule, {
   logger: {

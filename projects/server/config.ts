@@ -1,6 +1,10 @@
 import process from 'node:process';
 import { oneLine } from 'common-tags';
 
+type RuntimeType = 'server' | 'cli';
+
+let runtimeType: RuntimeType | undefined;
+
 /**
  * Custom configuration solution, we do not use @nestjs/config because Bun already loads dotenv
  * files for us and NestJS solution is not very type-safe.
@@ -9,6 +13,14 @@ import { oneLine } from 'common-tags';
  */
 export const config = {
   env: getEnum('NODE_ENV', ['development', 'production']),
+
+  get runtimeType(): RuntimeType {
+    if (!runtimeType) {
+      throw new Error(`Runtime type not set.`);
+    }
+
+    return runtimeType;
+  },
 
   verbose: process.argv.includes('--verbose') || process.argv.includes('-v'),
 
@@ -46,6 +58,14 @@ export const config = {
 
   supportContact: getString('HOF_SUPPORT_CONTACT')
 } as const;
+
+export function setRuntimeType(type: RuntimeType): void {
+  if (runtimeType) {
+    throw new Error(`Runtime type already set.`);
+  }
+
+  runtimeType = type;
+}
 
 function getEnum<const Choices extends string[]>(
   envVar: string,

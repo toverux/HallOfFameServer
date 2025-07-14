@@ -7,7 +7,7 @@ X-Timezone-Offset: {{utcOffset}}
 X-Forwarded-For: {{ip}}
 
 > {%
-    client.global.set("creator", response.body);
+  client.global.set("creator", response.body);
 %}
 
 ### Update myself
@@ -20,13 +20,13 @@ X-Timezone-Offset: {{utcOffset}}
 X-Forwarded-For: {{ip}}
 
 {
-    "modSettings": {
-        "UsingJetBrainsHttpClient": true
-    }
+  "modSettings": {
+    "UsingJetBrainsHttpClient": true
+  }
 }
 
 > {%
-    client.global.set("creator", response.body);
+  client.global.set("creator", response.body);
 %}
 
 ### Get statistics for a creator

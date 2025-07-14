@@ -12,7 +12,7 @@ import {
   Res,
   UseGuards
 } from '@nestjs/common';
-import type { Creator, CreatorSocial } from '@prisma/client';
+import type { Creator, CreatorSocial, Prisma } from '@prisma/client';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { allFulfilled, type JsonObject } from '../../common';
@@ -26,7 +26,7 @@ export class CreatorController {
   /** @see updateMyself */
   private static readonly updateMyselfBodySchema = z
     .strictObject({
-      modSettings: z.object({}).passthrough().optional()
+      modSettings: z.looseObject({}).optional()
     })
     .required();
 
@@ -68,7 +68,7 @@ export class CreatorController {
     const updated = await this.prisma.creator.update({
       where: { id: creator.id },
       data: {
-        modSettings: body.modSettings
+        modSettings: body.modSettings as Prisma.InputJsonObject
       }
     });
 

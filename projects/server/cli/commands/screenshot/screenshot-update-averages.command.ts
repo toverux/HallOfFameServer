@@ -17,6 +17,6 @@ export class ScreenshotUpdateAveragesCommand extends CommandRunner {
   public override async run(): Promise<void> {
     await this.screenshotService.updateAverageViewsAndFavoritesPerDay({ nice: false });
 
-    iconsole.info(chalk.bold`Done.`);
+    iconsole.info(chalk.bold(`Done.`));
   }
 }

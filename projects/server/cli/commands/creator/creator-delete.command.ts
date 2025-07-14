@@ -20,6 +20,6 @@ export class CreatorDeleteCommand extends CommandRunner {
 
     await this.prisma.creator.delete({ where: { id } });
 
-    iconsole.info(chalk.bold`Creator ${id} deleted successfully!`);
+    iconsole.info(chalk.bold(`Creator ${id} deleted successfully!`));
   }
 }

@@ -49,33 +49,33 @@ export class CreatorMergeCommand extends CommandRunner {
       throw `Creator ${target} not found.`;
     }
 
-    iconsole.info(chalk.bold`Merging`, duplicateCreator, chalk.bold`into`, targetCreator);
+    iconsole.info(chalk.bold(`Merging`), duplicateCreator, chalk.bold(`into`), targetCreator);
 
     const { count: updatedScreenshots } = await prisma.screenshot.updateMany({
       where: { creatorId: duplicateCreator.id },
       data: { creatorId: targetCreator.id }
     });
 
-    iconsole.info(chalk.bold`Updated ${updatedScreenshots} screenshots.`);
+    iconsole.info(chalk.bold(`Updated ${updatedScreenshots} screenshots.`));
 
     const { count: updatedFavorites } = await prisma.favorite.updateMany({
       where: { creatorId: duplicateCreator.id },
       data: { creatorId: targetCreator.id }
     });
 
-    iconsole.info(chalk.bold`Updated ${updatedFavorites} favorites.`);
+    iconsole.info(chalk.bold(`Updated ${updatedFavorites} favorites.`));
 
     const { count: updatedViews } = await prisma.view.updateMany({
       where: { creatorId: duplicateCreator.id },
       data: { creatorId: targetCreator.id }
     });
 
-    iconsole.info(chalk.bold`Updated ${updatedViews} views.`);
+    iconsole.info(chalk.bold(`Updated ${updatedViews} views.`));
 
     await prisma.creator.delete({
       where: { id: duplicateCreator.id }
     });
 
-    iconsole.info(chalk.bold`Deleted duplicate creator ${duplicateCreator.id}.`);
+    iconsole.info(chalk.bold(`Deleted duplicate creator ${duplicateCreator.id}.`));
   }
 }

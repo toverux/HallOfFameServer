@@ -24,7 +24,7 @@ export class ScreenshotTranslateCommand extends CommandRunner {
       select: { id: true, creatorId: true, cityName: true }
     });
 
-    iconsole.info(chalk.bold`Found ${screenshots.length} screenshots to process.`);
+    iconsole.info(chalk.bold(`Found ${screenshots.length} screenshots to process.`));
 
     let translatedCount = 0;
     let translatedCachedCount = 0;
@@ -45,7 +45,7 @@ export class ScreenshotTranslateCommand extends CommandRunner {
 
       if (result.cached) {
         translatedCachedCount++;
-        message = chalk.dim`${message} (cached)`;
+        message = chalk.dim(`${message} (cached)`);
       }
 
       iconsole.info(message);
@@ -53,8 +53,8 @@ export class ScreenshotTranslateCommand extends CommandRunner {
 
     iconsole.info(
       stripIndent`
-      ${chalk.bold`Done processing ${screenshots.length} screenshots.`}
-      Translated ${translatedCount} screenshots ${chalk.dim`(${translatedCachedCount} cached)`}.`
+      ${chalk.bold(`Done processing ${screenshots.length} screenshots.`)}
+      Translated ${translatedCount} screenshots ${chalk.dim(`(${translatedCachedCount} cached)`)}.`
     );
   }
 }

@@ -77,7 +77,7 @@ export class ScreenshotModerateCommand extends CommandRunner {
       });
 
       if (!screenshot) {
-        iconsole.info(chalk.bold`All screenshots have been moderated.`);
+        iconsole.info(chalk.bold(`All screenshots have been moderated.`));
         break;
       }
 

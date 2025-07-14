@@ -20,6 +20,6 @@ export class ScreenshotDeleteCommand extends CommandRunner {
 
     await this.screenshotService.deleteScreenshot(id);
 
-    iconsole.info(chalk.bold`Screenshot ${id} deleted successfully!`);
+    iconsole.info(chalk.bold(`Screenshot ${id} deleted successfully!`));
   }
 }

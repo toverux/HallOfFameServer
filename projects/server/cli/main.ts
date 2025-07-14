@@ -12,14 +12,14 @@ void CommandFactory.run(CliModule, {
   logger: {
     ...(config.verbose
       ? {
-          debug: (message, scope) => iconsole.debug(chalk.dim(message), chalk.dim`[${scope}]`),
-          verbose: (message, scope) => iconsole.debug(chalk.dim(message), chalk.dim`[${scope}]`)
+          debug: (message, scope) => iconsole.debug(chalk.dim(message), chalk.dim(`[${scope}]`)),
+          verbose: (message, scope) => iconsole.debug(chalk.dim(message), chalk.dim(`[${scope}]`))
         }
       : {}),
-    log: (message, scope) => iconsole.log(message, chalk.dim`[${scope}]`),
-    warn: (message, scope) => iconsole.warn(chalk.yellowBright(message), chalk.dim`[${scope}]`),
-    error: (message, scope) => iconsole.error(chalk.redBright(message), chalk.dim`[${scope}]`),
-    fatal: (message, scope) => iconsole.error(chalk.bgRedBright(message), chalk.dim`[${scope}]`)
+    log: (message, scope) => iconsole.log(message, chalk.dim(`[${scope}]`)),
+    warn: (message, scope) => iconsole.warn(chalk.yellowBright(message), chalk.dim(`[${scope}]`)),
+    error: (message, scope) => iconsole.error(chalk.redBright(message), chalk.dim(`[${scope}]`)),
+    fatal: (message, scope) => iconsole.error(chalk.bgRedBright(message), chalk.dim(`[${scope}]`))
   },
   errorHandler: handleError,
   serviceErrorHandler: handleError

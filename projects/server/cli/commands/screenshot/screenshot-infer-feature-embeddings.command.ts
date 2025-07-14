@@ -101,11 +101,11 @@ export class ScreenshotInferFeatureEmbeddingsCommand extends CommandRunner {
     });
 
     if (screenshots.length == 0) {
-      iconsole.info(chalk.bold`No screenshots to process.`);
+      iconsole.info(chalk.bold(`No screenshots to process.`));
       return;
     }
 
-    iconsole.info(chalk.bold`Found ${screenshots.length} screenshots to process.`);
+    iconsole.info(chalk.bold(`Found ${screenshots.length} screenshots to process.`));
 
     let processedCount = 0;
 
@@ -118,7 +118,7 @@ export class ScreenshotInferFeatureEmbeddingsCommand extends CommandRunner {
         mergeMap(async (screenshotsBatch, index) => {
           iconsole.info(
             oneLine`
-            ${chalk.bold.blueBright`Starting batch ${index + 1} of ${totalBatches}`}
+            ${chalk.bold.blueBright(`Starting batch ${index + 1} of ${totalBatches}`)}
             ${this.getFreeMemText()}`
           );
 
@@ -134,7 +134,7 @@ export class ScreenshotInferFeatureEmbeddingsCommand extends CommandRunner {
 
           iconsole.info(
             oneLine`
-            ${chalk.bold.greenBright`Batch ${index + 1} of ${totalBatches} successful`}
+            ${chalk.bold.greenBright(`Batch ${index + 1} of ${totalBatches} successful`)}
             (${processedCount}/${screenshots.length})
             ${this.getFreeMemText()}`
           );
@@ -143,7 +143,7 @@ export class ScreenshotInferFeatureEmbeddingsCommand extends CommandRunner {
       )
     );
 
-    iconsole.info(chalk.bold`Done processing ${screenshots.length} screenshots.`);
+    iconsole.info(chalk.bold(`Done processing ${screenshots.length} screenshots.`));
   }
 
   private getFreeMemText(): string {

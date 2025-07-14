@@ -24,7 +24,7 @@ export class CreatorTranslateCommand extends CommandRunner {
       select: { id: true, creatorId: true, creatorName: true }
     });
 
-    iconsole.info(chalk.bold`Found ${creators.length} creators to process.`);
+    iconsole.info(chalk.bold(`Found ${creators.length} creators to process.`));
 
     let translatedCount = 0;
 
@@ -47,7 +47,7 @@ export class CreatorTranslateCommand extends CommandRunner {
 
     iconsole.info(
       stripIndent`
-      ${chalk.bold`Done processing ${creators.length} creators.`}
+      ${chalk.bold(`Done processing ${creators.length} creators.`)}
       Translated ${translatedCount} creator names.`
     );
   }

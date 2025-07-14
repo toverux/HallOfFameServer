@@ -72,7 +72,9 @@ export class ScreenshotMergeCommand extends CommandRunner {
     }
 
     iconsole.info(
-      chalk.bold`Merged ${deduplicatedFavorites.length} favorite(s), removed ${allFavorites.length - deduplicatedFavorites.length} duplicate(s).`
+      chalk.bold(
+        `Merged ${deduplicatedFavorites.length} favorite(s), removed ${allFavorites.length - deduplicatedFavorites.length} duplicate(s).`
+      )
     );
   }
 
@@ -110,7 +112,9 @@ export class ScreenshotMergeCommand extends CommandRunner {
     }
 
     iconsole.info(
-      chalk.bold`Merged ${deduplicatedViews.length} views(s), removed ${allViews.length - deduplicatedViews.length} duplicate(s).`
+      chalk.bold(
+        `Merged ${deduplicatedViews.length} views(s), removed ${allViews.length - deduplicatedViews.length} duplicate(s).`
+      )
     );
   }
 
@@ -126,7 +130,7 @@ export class ScreenshotMergeCommand extends CommandRunner {
       await this.screenshotService.deleteScreenshot(source.id, prisma);
     }
 
-    iconsole.info(chalk.bold`Deleted ${sources.length} source screenshot(s).`);
+    iconsole.info(chalk.bold(`Deleted ${sources.length} source screenshot(s).`));
   }
 
   private async updateScreenshotStats(
@@ -151,6 +155,6 @@ export class ScreenshotMergeCommand extends CommandRunner {
       screenshotId: targetId
     });
 
-    iconsole.info(chalk.bold`Updated target screenshot stats.`);
+    iconsole.info(chalk.bold(`Updated target screenshot stats.`));
   }
 }

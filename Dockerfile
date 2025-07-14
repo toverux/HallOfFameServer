@@ -47,12 +47,12 @@ FROM base AS install
 #    This will cache them and speed up future builds.
 RUN mkdir -p /temp/dev /temp/prod
 COPY package.json bun.lock prisma /temp/dev/
-RUN cd /temp/dev && bun install --frozen-lockfile --omit=optional
+RUN cd /temp/dev && bun install --frozen-lockfile
 
 # => Install with --production (exclude devDependencies)
 RUN cp -r /temp/dev/* /temp/prod/ \
     && cd /temp/prod \
-    && bun install --frozen-lockfile --omit=dev --omit=optional
+    && bun install --frozen-lockfile --production
 
 # => Copy node_modules from temp directory.
 #    Then copy all (non-ignored) project files into the image.

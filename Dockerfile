@@ -79,6 +79,7 @@ COPY --from=prerelease /usr/src/app/package.json .
 COPY --from=prerelease /usr/src/app/dist dist
 # server source code, ran directly by Bun (no transpilation)
 COPY --from=prerelease /usr/src/app/projects/server projects/server
+COPY --from=prerelease /usr/src/app/projects/shared projects/shared
 # EfficientNet V2 TensoFlow model
 COPY --from=prerelease /usr/src/app/efficientnetv2 efficientnetv2
 # Prisma ORM files

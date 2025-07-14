@@ -17,6 +17,10 @@ export class ScreenshotStorageService {
     );
   }
 
+  public getScreenshotUrl(blobName: string): string {
+    return `${config.azure.cdn}/${config.azure.screenshotsContainer}/${blobName}`;
+  }
+
   public downloadScreenshotToBuffer(blobName: string): Promise<Buffer> {
     return this.containerClient.getBlobClient(blobName).downloadToBuffer();
   }

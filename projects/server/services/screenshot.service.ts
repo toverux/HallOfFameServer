@@ -158,7 +158,7 @@ export class ScreenshotService {
       Ingested screenshot "${screenshot.cityName}" (#${screenshot.id})
       by "${data.creator.creatorName}" (#${data.creator.id})
       (total ${Date.now() - startMark}ms).`,
-      this.getBlobUrl(screenshot.imageUrlFHD)
+      this.screenshotStorage.getScreenshotUrl(screenshot.imageUrlFHD)
     );
 
     if (!healthcheck) {
@@ -504,9 +504,9 @@ export class ScreenshotService {
       cityNameTranslated: screenshot.cityNameTranslated,
       cityMilestone: screenshot.cityMilestone,
       cityPopulation: screenshot.cityPopulation,
-      imageUrlThumbnail: this.getBlobUrl(screenshot.imageUrlThumbnail),
-      imageUrlFHD: this.getBlobUrl(screenshot.imageUrlFHD),
-      imageUrl4K: this.getBlobUrl(screenshot.imageUrl4K),
+      imageUrlThumbnail: this.screenshotStorage.getScreenshotUrl(screenshot.imageUrlThumbnail),
+      imageUrlFHD: this.screenshotStorage.getScreenshotUrl(screenshot.imageUrlFHD),
+      imageUrl4K: this.screenshotStorage.getScreenshotUrl(screenshot.imageUrl4K),
       paradoxModIds: screenshot.paradoxModIds,
       renderSettings: screenshot.renderSettings as JsonObject,
       createdAt: screenshot.createdAt.toISOString(),
@@ -528,13 +528,6 @@ export class ScreenshotService {
       ),
       views: optionallySerialized(screenshot.views?.map(view => this.viewService.serialize(view)))
     };
-  }
-
-  /**
-   * Retrieves the complete URL for a screenshot blob name.
-   */
-  public getBlobUrl(blobName: string): string {
-    return `${config.azure.cdn}/${config.azure.screenshotsContainer}/${blobName}`;
   }
 
   /**

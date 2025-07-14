@@ -6,6 +6,7 @@ import {
   Delete,
   ForbiddenException,
   Get,
+  HttpStatus,
   Inject,
   NotFoundException,
   Param,
@@ -14,16 +15,23 @@ import {
   Post,
   Query,
   Req,
+  Res,
   UseGuards
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { oneLine } from 'common-tags';
-import type { FastifyRequest } from 'fastify';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import { type JsonObject, type ParadoxModId, StandardError } from '../../common';
 import { isPrismaError } from '../../common/prisma-errors';
 import { config } from '../../config';
 import { CreatorAuthorizationGuard } from '../../guards';
-import { FavoriteService, PrismaService, ScreenshotService, ViewService } from '../../services';
+import {
+  FavoriteService,
+  PrismaService,
+  ScreenshotService,
+  ScreenshotStorageService,
+  ViewService
+} from '../../services';
 
 @Controller('screenshots')
 @UseGuards(CreatorAuthorizationGuard)
@@ -45,6 +53,9 @@ export class ScreenshotController {
 
   @Inject(ScreenshotService)
   private readonly screenshotService!: ScreenshotService;
+
+  @Inject(ScreenshotStorageService)
+  private readonly screenshotStorateService!: ScreenshotStorageService;
 
   @Inject(ViewService)
   private readonly viewService!: ViewService;
@@ -142,6 +153,44 @@ export class ScreenshotController {
       ));
 
     return payload;
+  }
+
+  /**
+   * From a screenshot ID and a format (ex. "thumbnail.jpg", "fhd.jpg", "4k.jpg"), redirects to the
+   * actual image served by the CDN.
+   * Useful to get a screenshot URL when only the ID is known, also acts as a URL shortener
+   * (compared to long blob URLs).
+   */
+  @Get(':id/:type')
+  public async redirectToScreenshot(
+    @Res() res: FastifyReply,
+    @Param('id') id: string,
+    @Param('type') type: string
+  ): Promise<void> {
+    const screenshot = await this.prisma.screenshot.findUnique({ where: { id } });
+
+    if (!screenshot) {
+      throw new NotFoundException(`Could not find Screenshot #${id}.`);
+    }
+
+    const urls: Record<string, string> = {
+      'thumbnail.jpg': screenshot.imageUrlThumbnail,
+      'fhd.jpg': screenshot.imageUrlFHD,
+      '4k.jpg': screenshot.imageUrl4K
+    };
+
+    const url = urls[type] && this.screenshotStorateService.getScreenshotUrl(urls[type]);
+
+    if (!url) {
+      throw new BadRequestException(
+        `Unknown screenshot type ${type}, available types are: ${Object.keys(urls).join(', ')}`
+      );
+    }
+
+    res.redirect(
+      url,
+      config.env == 'development' ? HttpStatus.FOUND : HttpStatus.MOVED_PERMANENTLY
+    );
   }
 
   /**

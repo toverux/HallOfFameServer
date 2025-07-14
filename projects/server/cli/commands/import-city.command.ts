@@ -231,7 +231,6 @@ class CityInfoQuestions {
   public parseCreatorId(val: string): string {
     const id = val.trim();
     if (!id) {
-      // biome-ignore lint/style/useThrowOnlyError: normal pattern w/Commander
       throw `Creator ID must not be empty.`;
     }
 
@@ -245,12 +244,12 @@ class CityInfoQuestions {
   public parseCityName(val: string): string {
     const name = val.trim();
     if (!name) {
-      // biome-ignore lint/style/useThrowOnlyError: normal pattern w/Commander
       throw `City name must not be empty.`;
     }
 
     return name;
   }
+
   @Question({
     name: 'cityPopulation',
     message: `What is the population of the city?`,
@@ -258,7 +257,6 @@ class CityInfoQuestions {
   })
   public parseCityPopulation(val: number): number {
     if (Number.isNaN(val) || val < 0) {
-      // biome-ignore lint/style/useThrowOnlyError: normal pattern w/Commander
       throw `Invalid population number, it must be a positive integer.`;
     }
 
@@ -284,7 +282,6 @@ class CityInfoQuestions {
     const date = dateFns.parse(val.trim(), 'ddMMyy', new Date());
 
     if (!dateFns.isValid(date)) {
-      // biome-ignore lint/style/useThrowOnlyError: normal pattern w/Commander
       throw `Invalid date format, please use ddmmyy.`;
     }
 

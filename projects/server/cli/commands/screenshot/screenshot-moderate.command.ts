@@ -94,7 +94,7 @@ export class ScreenshotModerateCommand extends CommandRunner {
         (reported by "${screenshot.reportedBy?.creatorName ?? '<anonymous>'}")`
       );
 
-      iconsole.info(`URL: ${this.screenshotService.getBlobUrl(screenshot.imageUrlFHD)}`);
+      iconsole.info(`URL: ${this.screenshotStorage.getScreenshotUrl(screenshot.imageUrlFHD)}`);
 
       if (options.download) {
         await this.screenshotStorage.downloadScreenshotToFile(

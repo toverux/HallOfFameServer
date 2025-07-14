@@ -7,8 +7,9 @@
 /.angular/cache
 
 # Build artifacts, temporary files
-/halloffame.mongoarchive
+/.digest
 /dist
+/halloffame.mongoarchive
 
 # Test files
 /test/http-client.env.json

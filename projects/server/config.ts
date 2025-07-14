@@ -17,6 +17,7 @@ export const config = {
   http: {
     address: getString('HOF_HTTP_ADDRESS'),
     port: getNumber('HOF_HTTP_PORT'),
+    baseUrl: getString('HOF_HTTP_BASE_URL'),
     maintenanceMessage: getString('HOF_HTTP_MAINTENANCE_MESSAGE')
   },
 

@@ -35,7 +35,6 @@ export class CreatorMergeCommand extends CommandRunner {
     });
 
     if (!duplicateCreator) {
-      // biome-ignore lint/style/useThrowOnlyError: normal pattern w/Commander
       throw `Creator ${duplicate} not found.`;
     }
 
@@ -47,7 +46,6 @@ export class CreatorMergeCommand extends CommandRunner {
     });
 
     if (!targetCreator) {
-      // biome-ignore lint/style/useThrowOnlyError: normal pattern w/Commander
       throw `Creator ${target} not found.`;
     }
 

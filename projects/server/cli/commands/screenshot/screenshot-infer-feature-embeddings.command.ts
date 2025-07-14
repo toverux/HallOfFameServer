@@ -44,7 +44,6 @@ export class ScreenshotInferFeatureEmbeddingsCommand extends CommandRunner {
     const batchSize = Number.parseInt(val, 10);
 
     if (batchSize < 1 || Number.isNaN(batchSize)) {
-      // biome-ignore lint/style/useThrowOnlyError: normal pattern w/Commander
       throw `Batch size must not be inferior to 1, got ${batchSize}.`;
     }
 
@@ -62,7 +61,6 @@ export class ScreenshotInferFeatureEmbeddingsCommand extends CommandRunner {
     const concurrency = Number.parseInt(val, 10);
 
     if (concurrency < 1 || Number.isNaN(concurrency)) {
-      // biome-ignore lint/style/useThrowOnlyError: normal pattern w/Commander
       throw `Concurrency must not be inferior to 1, got ${concurrency}.`;
     }
 
@@ -78,7 +76,6 @@ export class ScreenshotInferFeatureEmbeddingsCommand extends CommandRunner {
     const retries = Number.parseInt(val, 10);
 
     if (retries < 0 || Number.isNaN(retries)) {
-      // biome-ignore lint/style/useThrowOnlyError: normal pattern w/Commander
       throw `Retries count must not be inferior to 0, got ${retries}.`;
     }
 

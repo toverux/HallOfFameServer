@@ -5,8 +5,8 @@ import { CommandRunner, Option, SubCommand } from 'nest-commander';
 import { iconsole } from '../../../iconsole';
 import {
   PrismaService,
-  ScreenshotService,
-  ScreenshotSimilarityDetectorService
+  ScreenshotSimilarityDetectorService,
+  ScreenshotStorageService
 } from '../../../services';
 
 @SubCommand({
@@ -19,8 +19,8 @@ export class ScreenshotFindSimilarCommand extends CommandRunner {
   @Inject(PrismaService)
   private readonly prisma!: PrismaService;
 
-  @Inject(ScreenshotService)
-  private readonly screenshotService!: ScreenshotService;
+  @Inject(ScreenshotStorageService)
+  private readonly screenshotStorage!: ScreenshotStorageService;
 
   @Inject(ScreenshotSimilarityDetectorService)
   private readonly imageSimilarityDetector!: ScreenshotSimilarityDetectorService;
@@ -34,7 +34,6 @@ export class ScreenshotFindSimilarCommand extends CommandRunner {
     const distance = Number.parseFloat(val);
 
     if (distance < 0 || distance > 1 || Number.isNaN(distance)) {
-      // biome-ignore lint/style/useThrowOnlyError: normal pattern w/Commander
       throw `Distance must be between 0 and 1, got ${distance}.`;
     }
 
@@ -91,7 +90,7 @@ export class ScreenshotFindSimilarCommand extends CommandRunner {
           'city': screenshot.cityName,
           'creator': screenshot.creator.creatorName,
           'favorites': screenshot.favoritesCount,
-          'url': this.screenshotService.getBlobUrl(screenshot.imageUrlFHD)
+          'url': this.screenshotStorage.getScreenshotUrl(screenshot.imageUrlFHD)
         }))
       );
     }

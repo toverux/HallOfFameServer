@@ -1,5 +1,6 @@
 import type { Provider } from '@nestjs/common';
 import { CreatorCommand } from './creator/creator.command';
+import { DigestCommand } from './digest.command';
 import { ImportCityCommand } from './import-city.command';
 import { MigrateCommand } from './migrate.command';
 import { ScreenshotCommand } from './screenshot/screenshot.command';
@@ -9,6 +10,7 @@ export const commands: Provider[] = [
   // Root-level commands.
   ...ImportCityCommand.providers(),
   ...MigrateCommand.providers(),
+  ...DigestCommand.providers(),
   // Commands with sub-commands.
   ...CreatorCommand.providers(),
   ...ScreenshotCommand.providers()

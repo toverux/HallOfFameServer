@@ -24,6 +24,10 @@
       "test": "none"
     },
     "rules": {
+      "correctness": {
+        // Not needed nor wanted in this project.
+        "useImportExtensions": "off"
+      },
       "style": {
         "useNamingConvention": {
           "level": "on",

@@ -1,12 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Creator, Favorite, Screenshot } from '@prisma/client';
-import {
-  type HardwareId,
-  type IpAddress,
-  type JsonObject,
-  optionallySerialized,
-  StandardError
-} from '../common';
+import { type JsonObject, optionallySerialized, StandardError } from '../common';
 import { CreatorService } from './creator.service';
 import { PrismaService } from './prisma.service';
 
@@ -25,20 +19,18 @@ export class FavoriteService {
    */
   public async isFavorite(
     screenshotId: Screenshot['id'],
-    creatorId: Creator['id'],
-    ip: IpAddress,
-    hwid: HardwareId
+    creator: Pick<Creator, 'id' | 'hwids' | 'ips'>
   ): Promise<boolean> {
-    // Find a favorite with any of the provided identifiers, multi-accounting is not allowed for
-    // favorites so a favorite is shared by any of these, hence the OR clause.
+    // Find a favorite with any of the provided identifiers; multi-accounting is not allowed for
+    // favorites, so a favorite is shared by any of these, hence the OR clause.
     const favorite = await this.prisma.favorite.findFirst({
       select: { id: true },
       where: {
         // biome-ignore lint/style/useNamingConvention: prisma
         OR: [
-          { screenshotId, creatorId },
-          { screenshotId, hwid },
-          { screenshotId, ip }
+          { screenshotId, creatorId: creator.id },
+          { screenshotId, hwid: { in: creator.hwids } },
+          { screenshotId, ip: { in: creator.ips } }
         ]
       }
     });
@@ -47,7 +39,7 @@ export class FavoriteService {
   }
 
   /**
-   * Determines whether each screenshot in a batch is marked as a favorite by a unique user.
+   * Determines for each screenshot in a batch if it has been favorited by a unique user.
    *
    * @return A promise that resolves to an array of booleans, where each element corresponds to
    *         whether the given screenshot ID is marked as a favorite, ordered 1:1 to the input.
@@ -56,9 +48,7 @@ export class FavoriteService {
    */
   public async isFavoriteBatched(
     screenshotIds: readonly Screenshot['id'][],
-    creatorId: Creator['id'],
-    ip: IpAddress,
-    hwid: HardwareId
+    creator: Pick<Creator, 'id' | 'hwids' | 'ips'>
   ): Promise<boolean[]> {
     // Same as isFavorite(), see its comments.
     const favorites = await this.prisma.favorite.findMany({
@@ -67,9 +57,9 @@ export class FavoriteService {
         // biome-ignore lint/style/useNamingConvention: prisma
         OR: [
           // `as string[]`: because prisma type unnecessarily takes a mutable array.
-          { screenshotId: { in: screenshotIds as string[] }, creatorId },
-          { screenshotId: { in: screenshotIds as string[] }, hwid },
-          { screenshotId: { in: screenshotIds as string[] }, ip }
+          { screenshotId: { in: screenshotIds as string[] }, creatorId: creator.id },
+          { screenshotId: { in: screenshotIds as string[] }, hwid: { in: creator.hwids } },
+          { screenshotId: { in: screenshotIds as string[] }, ip: { in: creator.hwids } }
         ]
       }
     });
@@ -84,9 +74,7 @@ export class FavoriteService {
    */
   public async addFavorite(
     screenshotId: Screenshot['id'],
-    creatorId: Creator['id'],
-    ip: IpAddress,
-    hwid: HardwareId
+    creator: Pick<Creator, 'id' | 'hwids' | 'ips'>
   ): Promise<Favorite> {
     // Check if the user has already favorited this screenshot.
     // We can't use .findUnique() because of the OR clause.
@@ -96,9 +84,9 @@ export class FavoriteService {
       where: {
         // biome-ignore lint/style/useNamingConvention: prisma
         OR: [
-          { screenshotId, creatorId },
-          { screenshotId, hwid },
-          { screenshotId, ip }
+          { screenshotId, creatorId: creator.id },
+          { screenshotId, hwid: { in: creator.hwids } },
+          { screenshotId, ip: { in: creator.ips } }
         ]
       }
     });
@@ -108,7 +96,7 @@ export class FavoriteService {
       throw new AlreadyInFavoritesError();
     }
 
-    // Increment the favorites count of the screenshot.
+    // Increment the favorite count of the screenshot.
     await this.prisma.screenshot.update({
       where: { id: screenshotId },
       data: {
@@ -120,9 +108,10 @@ export class FavoriteService {
     return this.prisma.favorite.create({
       data: {
         screenshotId,
-        creatorId,
-        ip,
-        hwid
+        creatorId: creator.id,
+        // biome-ignore lint/style/noNonNullAssertion: IP address should never be null in practice
+        ip: creator.ips[0]!,
+        hwid: creator.hwids[0] ?? null
       }
     });
   }
@@ -132,9 +121,7 @@ export class FavoriteService {
    */
   public async removeFavorite(
     screenshotId: Screenshot['id'],
-    creatorId: Creator['id'],
-    ip: IpAddress,
-    hwid: HardwareId
+    creator: Pick<Creator, 'id' | 'hwids' | 'ips'>
   ): Promise<Favorite> {
     // Find the favorite to remove.
     // We can't use .remove() directly because we can't use .remove() which requires a where
@@ -143,9 +130,9 @@ export class FavoriteService {
       where: {
         // biome-ignore lint/style/useNamingConvention: prisma
         OR: [
-          { screenshotId, creatorId },
-          { screenshotId, hwid },
-          { screenshotId, ip }
+          { screenshotId, creatorId: creator.id },
+          { screenshotId, hwid: { in: creator.hwids } },
+          { screenshotId, ip: { in: creator.ips } }
         ]
       }
     });
@@ -155,7 +142,7 @@ export class FavoriteService {
       throw new NotInFavoritesError();
     }
 
-    // Decrement the favorites count of the screenshot.
+    // Decrement the favorite count of the screenshot.
     await this.prisma.screenshot.update({
       where: { id: screenshotId },
       data: {

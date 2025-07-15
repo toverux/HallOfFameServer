@@ -51,10 +51,12 @@ model Creator {
   isSupporter           Boolean           @default(false)
   /// All unique hardware IDs used by this Creator, used to ban an Creator and mitigate hostile
   /// multi-accounting, along with `Creator.ips`.
+  /// Most-recently used HWID is first in the list.
   hwids                 String[]
   /// Same purpose as `Creator.hwids`, but for the IP addresses.
   /// Contrarily to hardware IDs, IPs are harder to spoof so this adds as an additional layer of
   /// security.
+  /// Most-recently used IP is first in the list.
   ips                   String[]
   /// Map of social accounts of the Creator.
   social                CreatorSocial
@@ -254,9 +256,10 @@ model Favorite {
   /// Creator who favorited the Screenshot.
   creatorId    String     @db.ObjectId
   creator      Creator    @relation(fields: [creatorId], references: [id], onDelete: Cascade)
-  /// As well as `ip`, prevents multi-accounting for favorites
-  hwid         String
-  /// As well as `hwid`, prevents multi-accounting for favorites
+  /// As well as `ip`, prevents multi-accounting for favorites.
+  /// Set only when using the mod, where the hardware ID can be determined.
+  hwid         String?
+  /// As well as `hwid`, prevents multi-accounting for favorites.
   ip           String
 
   /// These unique indexes will help us find a Favorite on a specific Screenshot set by a specific

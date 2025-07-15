@@ -9,24 +9,19 @@ import type { Creator } from '@prisma/client';
 import * as sentry from '@sentry/node';
 import type { FastifyRequest } from 'fastify';
 import type { CreatorId, HardwareId, IpAddress } from '../common';
-import { BanService, CreatorService } from '../services';
+import {
+  BanService,
+  type CreatorAuthorization,
+  CreatorService,
+  type ModCreatorAuthorization,
+  type SimpleCreatorAuthorization
+} from '../services';
 
 declare module 'fastify' {
   // biome-ignore lint/nursery/noShadow: intended declaration merging.
   interface FastifyRequest {
-    [CreatorAuthorizationGuard.authenticatedCreatorKey]?: {
-      readonly authorization: CreatorAuthorization;
-      readonly creator: Creator;
-    };
+    [CreatorAuthorizationGuard.authenticatedCreatorKey]?: Creator;
   }
-}
-
-export interface CreatorAuthorization {
-  readonly creatorName: Creator['creatorName'];
-  readonly creatorId: CreatorId;
-  readonly creatorIdProvider: Creator['creatorIdProvider'];
-  readonly hwid: HardwareId;
-  readonly ip: IpAddress;
 }
 
 /**
@@ -46,10 +41,7 @@ export class CreatorAuthorizationGuard implements CanActivate {
   @Inject(CreatorService)
   private readonly creatorService!: CreatorService;
 
-  public static getAuthenticatedCreator(request: FastifyRequest): {
-    readonly authorization: CreatorAuthorization;
-    readonly creator: Creator;
-  } {
+  public static getAuthenticatedCreator(request: FastifyRequest): Creator {
     const authentication = request[CreatorAuthorizationGuard.authenticatedCreatorKey];
 
     if (!authentication) {
@@ -67,7 +59,10 @@ export class CreatorAuthorizationGuard implements CanActivate {
       return true;
     }
 
-    await this.ban.ensureNotBanned(authorization.ip, authorization.hwid);
+    await this.ban.ensureNotBanned(
+      authorization.ip,
+      authorization.kind == 'mod' ? authorization.hwid : undefined
+    );
 
     // noinspection UnnecessaryLocalVariableJS
     const creator = await this.creatorService.authenticateCreator(authorization);
@@ -81,10 +76,7 @@ export class CreatorAuthorizationGuard implements CanActivate {
 
     await this.ban.ensureCreatorNotBanned(creator);
 
-    request[CreatorAuthorizationGuard.authenticatedCreatorKey] = {
-      authorization,
-      creator
-    };
+    request[CreatorAuthorizationGuard.authenticatedCreatorKey] = creator;
 
     return true;
   }
@@ -100,40 +92,19 @@ export class CreatorAuthorizationGuard implements CanActivate {
     try {
       const firstSpace = header.indexOf(' ');
       const scheme = header.slice(0, firstSpace);
-      const partsString = header.slice(firstSpace + 1);
+      const payload = header.slice(firstSpace + 1);
 
-      const params = new URLSearchParams(partsString);
-
-      // Note: the creator name is URL-encoded, but this is already
-      // decoded by URLSearchParams.
-      const creatorName = params.get('name')?.trim() || null;
-      const creatorId = params.get('id');
-      const provider = params.get('provider');
-      const hwid = params.get('hwid');
-
-      assert(scheme?.toLowerCase() == 'creator', `Scheme is "Creator"`);
-
-      assert(
-        creatorName?.length || creatorName === null,
-        `Creator Name must be either an empty string, or a string.`
-      );
-
-      assert(creatorId?.length, `Creator ID must be a non-empty string.`);
-
-      assert(
-        provider == 'paradox' || provider == 'local',
-        `Provider must be either "paradox" or "local".`
-      );
-
-      assert(hwid?.length, `HWID must be a non-empty string.`);
-
-      return {
-        creatorName,
-        creatorId: creatorId as CreatorId,
-        creatorIdProvider: provider,
-        hwid: hwid as HardwareId,
-        ip
-      };
+      switch (scheme.toLowerCase()) {
+        case 'creatorid': {
+          return this.getSimpleAuthorizationFromRequest(ip, payload);
+        }
+        case 'creator': {
+          return this.getModAuthorizationFromRequest(ip, payload);
+        }
+        default: {
+          assert(false, `Invalid Authorization scheme, expected "Creator" or "CreatorID".`);
+        }
+      }
     } catch (error) {
       // biome-ignore lint/suspicious/noMisplacedAssertion: false positive
       if (error instanceof assert.AssertionError) {
@@ -142,5 +113,52 @@ export class CreatorAuthorizationGuard implements CanActivate {
 
       throw error;
     }
+  }
+
+  private getSimpleAuthorizationFromRequest(
+    ip: IpAddress,
+    payload: string
+  ): SimpleCreatorAuthorization {
+    assert(payload.length, `Creator ID must be a non-empty string.`);
+
+    return {
+      kind: 'simple',
+      creatorId: payload as CreatorId,
+      ip
+    };
+  }
+
+  private getModAuthorizationFromRequest(ip: IpAddress, payload: string): ModCreatorAuthorization {
+    const params = new URLSearchParams(payload);
+
+    // Note: the creator name is URL-encoded, but this is already
+    // decoded by URLSearchParams.
+    const creatorName = params.get('name')?.trim() || null;
+    const creatorId = params.get('id');
+    const provider = params.get('provider');
+    const hwid = params.get('hwid');
+
+    assert(
+      creatorName?.length || creatorName === null,
+      `Creator Name must be either an empty string, or a string.`
+    );
+
+    assert(creatorId?.length, `Creator ID must be a non-empty string.`);
+
+    assert(
+      provider == 'paradox' || provider == 'local',
+      `Provider must be either "paradox" or "local".`
+    );
+
+    assert(hwid?.length, `HWID must be a non-empty string.`);
+
+    return {
+      kind: 'mod',
+      creatorName,
+      creatorId: creatorId as CreatorId,
+      creatorIdProvider: provider,
+      hwid: hwid as HardwareId,
+      ip
+    };
   }
 }

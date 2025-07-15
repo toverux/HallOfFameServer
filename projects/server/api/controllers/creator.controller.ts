@@ -63,7 +63,7 @@ export class CreatorController {
     @Body(new ZodParsePipe(CreatorController.updateMyselfBodySchema))
     body: z.infer<typeof CreatorController.updateMyselfBodySchema>
   ): Promise<JsonObject> {
-    const { creator } = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
+    const creator = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
 
     const updated = await this.prisma.creator.update({
       where: { id: creator.id },
@@ -185,7 +185,7 @@ export class CreatorController {
   private async fetchCreatorById(id: Creator['id'] | 'me', req: FastifyRequest): Promise<Creator> {
     const creator = await this.prisma.creator.findUnique({
       where: {
-        id: id == 'me' ? CreatorAuthorizationGuard.getAuthenticatedCreator(req).creator.id : id
+        id: id == 'me' ? CreatorAuthorizationGuard.getAuthenticatedCreator(req).id : id
       }
     });
 

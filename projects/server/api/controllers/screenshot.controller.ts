@@ -55,7 +55,7 @@ export class ScreenshotController {
   private readonly screenshotService!: ScreenshotService;
 
   @Inject(ScreenshotStorageService)
-  private readonly screenshotStorateService!: ScreenshotStorageService;
+  private readonly screenshotStorageService!: ScreenshotStorageService;
 
   @Inject(ViewService)
   private readonly viewService!: ViewService;
@@ -77,12 +77,12 @@ export class ScreenshotController {
       );
     }
 
-    const authed = req[CreatorAuthorizationGuard.authenticatedCreatorKey];
+    const creator = req[CreatorAuthorizationGuard.authenticatedCreatorKey];
 
     // If the creatorId filter is 'me', replace it with the logged-in creator ID.
     if (creatorId == 'me') {
       // biome-ignore lint/style/noParameterAssign: legitimate case
-      creatorId = CreatorAuthorizationGuard.getAuthenticatedCreator(req).creator.id;
+      creatorId = CreatorAuthorizationGuard.getAuthenticatedCreator(req).id;
     }
 
     const screenshots = await this.prisma.screenshot.findMany({
@@ -96,12 +96,10 @@ export class ScreenshotController {
 
     // If the user is authenticated, we check whether each screenshot has been favorited.
     const favorited =
-      authed &&
+      creator &&
       (await this.favoriteService.isFavoriteBatched(
         screenshots.map(s => s.id),
-        authed.creator.id,
-        authed.authorization.ip,
-        authed.authorization.hwid
+        creator
       ));
 
     return screenshots.map((screenshot, index) => {
@@ -124,7 +122,7 @@ export class ScreenshotController {
     @Query('favorites', new ParseBoolPipe({ optional: true })) includeFavorites = false,
     @Query('views', new ParseBoolPipe({ optional: true })) includeViews = false
   ): Promise<JsonObject> {
-    const authed = req[CreatorAuthorizationGuard.authenticatedCreatorKey];
+    const creator = req[CreatorAuthorizationGuard.authenticatedCreatorKey];
 
     const screenshot = await this.prisma.screenshot.findUnique({
       where: { id },
@@ -142,15 +140,9 @@ export class ScreenshotController {
     const payload = this.screenshotService.serialize(screenshot, req);
 
     // If the user is authenticated, we check if the screenshot is already in their favorites.
-    // Otherwise, just set it to false.
+    // Otherwise, set it to false.
     payload.__favorited =
-      authed != null &&
-      (await this.favoriteService.isFavorite(
-        screenshot.id,
-        authed.creator.id,
-        authed.authorization.ip,
-        authed.authorization.hwid
-      ));
+      creator != null && (await this.favoriteService.isFavorite(screenshot.id, creator));
 
     return payload;
   }
@@ -179,7 +171,7 @@ export class ScreenshotController {
       '4k.jpg': screenshot.imageUrl4K
     };
 
-    const url = urls[type] && this.screenshotStorateService.getScreenshotUrl(urls[type]);
+    const url = urls[type] && this.screenshotStorageService.getScreenshotUrl(urls[type]);
 
     if (!url) {
       throw new BadRequestException(
@@ -231,13 +223,13 @@ export class ScreenshotController {
     @Query('viewMaxAge', new ParseIntPipe({ optional: true }))
     viewMaxAge = 60
   ) {
-    const authed = req[CreatorAuthorizationGuard.authenticatedCreatorKey];
+    const creator = req[CreatorAuthorizationGuard.authenticatedCreatorKey];
 
     const weights = { random, trending, recent, archeologist, supporter };
 
     const screenshot = await this.screenshotService.getWeightedRandomScreenshot(
       weights,
-      authed?.creator.id,
+      creator?.id,
       viewMaxAge
     );
 
@@ -247,26 +239,14 @@ export class ScreenshotController {
 
     assert(createdBy, `Could not find Creator #${screenshot.creatorId}`);
 
-    const payload = this.screenshotService.serialize(
-      {
-        ...screenshot,
-        creator: createdBy
-      },
-      req
-    );
+    const payload = this.screenshotService.serialize({ ...screenshot, creator: createdBy }, req);
 
     payload.__algorithm = screenshot.__algorithm;
 
     // If the user is authenticated, we check if the screenshot is already in their favorites.
-    // Otherwise, just set it to false.
+    // Otherwise, set it to false.
     payload.__favorited =
-      authed != null &&
-      (await this.favoriteService.isFavorite(
-        screenshot.id,
-        authed.creator.id,
-        authed.authorization.ip,
-        authed.authorization.hwid
-      ));
+      creator != null && (await this.favoriteService.isFavorite(screenshot.id, creator));
 
     return payload;
   }
@@ -280,7 +260,7 @@ export class ScreenshotController {
    */
   @Delete(':id')
   public async deleteOne(@Req() req: FastifyRequest, @Param('id') id: string): Promise<JsonObject> {
-    const authed = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
+    const creator = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
 
     const screenshot = await this.prisma.screenshot.findUnique({
       where: { id },
@@ -291,7 +271,7 @@ export class ScreenshotController {
       throw new NotFoundException(`Could not find Screenshot #${id}.`);
     }
 
-    if (screenshot.creatorId != authed.creator.id) {
+    if (screenshot.creatorId != creator.id) {
       throw new ForbiddenException(`You cannot delete screenshots that are not yours.`);
     }
 
@@ -302,7 +282,7 @@ export class ScreenshotController {
 
   /**
    * Adds the screenshot to the authenticated creator's favorites.
-   * We also verify that the screenshot was not already favorites using a same IP or HWID, as
+   * We also verify that the screenshot was not already favorited using the same IP or HWID, as
    * multi-accounting on favorites is not allowed.
    */
   @Post(':id/favorites')
@@ -310,14 +290,9 @@ export class ScreenshotController {
     @Req() req: FastifyRequest,
     @Param('id') screenshotId: string
   ): Promise<JsonObject> {
-    const authed = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
+    const creator = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
 
-    const favorite = await this.favoriteService.addFavorite(
-      screenshotId,
-      authed.creator.id,
-      authed.authorization.ip,
-      authed.authorization.hwid
-    );
+    const favorite = await this.favoriteService.addFavorite(screenshotId, creator);
 
     return this.favoriteService.serialize(favorite);
   }
@@ -330,14 +305,9 @@ export class ScreenshotController {
     @Req() req: FastifyRequest,
     @Param('id') screenshotId: string
   ): Promise<JsonObject> {
-    const authed = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
+    const creator = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
 
-    const favorite = await this.favoriteService.removeFavorite(
-      screenshotId,
-      authed.creator.id,
-      authed.authorization.ip,
-      authed.authorization.hwid
-    );
+    const favorite = await this.favoriteService.removeFavorite(screenshotId, creator);
 
     return this.favoriteService.serialize(favorite);
   }
@@ -350,7 +320,7 @@ export class ScreenshotController {
     @Req() req: FastifyRequest,
     @Param('id') screenshotId: string
   ): Promise<JsonObject> {
-    const { creator } = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
+    const creator = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
 
     const view = await this.viewService.markViewed(screenshotId, creator.id);
 
@@ -360,7 +330,7 @@ export class ScreenshotController {
   /**
    * Reports a screenshot as inappropriate.
    *
-   * Note: the request body is empty as of now as there are no other information to transmit.
+   * Note: the request body is empty as of now as there is no other information to transmit.
    * This could change if we allow users to provide a reason for the report.
    */
   @Post(':id/reports')
@@ -369,7 +339,7 @@ export class ScreenshotController {
     @Param('id') screenshotId: string
   ): Promise<JsonObject> {
     try {
-      const { creator } = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
+      const creator = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
 
       const screenshot = await this.screenshotService.markReported(screenshotId, creator.id);
 
@@ -395,7 +365,7 @@ export class ScreenshotController {
    * - `cityPopulation`: The population of the city.
    * - `screenshot`: The screenshot file, a JPEG.
    *
-   * Response will be 201 with serialized Screenshot.
+   * Response will be 201 with a serialized Screenshot.
    */
   @Post()
   public async upload(
@@ -403,7 +373,7 @@ export class ScreenshotController {
     @Query('healthcheck', new ParseBoolPipe({ optional: true }))
     healthcheck = false
   ): Promise<JsonObject> {
-    const { authorization, creator } = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
+    const creator = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
 
     const multipart = await req.file({
       isPartAFile: fieldName => fieldName == 'screenshot',
@@ -440,8 +410,6 @@ export class ScreenshotController {
       const file = await multipart.toBuffer();
 
       const screenshot = await this.screenshotService.ingestScreenshot({
-        ip: authorization.ip,
-        hwid: authorization.hwid,
         creator,
         cityName,
         cityMilestone,

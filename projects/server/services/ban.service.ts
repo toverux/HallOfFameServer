@@ -39,14 +39,14 @@ export class BanService {
    *
    * @throws BannedError If the IP or Hardware ID is banned.
    */
-  public async ensureNotBanned(ip: IpAddress, hwid: HardwareId): Promise<void> {
-    if (this.checkBanCache(ip) && this.checkBanCache(hwid)) {
+  public async ensureNotBanned(ip: IpAddress, hwid: HardwareId | undefined): Promise<void> {
+    if (this.checkBanCache(ip) && (hwid ? this.checkBanCache(hwid) : true)) {
       return;
     }
 
     const bans = await this.prisma.ban.findMany({
       // biome-ignore lint/style/useNamingConvention: prisma
-      where: { OR: [{ ip }, { hwid }] }
+      where: hwid ? { OR: [{ ip }, { hwid }] } : { ip }
     });
 
     // If there are multiple bans matching, prefer using one with a Creator ID so we can provide
@@ -73,14 +73,14 @@ export class BanService {
       const error = new BannedError(ip, hwid, ban, config.supportContact);
 
       this.cacheBanError(ip, error);
-      this.cacheBanError(hwid, error);
+      hwid && this.cacheBanError(hwid, error);
 
       throw error;
     }
 
     // If there is no ban, cache it too.
     this.banCache.set(ip, false);
-    this.banCache.set(hwid, false);
+    hwid && this.banCache.set(hwid, false);
   }
 
   /**
@@ -195,7 +195,7 @@ export class BannedError extends BanError {
 
   public readonly ip: IpAddress;
 
-  public readonly hardwareId: HardwareId;
+  public readonly hardwareId: HardwareId | undefined;
 
   public readonly ban: Pick<Ban, 'reason' | 'bannedAt'>;
 
@@ -203,7 +203,7 @@ export class BannedError extends BanError {
 
   public constructor(
     ip: IpAddress,
-    hardwareId: HardwareId,
+    hardwareId: HardwareId | undefined,
     ban: Pick<Ban, 'reason' | 'bannedAt'>,
     supportContact: string
   ) {
@@ -212,7 +212,7 @@ export class BannedError extends BanError {
       You are banned for the following reason: ${ban.reason}
       (${ban.bannedAt.toLocaleString()} UTC).
       Please contact support to appeal (${supportContact}),
-      communicate identifier "${hardwareId}" and IP address "${ip}".`
+      communicate your ${hardwareId ? `identifier "${hardwareId}" and ` : ''}IP address "${ip}".`
     );
 
     this.supportContact = supportContact;

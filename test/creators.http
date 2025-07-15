@@ -1,7 +1,19 @@
-### Get myself
+### Get or create myself - mod register/login flow ("Creator" Auth Scheme)
 
 GET {{url}}/api/v1/creators/me
 Authorization: Creator name={{creatorName}}&id={{creatorId}}&provider=paradox&hwid={{hwid}}
+Accept-Language: {{locale}}
+X-Timezone-Offset: {{utcOffset}}
+X-Forwarded-For: {{ip}}
+
+> {%
+  client.global.set("creator", response.body);
+%}
+
+### Get myself - web/api login-only flow ("CreatorID" Auth Scheme)
+
+GET {{url}}/api/v1/creators/me
+Authorization: CreatorID {{creatorId}}
 Accept-Language: {{locale}}
 X-Timezone-Offset: {{utcOffset}}
 X-Forwarded-For: {{ip}}
@@ -32,7 +44,7 @@ X-Forwarded-For: {{ip}}
 ### Get statistics for a creator
 
 GET {{url}}/api/v1/creators/{{creator.id}}/stats
-Authorization: Creator name={{creatorName}}&id={{creatorId}}&provider=paradox&hwid={{hwid}}
+Authorization: CreatorID {{creatorId}}
 Accept-Language: {{locale}}
 X-Timezone-Offset: {{utcOffset}}
 X-Forwarded-For: {{ip}}

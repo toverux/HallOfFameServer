@@ -4,18 +4,54 @@ import type { Creator, CreatorSocial } from '@prisma/client';
 import * as sentry from '@sentry/bun';
 import { oneLine } from 'common-tags';
 import * as uuid from 'uuid';
-import { type HardwareId, type IpAddress, type JsonObject, StandardError } from '../common';
+import {
+  type CreatorId,
+  type HardwareId,
+  type IpAddress,
+  type JsonObject,
+  StandardError
+} from '../common';
 import { isPrismaError } from '../common/prisma-errors';
-import type { CreatorAuthorization } from '../guards';
 import { AiTranslatorService } from './ai-translator.service';
 import { PrismaService } from './prisma.service';
+
+export type CreatorAuthorization = SimpleCreatorAuthorization | ModCreatorAuthorization;
+
+/**
+ * The simpler authorization scheme.
+ * Allows logging in to an existing account with just a Creator ID, much like an API key.
+ *
+ * @see CreatorService.authenticateCreatorSimple
+ */
+export type SimpleCreatorAuthorization = Readonly<{
+  kind: 'simple';
+  creatorId: CreatorId;
+  ip: IpAddress;
+}>;
+
+/**
+ * More complex authorization scheme used by the mod.
+ * It serves many purposes: checking that the Creator ID is correct, but also creating an account
+ * from scratch (to allow register-less setup of Hall of Fame), or update account info like the
+ * Creator name.
+ *
+ * @see CreatorService.authenticateCreatorForMod
+ */
+export type ModCreatorAuthorization = Readonly<{
+  kind: 'mod';
+  creatorName: Creator['creatorName'];
+  creatorId: CreatorId;
+  creatorIdProvider: Creator['creatorIdProvider'];
+  hwid: HardwareId;
+  ip: IpAddress;
+}>;
 
 type SocialLinkMapper = {
   [TPlatform in keyof CreatorSocial]: (link: NonNullable<CreatorSocial[TPlatform]>) => string;
 };
 
 /**
- * Service to manage authenticate and manage Creators.
+ * Service to manage and authenticate Creators.
  */
 @Injectable()
 export class CreatorService {
@@ -67,6 +103,57 @@ export class CreatorService {
   }
 
   /**
+   * Authenticates a creator based on the provided authorization kind and details.
+   *
+   * @see authenticateCreatorSimple
+   * @see authenticateCreatorForMod
+   */
+  public async authenticateCreator(authorization: CreatorAuthorization): Promise<Creator> {
+    // Validate the Creator ID.
+    if (!uuid.validate(authorization.creatorId) || uuid.version(authorization.creatorId) != 4) {
+      throw new InvalidCreatorIdError(authorization.creatorId);
+    }
+
+    switch (authorization.kind) {
+      case 'simple':
+        return await this.authenticateCreatorSimple(authorization);
+      case 'mod':
+        return await this.authenticateCreatorForMod(authorization);
+      default:
+        throw authorization satisfies never;
+    }
+  }
+
+  /**
+   * Contrarily to {@link authenticateCreatorForMod} which performs complex logic (creator ID/name
+   * matching + account creation + account update), this method is more like a `checkApiKey()` and
+   * only checks that the given Creator ID matches a creator, at which point you are considered
+   * authenticated.
+   */
+  private async authenticateCreatorSimple({
+    creatorId,
+    ip
+  }: SimpleCreatorAuthorization): Promise<Creator> {
+    let creator = await this.prisma.creator.findUnique({ where: { creatorId } });
+
+    if (!creator) {
+      throw new CreatorNotFoundError();
+    }
+
+    // Update the last used IP address if it changed.
+    if (creator.ips[0] != ip) {
+      creator = await this.prisma.creator.update({
+        where: { id: creator.id },
+        data: {
+          ips: Array.from(new Set([ip, ...creator.ips])).slice(0, 3)
+        }
+      });
+    }
+
+    return creator;
+  }
+
+  /**
    * Creates a new Creator or retrieves an existing one.
    * This method is to be used as authentication and account creation as it performs Creator Name/
    * Creator ID validation and updates.
@@ -75,21 +162,23 @@ export class CreatorService {
    * - If the Creator ID doesn't match any record, a new Creator is created with the provided
    *   credentials.
    * - If the Creator ID matches a record, the request is authenticated, and the Creator Name is
-   *   updated if it changed.
+   *   updated if it is changed.
    *
-   * This is only a wrapper around {@link authenticateCreatorUnsafe} that handles concurrent
+   * This is only a wrapper around {@link authenticateCreatorForModUnsafe} that handles concurrent
    * requests conflicts.
    */
-  public async authenticateCreator(authorization: CreatorAuthorization): Promise<Creator> {
+  private async authenticateCreatorForMod(
+    authorization: ModCreatorAuthorization
+  ): Promise<Creator> {
     try {
-      return await this.authenticateCreatorUnsafe(authorization);
+      return await this.authenticateCreatorForModUnsafe(authorization);
     } catch (error) {
       // This can happen if a Creator account didn't exist and that user simultaneously sends
       // two authenticated requests that lead to the creation of the same Creator account due
       // to race condition, for example, "/me" and "/me/stats" when launching the mod.
       // In that case we only have to retry the authentication.
       if (isPrismaError(error) && error.code == 'P2002') {
-        return await this.authenticateCreatorUnsafe(authorization);
+        return await this.authenticateCreatorForModUnsafe(authorization);
       }
 
       throw error;
@@ -97,22 +186,17 @@ export class CreatorService {
   }
 
   /**
-   * See {@link authenticateCreator} for the method's purpose, this is only the part of the
+   * See {@link authenticateCreatorForMod} for the method's purpose, this is only the part of the
    * authentication that can be retried in case of error due to concurrent requests leading to an
    * account creation (and therefore a unique constraint violation).
    */
-  public async authenticateCreatorUnsafe({
+  public async authenticateCreatorForModUnsafe({
     creatorId,
     creatorIdProvider,
     creatorName,
     hwid,
     ip
-  }: CreatorAuthorization): Promise<Creator> {
-    // Validate the Creator ID.
-    if (!uuid.validate(creatorId) || uuid.version(creatorId) != 4) {
-      throw new InvalidCreatorIdError(creatorId);
-    }
-
+  }: ModCreatorAuthorization): Promise<Creator> {
     // Note: we do NOT validate the Creator Name immediately, as we need to support legacy
     // Creator Names that were validated with a different regex.
     // We validate it only when an account is created or updated.
@@ -149,32 +233,13 @@ export class CreatorService {
 
     // After this previous check we know that the first and only creator is the one we want to
     // authenticate or create.
-    let creator = creators[0];
+    const creator = creators[0];
 
-    if (creator) {
-      // Check if the Creator ID and Creator Name are correct and update information if needed.
-      const { creator: updatedCreator, modified } = await this.authenticateAndUpdateCreator(
-        creatorId,
-        creatorIdProvider,
-        creatorName,
-        creatorNameSlug,
-        hwid,
-        ip,
-        creator
-      );
+    return creator ? updateCreator.call(this) : createCreator.call(this);
 
-      if (updatedCreator.creatorName != creator.creatorName) {
-        backgroundUpdateCreatorNameTranslation.call(this);
-      }
-
-      creator = updatedCreator;
-
-      if (modified) {
-        this.logger.log(`Updated creator "${creator.creatorName}".`);
-      }
-    } else {
+    async function createCreator(this: CreatorService): Promise<Creator> {
       // Create a new creator.
-      creator = await this.prisma.creator.create({
+      const newCreator = await this.prisma.creator.create({
         data: {
           creatorId,
           creatorIdProvider,
@@ -188,10 +253,60 @@ export class CreatorService {
 
       backgroundUpdateCreatorNameTranslation.call(this);
 
-      this.logger.log(`Created creator "${creator.creatorName}".`);
+      this.logger.log(`Created creator "${newCreator.creatorName}".`);
+
+      return newCreator;
     }
 
-    return creator;
+    async function updateCreator(this: CreatorService): Promise<Creator> {
+      assert(creator);
+
+      // Check if the Creator ID match, unless the reset flag is set.
+      if (creator.creatorId != creatorId && !creator.allowCreatorIdReset) {
+        // This should never happen, as when we enter this condition, it means that we matched
+        // on the Creator Name and not the Creator ID.
+        assert(creator.creatorName);
+
+        throw new IncorrectCreatorIdError(creator.creatorName);
+      }
+
+      const modified =
+        creator.creatorName != creatorName ||
+        creator.creatorNameSlug != creatorNameSlug ||
+        creator.hwids[0] != hwid ||
+        creator.ips[0] != ip ||
+        creator.creatorId != creatorId;
+
+      if (!modified) {
+        return creator;
+      }
+
+      // Update the Creator Name and Hardware IDs, and Creator ID if it was reset.
+      const updatedCreator = await this.prisma.creator.update({
+        where: { id: creator.id },
+        data: {
+          creatorName:
+            // Validate the Creator Name if it changed.
+            creator.creatorName == creatorName
+              ? creatorName
+              : CreatorService.validateCreatorName(creatorName),
+          creatorNameSlug,
+          allowCreatorIdReset: false,
+          creatorId,
+          creatorIdProvider,
+          hwids: Array.from(new Set([hwid, ...creator.hwids])).slice(0, 3),
+          ips: Array.from(new Set([ip, ...creator.ips])).slice(0, 3)
+        }
+      });
+
+      if (updatedCreator.creatorName != creator.creatorName) {
+        backgroundUpdateCreatorNameTranslation.call(this);
+      }
+
+      this.logger.log(`Updated creator "${creator.creatorName}".`);
+
+      return updatedCreator;
+    }
 
     function backgroundUpdateCreatorNameTranslation(this: CreatorService): void {
       assert(creator);
@@ -284,64 +399,6 @@ export class CreatorService {
   }
 
   /**
-   * Authenticates and updates a creator's information (like its Creator Name), ensuring the
-   * provided details match or are updated in the database.
-   *
-   * @throws IncorrectCreatorIdError If the provided Creator ID doesn't match the Creator Name.
-   *
-   * @return A promise that resolves with the updated creator entity, and a boolean indicating if modifications were made.
-   */
-  private async authenticateAndUpdateCreator(
-    creatorId: Creator['creatorId'],
-    creatorIdProvider: Creator['creatorIdProvider'],
-    creatorName: Creator['creatorName'],
-    creatorNameSlug: Creator['creatorNameSlug'],
-    hwid: HardwareId,
-    ip: IpAddress,
-    creator: Creator
-  ): Promise<{ creator: Creator; modified: boolean }> {
-    // Check if the Creator ID match, unless the reset flag is set.
-    if (creator.creatorId != creatorId && !creator.allowCreatorIdReset) {
-      // This should never happen, as when we enter this condition, it means that we matched
-      // on the Creator Name and not the Creator ID.
-      assert(creator.creatorName);
-
-      throw new IncorrectCreatorIdError(creator.creatorName);
-    }
-
-    // If no changes are needed, return the creator as is.
-    if (
-      creator.creatorName == creatorName &&
-      creator.creatorNameSlug == creatorNameSlug &&
-      creator.hwids.includes(hwid) &&
-      creator.ips.includes(ip) &&
-      creator.creatorId == creatorId
-    ) {
-      return { creator, modified: false };
-    }
-
-    // Update the Creator Name and Hardware IDs, and Creator ID if it was reset.
-    const updatedCreator = await this.prisma.creator.update({
-      where: { id: creator.id },
-      data: {
-        creatorName:
-          // Validate the Creator Name if it changed.
-          creator.creatorName == creatorName
-            ? creatorName
-            : CreatorService.validateCreatorName(creatorName),
-        creatorNameSlug,
-        allowCreatorIdReset: false,
-        creatorId,
-        creatorIdProvider,
-        hwids: Array.from(new Set([hwid, ...creator.hwids])),
-        ips: Array.from(new Set([ip, ...creator.ips]))
-      }
-    });
-
-    return { creator: updatedCreator, modified: true };
-  }
-
-  /**
    * Validates that a string is a valid Creator Name according to {@link CreatorService.nameRegex}
    *
    * @throws InvalidCreatorNameError If it is not a valid Creator Name.
@@ -372,7 +429,7 @@ export class CreatorService {
       name
         .replaceAll("'", '')
         .replaceAll('’', '')
-        // Replace consecutive spaces or hyphens by a single hyphen.
+        // Replace consecutive spaces or hyphens with a single hyphen.
         .replace(/\s+|-+/g, '-')
         // Remove leading and trailing hyphens.
         .replace(/^-+|-+$/g, '')
@@ -405,6 +462,12 @@ export class InvalidCreatorNameError extends CreatorError {
     );
 
     this.incorrectName = incorrectName;
+  }
+}
+
+export class CreatorNotFoundError extends CreatorError {
+  public constructor() {
+    super(`No Creator with this Creator ID was found.`);
   }
 }
 

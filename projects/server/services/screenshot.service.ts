@@ -9,8 +9,6 @@ import * as dfns from 'date-fns';
 import type { FastifyRequest } from 'fastify';
 import { filesize } from 'filesize';
 import {
-  type HardwareId,
-  type IpAddress,
   type JsonObject,
   type Maybe,
   optionallySerialized,
@@ -98,14 +96,10 @@ export class ScreenshotService {
    * - Creating a {@link Screenshot} record in the database.
    */
   public async ingestScreenshot({
-    ip,
-    hwid,
     healthcheck,
     ...data
   }: {
-    ip: Maybe<IpAddress>;
-    hwid: Maybe<HardwareId>;
-    creator: Pick<Creator, 'id' | 'creatorName' | 'creatorNameSlug'>;
+    creator: Pick<Creator, 'id' | 'creatorName' | 'creatorNameSlug' | 'hwids' | 'ips'>;
     cityName: string;
     cityMilestone: number;
     cityPopulation: number;
@@ -124,10 +118,8 @@ export class ScreenshotService {
       (#${data.creator.id}), size ${filesize(data.file.length)}.`
     );
 
-    if (hwid && ip) {
-      // Check upload limit, throws if reached.
-      await this.checkUploadLimit(data.creator.id, hwid, ip);
-    }
+    // Check upload limit, throws if reached.
+    await this.checkUploadLimit(data.creator);
 
     let mark = Date.now();
 
@@ -197,8 +189,8 @@ export class ScreenshotService {
         select: { id: true, cityName: true },
         data: {
           createdAt: data.createdAt,
-          hwid: hwid ?? null,
-          ip: ip ?? null,
+          hwid: data.creator.hwids[0] ?? null,
+          ip: data.creator.ips[0] ?? null,
           creatorId: data.creator.id,
           cityName: data.cityName,
           cityMilestone: data.cityMilestone,
@@ -738,11 +730,7 @@ export class ScreenshotService {
    *
    * @throws ScreenshotRateLimitExceededError If the limit is reached.
    */
-  private async checkUploadLimit(
-    creatorId: Creator['id'],
-    hwid: HardwareId,
-    ip: IpAddress
-  ): Promise<void> {
+  private async checkUploadLimit(creator: Pick<Creator, 'id' | 'ips' | 'hwids'>): Promise<void> {
     // Let's find out by retrieving the screenshots uploaded in the last 24 hours, oldest first,
     // so if the limit is reached, we can check based on the date when the next screenshot can
     // be uploaded.
@@ -751,7 +739,11 @@ export class ScreenshotService {
       orderBy: { createdAt: 'asc' },
       where: {
         // biome-ignore lint/style/useNamingConvention: prisma
-        OR: [{ creatorId }, { hwid }, { ip }],
+        OR: [
+          { creatorId: creator.id },
+          { hwid: { in: creator.hwids } },
+          { ip: { in: creator.hwids } }
+        ],
         createdAt: { gt: dfns.subDays(new Date(), 1) }
       }
     });

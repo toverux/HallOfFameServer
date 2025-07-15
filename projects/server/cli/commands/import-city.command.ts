@@ -194,8 +194,6 @@ export class ImportCityCommand extends CommandRunner {
       const fileBytes = await Bun.file(absoluteFilePath).arrayBuffer();
 
       const screenshot = await this.screenshotService.ingestScreenshot({
-        ip: undefined,
-        hwid: undefined,
         creator,
         cityName: cityInfo.cityName,
         cityMilestone: cityInfo.cityMilestone,

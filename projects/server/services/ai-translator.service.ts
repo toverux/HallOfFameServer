@@ -46,13 +46,11 @@ export class AiTranslatorService {
    * Represents the schema for validating a translation response from OpenAI.
    * This schema ensures that all required properties are present and non-empty.
    */
-  private static readonly openAiResponseZodSchema = z
-    .strictObject({
-      twoLetterLocaleCode: z.string().length(2).nonempty(),
-      transliteration: z.string().nonempty(),
-      translation: z.string().nonempty()
-    })
-    .required();
+  private static readonly openAiResponseZodSchema = z.strictObject({
+    twoLetterLocaleCode: z.string().length(2).nonempty(),
+    transliteration: z.string().nonempty(),
+    translation: z.string().nonempty()
+  });
 
   /**
    * A regular expression that matches text containing characters outside the Latin script, ignoring

@@ -1,0 +1,7 @@
+### Webhook: Link/Update Cities Collective User
+
+POST {{url}}/webhooks/citiescollective/user/updated
+Authorization: CreatorID {{creatorId}}
+Content-Type: application/json
+
+{ "id": "129584037" }

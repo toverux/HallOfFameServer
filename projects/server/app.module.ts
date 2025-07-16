@@ -13,14 +13,19 @@ import { StandardError } from './common';
 import { config } from './config';
 import { FastifyLoggerMiddleware } from './fastify';
 import { SharedModule } from './shared.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
 
 @Module({
   imports: [
     ScheduleModule.forRoot(),
     SentryModule.forRoot(),
-    RouterModule.register([{ path: 'api/v1', module: ApiModule }]),
+    RouterModule.register([
+      { path: 'api/v1', module: ApiModule },
+      { path: 'webhooks', module: WebhooksModule }
+    ]),
     SharedModule,
-    ApiModule
+    ApiModule,
+    WebhooksModule
   ]
 })
 export class AppModule implements NestModule {

@@ -24,11 +24,9 @@ import { CreatorService, PrismaService } from '../../services';
 @UseGuards(CreatorAuthorizationGuard)
 export class CreatorController {
   /** @see updateMyself */
-  private static readonly updateMyselfBodySchema = z
-    .strictObject({
-      modSettings: z.looseObject({}).optional()
-    })
-    .required();
+  private static readonly updateMyselfBodySchema = z.strictObject({
+    modSettings: z.looseObject({}).optional()
+  });
 
   @Inject(PrismaService)
   private readonly prisma!: PrismaService;

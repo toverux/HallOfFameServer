@@ -63,6 +63,9 @@ model Creator {
   /// JSON object containing the latest known mod settings this user used.
   /// Used to better understand the mod's usage.
   modSettings           Json?
+  /// Cities Collective User ID (https://citiescollective.space).
+  /// Used to query info about a CC user.
+  citiesCollectiveId    String?
   /// One to many relationship with posted Screenshots.
   screenshots           Screenshot[]      @relation("screenshots")
   /// One to many relationship with reported Screenshots.
@@ -294,11 +297,11 @@ model View {
 
 /// A record of a database migration that has been executed.
 model Migration {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
   /// The name of the migration file (in prisma/migrations).
-  name        String   @unique
+  name       String   @unique
   /// When the migration was executed.
-  executedAt  DateTime @default(now())
+  executedAt DateTime @default(now())
 
   @@map("migrations")
 }

@@ -164,6 +164,9 @@ model Screenshot {
   /// Each setting that has a non-default value is recorded here, otherwise it is simply not present.
   /// It is a map of "setting code => float value" and validated by application code.
   renderSettings       Json
+  /// Cities Collective City ID (https://citiescollective.space) set on matching cities when the
+  /// user synced their account with Hall of Fame.
+  citiesCollectiveId   String?
   /// Schema-less JSON object of metadata sent by the client.
   /// Used for analytical/debugging purposes; not used by business logic.
   metadata             Json

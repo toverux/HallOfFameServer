@@ -177,7 +177,7 @@ export class CreatorService {
     // - If the Creator ID is incorrect (not a UUID), reject request.
     // - If the Creator ID is correct, we'll update the Creator Name if it changed.
     // If we don't find a match, create a new account.
-    const creatorNameSlug = CreatorService.getCreatorNameSlug(creatorName);
+    const creatorNameSlug = this.getCreatorNameSlug(creatorName);
 
     const creators = await this.prisma.creator.findMany({
       where: creatorName
@@ -295,6 +295,27 @@ export class CreatorService {
   }
 
   /**
+   * Transforms a Creator Name to a slug-style one used to check for username collisions or future
+   * URL routing.
+   */
+  public getCreatorNameSlug(name: string | null): string | null {
+    if (!name?.trim()) {
+      return null;
+    }
+
+    return (
+      name
+        .replaceAll("'", '')
+        .replaceAll('’', '')
+        // Replace consecutive spaces or hyphens with a single hyphen.
+        .replace(/\s+|-+/g, '-')
+        // Remove leading and trailing hyphens.
+        .replace(/^-+|-+$/g, '')
+        .toLowerCase()
+    );
+  }
+
+  /**
    * Update of the transliteration and translation of the creator name for the given screenshot,
    * ignoring {@link Creator.needsTranslation}.
    * Skips creators with names that are not eligible to transliteration/translation (see
@@ -351,6 +372,7 @@ export class CreatorService {
       creatorNameLatinized: creator.creatorNameLatinized,
       creatorNameTranslated: creator.creatorNameTranslated,
       createdAt: creator.createdAt.toISOString(),
+      citiesCollectiveId: creator.citiesCollectiveId,
       socials: creator.socials.map(social => ({
         platform: social.platform,
         link: `${config.http.baseUrl}/api/v1/creators/${creator.id}/social/${social.platform}`,
@@ -375,27 +397,6 @@ export class CreatorService {
 
     // Normalize multiple spaces to a single space.
     return name.replace(/\s+/g, ' ');
-  }
-
-  /**
-   * Transforms a Creator Name to a slug-style one used to check for username collisions or future
-   * URL routing.
-   */
-  private static getCreatorNameSlug(name: string | null): string | null {
-    if (!name?.trim()) {
-      return null;
-    }
-
-    return (
-      name
-        .replaceAll("'", '')
-        .replaceAll('’', '')
-        // Replace consecutive spaces or hyphens with a single hyphen.
-        .replace(/\s+|-+/g, '-')
-        // Remove leading and trailing hyphens.
-        .replace(/^-+|-+$/g, '')
-        .toLowerCase()
-    );
   }
 }
 

@@ -18,6 +18,7 @@ import {
 import { isPrismaError } from '../common/prisma-errors';
 import { config } from '../config';
 import { AiTranslatorService } from './ai-translator.service';
+import { CitiesCollectiveService } from './cities-collective.service';
 import { CreatorService } from './creator.service';
 import { DateFnsLocalizationService } from './date-fns-localization.service';
 import { FavoriteService } from './favorite.service';
@@ -67,6 +68,9 @@ export class ScreenshotService {
 
   @Inject(ViewService)
   private readonly viewService!: ViewService;
+
+  @Inject(CitiesCollectiveService)
+  private readonly citiesCollectiveService!: CitiesCollectiveService;
 
   @Inject(ScreenshotProcessingService)
   private readonly screenshotProcessing!: ScreenshotProcessingService;
@@ -511,6 +515,10 @@ export class ScreenshotService {
         screenshot.createdAt,
         { locale: dfnsLocale, addSuffix: true }
       ),
+      citiesCollectiveId: screenshot.citiesCollectiveId,
+      citiesCollectiveUrl:
+        screenshot.citiesCollectiveId &&
+        this.citiesCollectiveService.getCityPageUrl(screenshot.citiesCollectiveId),
       creatorId: screenshot.creatorId,
       creator: optionallySerialized(
         screenshot.creator && this.creatorService.serialize(screenshot.creator)
@@ -918,6 +926,7 @@ export class ScreenshotService {
       imageUrl4K: screenshot.imageUrl4K,
       paradoxModIds: screenshot.paradoxModIds,
       renderSettings: screenshot.renderSettings,
+      citiesCollectiveId: screenshot.citiesCollectiveId,
       metadata: screenshot.metadata
     };
   }

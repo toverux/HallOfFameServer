@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Get,
@@ -12,7 +11,7 @@ import {
   Res,
   UseGuards
 } from '@nestjs/common';
-import type { Creator, CreatorSocial, Prisma } from '@prisma/client';
+import type { Creator, Prisma } from '@prisma/client';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { allFulfilled, type JsonObject } from '../../common';
@@ -130,53 +129,35 @@ export class CreatorController {
 
   /**
    * Redirects a request to a creator's social media page based on the provided platform.
-   * Validates the platform and ensures the creator has a corresponding social link.
-   * If valid, redirection occurs and the click count for that link is incremented.
+   * Ensures the creator has a corresponding social link and redirects to it.
+   * The click count for that link is incremented.
    */
   @Get(':id/social/:platform')
   public async redirectCreatorSocial(
     @Req() req: FastifyRequest,
     @Res() res: FastifyReply,
     @Param('id') creatorId: Creator['id'],
-    @Param('platform') platform: keyof CreatorSocial | string
+    @Param('platform') platformName: string
   ): Promise<void> {
     const creator = await this.fetchCreatorById(creatorId, req);
 
-    // Check the platform is supported and available for this user.
-    if (!CreatorService.isValidSocialPlatform(platform)) {
-      throw new BadRequestException(`Social platform "${platform}" is not supported.`);
-    }
+    const platform = creator.socials.find(social => social.platform == platformName);
 
-    const link = creator.social[platform];
-
-    if (!link) {
+    if (!platform) {
       throw new NotFoundException(
-        `Creator "${creator.creatorName}" has no social link for "${platform}".`
+        `Creator "${creator.creatorName}" has no social link for "${platformName}".`
       );
     }
 
-    // Make the URL and redirect asap.
-    const url = CreatorService.formatSocialLink[platform]({
-      // Little contraption to avoid a type error and stay strict.
-      channel: '',
-      code: '',
-      serverName: '',
-      username: '',
-      ...link
-    });
-
-    res.redirect(url, HttpStatus.FOUND);
+    // Redirect to the direct link stored in the database.
+    res.redirect(platform.link, HttpStatus.FOUND);
 
     // Increment click count for this platform.
+    platform.clicks++;
+
     await this.prisma.creator.update({
       where: { id: creator.id },
-      data: {
-        social: {
-          update: {
-            [platform]: { ...link, clicks: link.clicks + 1 }
-          }
-        }
-      }
+      data: { socials: creator.socials }
     });
   }
 

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { ForbiddenException, Inject, Injectable, Logger } from '@nestjs/common';
-import type { Creator, CreatorSocial } from '@prisma/client';
+import type { Creator } from '@prisma/client';
 import * as sentry from '@sentry/bun';
 import { oneLine } from 'common-tags';
 import * as uuid from 'uuid';
@@ -12,6 +12,7 @@ import {
   StandardError
 } from '../common';
 import { isPrismaError } from '../common/prisma-errors';
+import { config } from '../config';
 import { AiTranslatorService } from './ai-translator.service';
 import { PrismaService } from './prisma.service';
 
@@ -46,37 +47,11 @@ export type ModCreatorAuthorization = Readonly<{
   ip: IpAddress;
 }>;
 
-type SocialLinkMapper = {
-  [TPlatform in keyof CreatorSocial]: (link: NonNullable<CreatorSocial[TPlatform]>) => string;
-};
-
 /**
  * Service to manage and authenticate Creators.
  */
 @Injectable()
 export class CreatorService {
-  /**
-   * An object with functions to map a supported social media to an HTTP link.
-   */
-  public static readonly formatSocialLink = {
-    discordServer: link => `https://discord.gg/${link.code}`,
-    paradoxMods: link => `https://mods.paradoxplaza.com/authors/${link.username}/cities_skylines_2`,
-    reddit: link => `https://reddit.com/user/${link.username}`,
-    twitch: link => `https://twitch.tv/${link.channel}`,
-    youtube: link => `https://youtube.com/@${link.channel}`
-  } satisfies SocialLinkMapper;
-
-  /**
-   * An object with functions to map a supported social media to a description.
-   */
-  public static readonly formatSocialLinkDescription = {
-    discordServer: link => `Join ${link.serverName} on Discord`,
-    paradoxMods: link => `${link.username} on Paradox Mods`,
-    reddit: link => `u/${link.username} on Reddit`,
-    twitch: link => `${link.channel} on Twitch`,
-    youtube: link => `@${link.channel} on YouTube`
-  } satisfies SocialLinkMapper;
-
   /**
    * Regular expression to validate a Creator Name:
    * - Must contain only letters, numbers, spaces, hyphens, apostrophes, underscores and Chinese
@@ -97,10 +72,6 @@ export class CreatorService {
   private readonly aiTranslator!: AiTranslatorService;
 
   private readonly logger = new Logger(CreatorService.name);
-
-  public static isValidSocialPlatform(platform: string): platform is keyof CreatorSocial {
-    return platform in CreatorService.formatSocialLink;
-  }
 
   /**
    * Authenticates a creator based on the provided authorization kind and details.
@@ -247,7 +218,7 @@ export class CreatorService {
           creatorNameSlug,
           hwids: [hwid],
           ips: [ip],
-          social: {}
+          socials: []
         }
       });
 
@@ -375,27 +346,11 @@ export class CreatorService {
       creatorNameLatinized: creator.creatorNameLatinized,
       creatorNameTranslated: creator.creatorNameTranslated,
       createdAt: creator.createdAt.toISOString(),
-      social: Object.entries(creator.social)
-        .filter(
-          (kv): kv is [keyof CreatorSocial, NonNullable<CreatorSocial[keyof CreatorSocial]>] =>
-            CreatorService.isValidSocialPlatform(kv[0]) && kv[1] != null
-        )
-        .reduce<Record<string, JsonObject>>((social, [platform, link]) => {
-          social[platform] = {
-            description: CreatorService.formatSocialLinkDescription[platform]({
-              // Little contraption to avoid a type error and stay strict.
-              channel: '',
-              code: '',
-              serverName: '',
-              username: '',
-              ...link
-            }),
-            link: `/api/v1/creators/${creator.id}/social/${platform}`,
-            ...link
-          };
-
-          return social;
-        }, {})
+      socials: creator.socials.map(social => ({
+        platform: social.platform,
+        link: `${config.http.baseUrl}/api/v1/creators/${creator.id}/social/${social.platform}`,
+        clicks: social.clicks
+      }))
     };
   }
 

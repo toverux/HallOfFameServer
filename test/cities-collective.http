@@ -1,7 +1,12 @@
-### Webhook: Link/Update Cities Collective User
+### Hall of Fame: Webhook: Link/Update Cities Collective User
 
 POST {{url}}/webhooks/citiescollective/user/updated
 Authorization: CreatorID {{creatorId}}
 Content-Type: application/json
 
 { "id": "129584037" }
+
+### Cities Collective: Get user info
+
+GET https://citiescollective.space/api/v1/hof-creator/me
+Authorization: CreatorID {{creatorId}}

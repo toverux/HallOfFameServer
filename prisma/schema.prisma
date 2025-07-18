@@ -58,13 +58,13 @@ model Creator {
   /// security.
   /// Most-recently used IP is first in the list.
   ips                   String[]
-  /// Map of social accounts of the Creator.
-  social                CreatorSocial
+  /// Array of social accounts of the Creator.
+  socials               CreatorSocial[]
   /// JSON object containing the latest known mod settings this user used.
   /// Used to better understand the mod's usage.
   modSettings           Json?
-  /// Cities Collective User ID (https://citiescollective.space).
-  /// Used to query info about a CC user.
+  /// Cities Collective User ID (https://citiescollective.space) when that user synced their account
+  /// with Hall of Fame.
   citiesCollectiveId    String?
   /// One to many relationship with posted Screenshots.
   screenshots           Screenshot[]      @relation("screenshots")
@@ -89,39 +89,15 @@ enum CreatorIdProvider {
   paradox
 }
 
-/// A map of links to social accounts of a Creator.
+/// A social link for a Creator.
+/// Synchronized from the Cities Collective API.
 type CreatorSocial {
-  discordServer DiscordServerSocialLink?
-  paradoxMods   ParadoxModsSocialLink?
-  reddit        RedditSocialLink?
-  twitch        TwitchSocialLink?
-  youtube       YoutubeSocialLink?
-}
-
-type DiscordServerSocialLink {
-  serverName String
-  code       String
-  clicks     Int    @default(0)
-}
-
-type ParadoxModsSocialLink {
-  username String
+  /// Platform, ex. "youtube", "twitch", etc.
+  platform String
+  /// Full link to the webpage for the creator's page, ex. "https://youtube.com/@Shaun_vids"
+  link     String
+  /// Number of times we redirected to the link.
   clicks   Int    @default(0)
-}
-
-type RedditSocialLink {
-  username String
-  clicks   Int    @default(0)
-}
-
-type TwitchSocialLink {
-  channel String
-  clicks  Int    @default(0)
-}
-
-type YoutubeSocialLink {
-  channel String
-  clicks  Int    @default(0)
 }
 
 /// A screenshot uploaded by a Creator.

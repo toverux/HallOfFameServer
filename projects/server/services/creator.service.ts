@@ -251,7 +251,7 @@ export class CreatorService {
         }
       });
 
-      backgroundUpdateCreatorNameTranslation.call(this);
+      backgroundUpdateCreatorNameTranslation.call(this, newCreator);
 
       this.logger.log(`Created creator "${newCreator.creatorName}".`);
 
@@ -300,7 +300,7 @@ export class CreatorService {
       });
 
       if (updatedCreator.creatorName != creator.creatorName) {
-        backgroundUpdateCreatorNameTranslation.call(this);
+        backgroundUpdateCreatorNameTranslation.call(this, updatedCreator);
       }
 
       this.logger.log(`Updated creator "${creator.creatorName}".`);
@@ -308,12 +308,13 @@ export class CreatorService {
       return updatedCreator;
     }
 
-    function backgroundUpdateCreatorNameTranslation(this: CreatorService): void {
-      assert(creator);
-
-      this.updateCreatorNameTranslation(creator).catch(error => {
+    function backgroundUpdateCreatorNameTranslation(
+      this: CreatorService,
+      creatorToTranslate: Creator
+    ): void {
+      this.updateCreatorNameTranslation(creatorToTranslate).catch(error => {
         this.logger.error(
-          `Failed to translate creator name "${creator.creatorName}" (#${creator.id}).`,
+          `Failed to translate creator name "${creatorToTranslate.creatorName}" (#${creatorToTranslate.id}).`,
           error
         );
 

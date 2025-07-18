@@ -59,6 +59,7 @@
     "filesize": "^11.0.1",
     "lefthook": "^1.12.2",
     "lru-cache": "^11.1.0",
+    "mongodb": "^6.17.0",
     "nest-commander": "^3.17.0",
     "open": "^10.2.0",
     "openai": "^5.9.0",

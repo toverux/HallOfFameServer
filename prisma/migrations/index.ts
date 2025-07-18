@@ -1,7 +1,5 @@
-import type { Prisma } from '@prisma/client';
+import type { ClientSession, Db } from 'mongodb';
 
-export interface MigrationModule {
-  readonly run: MigrationRunFn;
+export interface Migration {
+  readonly run: (db: Db, session: ClientSession) => Promise<void>;
 }
-
-export type MigrationRunFn = (prisma: Prisma.TransactionClient) => Promise<void>;

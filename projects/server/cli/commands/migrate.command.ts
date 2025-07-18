@@ -1,12 +1,13 @@
+import assert from 'node:assert/strict';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import { Inject, type Provider } from '@nestjs/common';
-import type { Prisma } from '@prisma/client';
+import type { Provider } from '@nestjs/common';
 import chalk from 'chalk';
+import { type ClientSession, type Db, MongoClient } from 'mongodb';
 import { Command, CommandRunner } from 'nest-commander';
-import type { MigrationModule } from '../../../../prisma/migrations';
+import type { Migration } from '../../../../prisma/migrations';
+import { config } from '../../config';
 import { iconsole } from '../../iconsole';
-import { PrismaService } from '../../services';
 
 @Command({
   name: 'migrate',
@@ -15,37 +16,46 @@ import { PrismaService } from '../../services';
 export class MigrateCommand extends CommandRunner {
   public static readonly providers: () => Provider[] = () => [MigrateCommand];
 
-  @Inject(PrismaService)
-  private readonly prisma!: PrismaService;
-
   private readonly migrationsPath = path.join(import.meta.dir, '../../../../prisma/migrations');
 
+  private readonly client = new MongoClient(config.databaseUrl);
+
+  private db: Db | undefined;
+
   public override async run(): Promise<void> {
-    const pendingMigrations = await this.getPendingMigrations();
-
-    if (!pendingMigrations.length) {
-      iconsole.info(chalk.bold.greenBright(`No pending migrations to run.`));
-      return;
-    }
-
-    iconsole.info(
-      chalk.bold(
-        `Found ${pendingMigrations.length} pending migrations: ${pendingMigrations.join(', ')}.`
-      )
-    );
-
     try {
-      await this.prisma.$transaction(async tx => {
-        for (const migrationFile of pendingMigrations) {
-          iconsole.info(`⌛ Running migration ${migrationFile}...`);
+      await this.connect();
 
-          await this.runMigration(migrationFile, tx);
+      const pendingMigrations = await this.getPendingMigrations();
 
-          iconsole.info(`✅ Ran migration ${migrationFile}.`);
-        }
-      });
+      if (!pendingMigrations.length) {
+        iconsole.info(chalk.bold.greenBright(`No pending migrations to run.`));
+        return;
+      }
 
-      iconsole.info(chalk.bold.greenBright(`All migrations completed successfully.`));
+      iconsole.info(
+        chalk.bold(
+          `Found ${pendingMigrations.length} pending migrations: ${pendingMigrations.join(', ')}.`
+        )
+      );
+
+      const session = this.client.startSession();
+
+      try {
+        await session.withTransaction(async () => {
+          for (const migrationFile of pendingMigrations) {
+            iconsole.info(`⌛ Running migration ${chalk.bold(migrationFile)}...`);
+
+            await this.runMigration(migrationFile, session);
+
+            iconsole.info(`✅ Ran migration ${chalk.bold(migrationFile)}`);
+          }
+        });
+
+        iconsole.info(chalk.bold.greenBright(`All migrations completed successfully.`));
+      } finally {
+        await session.endSession();
+      }
     } catch (error) {
       iconsole.error(
         chalk.bold.redBright(
@@ -54,6 +64,8 @@ export class MigrateCommand extends CommandRunner {
       );
 
       throw error;
+    } finally {
+      await this.disconnect();
     }
   }
 
@@ -73,12 +85,36 @@ export class MigrateCommand extends CommandRunner {
   }
 
   /**
+   * Connect to MongoDB using the native client.
+   */
+  private async connect(): Promise<void> {
+    await this.client.connect();
+
+    this.db = this.client.db();
+  }
+
+  /**
+   * Disconnect from MongoDB.
+   */
+  private async disconnect(): Promise<void> {
+    await this.client.close();
+
+    this.db = undefined;
+  }
+
+  /**
    * Get all pending migrations.
    */
   private async getPendingMigrations(): Promise<string[]> {
+    assert(this.db);
+
     const migrationFiles = await this.getMigrationFiles();
 
-    const executedMigrations = await this.prisma.migration.findMany({ orderBy: { name: 'asc' } });
+    const executedMigrations = await this.db
+      .collection('migrations')
+      .find({}, { projection: { name: 1 } })
+      .sort({ name: 1 })
+      .toArray();
 
     const executedMigrationNames = executedMigrations.map(migration => migration.name);
 
@@ -86,23 +122,30 @@ export class MigrateCommand extends CommandRunner {
   }
 
   /**
-   * Run all pending migrations
+   * Run a single migration from a file path.
    */
-  private async runMigration(
-    migrationFile: string,
-    prisma: Prisma.TransactionClient
-  ): Promise<void> {
+  private async runMigration(migrationFile: string, session: ClientSession): Promise<void> {
+    assert(this.db);
+
     const migrationFilePath = path.join(this.migrationsPath, migrationFile);
 
-    // Import the migration file
-    const migration: MigrationModule = await import(migrationFilePath);
+    // Import the migration file.
+    const migrationModule = await import(migrationFilePath);
 
-    // Run the migration
-    await migration.run(prisma);
+    // Check module format.
+    const migration: Migration | undefined = migrationModule.migration;
+
+    if (!migration) {
+      throw `Migration ${migrationFile} does not have an exported "migration" object.`;
+    }
+
+    // Run the migration.
+    await migration.run(this.db, session);
 
     // Record the migration
-    await prisma.migration.create({
-      data: { name: migrationFile }
+    await this.db.collection('migrations').insertOne({
+      name: migrationFile,
+      executedAt: new Date()
     });
   }
 }

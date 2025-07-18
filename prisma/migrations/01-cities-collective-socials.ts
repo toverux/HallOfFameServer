@@ -24,9 +24,6 @@ export const migration: Migration = {
 
     const creators = await db.collection('creators').find({}, { session }).toArray();
 
-    // biome-ignore lint/suspicious/noConsole: ok
-    console.log(`Found ${creators.length} creators to migrate.`);
-
     // Prepare bulk operations
     const bulkOps: AnyBulkWriteOperation[] = [];
 

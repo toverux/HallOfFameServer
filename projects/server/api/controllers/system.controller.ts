@@ -18,7 +18,9 @@ export class SystemController {
     formData.append('cityMilestone', '20');
     formData.append('cityPopulation', '0');
 
-    const screenshotPath = Bun.fileURLToPath(import.meta.resolve('./healthcheck-test-image.jpg'));
+    const screenshotPath = Bun.fileURLToPath(
+      import.meta.resolve('../../../shared/assets/healthcheck-test-image.jpg')
+    );
 
     formData.append('screenshot', Bun.file(screenshotPath), 'screenshot.jpg');
 

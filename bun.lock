@@ -18,10 +18,7 @@
         "@biomejs/biome": "^2.1.1",
         "@fastify/multipart": "^9.0.3",
         "@fastify/static": "^8.2.0",
-        "@fontsource-variable/fira-code": "^5.2.6",
-        "@fontsource-variable/jetbrains-mono": "^5.2.6",
         "@fontsource-variable/overpass": "^5.2.6",
-        "@fontsource-variable/overpass-mono": "^5.2.6",
         "@fontsource/ibm-plex-mono": "^5.2.6",
         "@nestjs/common": "^11.1.3",
         "@nestjs/core": "^11.1.3",
@@ -285,13 +282,7 @@
 
     "@fig/complete-commander": ["@fig/complete-commander@3.2.0", "", { "dependencies": { "prettier": "^3.2.5" }, "peerDependencies": { "commander": "^11.1.0" } }, "sha512-1Holl3XtRiANVKURZwgpjCnPuV4RsHp+XC0MhgvyAX/avQwj7F2HUItYOvGi/bXjJCkEzgBZmVfCr0HBA+q+Bw=="],
 
-    "@fontsource-variable/fira-code": ["@fontsource-variable/fira-code@5.2.6", "", {}, "sha512-TZe+3xOB0JofZOTNeITYVsD1y/OiFucwTmcmhC19mj+GOgCnNkbp7bb1Jobfg+HjlAHr11HdptENKu0B+VkWLg=="],
-
-    "@fontsource-variable/jetbrains-mono": ["@fontsource-variable/jetbrains-mono@5.2.6", "", {}, "sha512-1pvtyK6H1paBOixbtZ9xfQgArVQ4SJMW3WSGZPOd5PiW3yg0t8umwKnjDMzW2ofb7qSdiXnsnIaHPT36vEOdlg=="],
-
     "@fontsource-variable/overpass": ["@fontsource-variable/overpass@5.2.6", "", {}, "sha512-uVMd5oSuELiXwTrPw/iPMALCZow1wLsYXV1jFybJ06BUCxWu4VaNOnYxDEREYi99b3T7rkpmWQV992Dx5g1gtQ=="],
-
-    "@fontsource-variable/overpass-mono": ["@fontsource-variable/overpass-mono@5.2.6", "", {}, "sha512-bm6fCiTbfXLm8ndjbbVWbPSkpnTMbuG1iRkKrslcIVakarAWVUVdg+RVgTQ5r4ZZgOS0v6y3Rglth3TAe5zRFg=="],
 
     "@fontsource/ibm-plex-mono": ["@fontsource/ibm-plex-mono@5.2.6", "", {}, "sha512-LTZJNTcpoT19fmwERZNMDI+ljHueuyhF2Qn+bICJ4Y4hxBLAAoJ2MRsGnyp0QNutW6t/25eyZpvaUK1LDrCo7Q=="],
 

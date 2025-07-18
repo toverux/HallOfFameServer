@@ -303,13 +303,18 @@ export class CreatorService {
   public async updateCreatorNameTranslation(
     creator: Pick<Creator, 'id' | 'creatorName'>
   ): Promise<{ translated: false } | { translated: true; creator: Creator }> {
-    // If no translation is needed, mark the screenshot as not needing translation.
+    // If no translation is needed, mark the creator as not needing translation.
     if (
       !(creator.creatorName && AiTranslatorService.isEligibleForTranslation(creator.creatorName))
     ) {
       await this.prisma.creator.update({
         where: { id: creator.id },
-        data: { needsTranslation: false }
+        data: {
+          needsTranslation: false,
+          creatorNameLocale: null,
+          creatorNameLatinized: null,
+          creatorNameTranslated: null
+        }
       });
 
       return { translated: false };

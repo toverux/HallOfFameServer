@@ -14,7 +14,7 @@ import { PrismaService } from './prisma.service';
  */
 @Injectable()
 export class CitiesCollectiveService {
-  private static readonly citiesCollectiveBaseUrl = 'https://citiescollective.space/api/v1';
+  private static readonly baseUrl = 'https://citiescollective.space';
 
   private static readonly citiesCollectiveUserSchema = z.looseObject({
     user: z.looseObject({
@@ -44,7 +44,7 @@ export class CitiesCollectiveService {
   private readonly logger = new Logger(CitiesCollectiveService.name);
 
   public getCityPageUrl(cityId: string): string {
-    return `${CitiesCollectiveService.citiesCollectiveBaseUrl}/city/${cityId}`;
+    return `${CitiesCollectiveService.baseUrl}/city/${cityId}`;
   }
 
   public async syncCreator(
@@ -53,10 +53,9 @@ export class CitiesCollectiveService {
     this.logger.verbose(`Syncing Creator #${creator.id} from Cities Collective.`);
 
     // Fetch user details on Cities Collective.
-    const userResponse = await fetch(
-      `${CitiesCollectiveService.citiesCollectiveBaseUrl}/hof-creator/me`,
-      { headers: { authorization: `CreatorID ${creator.creatorId}` } }
-    );
+    const userResponse = await fetch(`${CitiesCollectiveService.baseUrl}/api/v1/hof-creator/me`, {
+      headers: { authorization: `CreatorID ${creator.creatorId}` }
+    });
 
     // Check the response is 2XX.
     if (!userResponse.ok) {

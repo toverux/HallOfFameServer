@@ -7,11 +7,15 @@ import {
   type OnModuleDestroy,
   type OnModuleInit
 } from '@nestjs/common';
-import type { Prisma, Screenshot, ScreenshotFeatureEmbedding } from '@prisma/client';
 import { oneLine } from 'common-tags';
 import LazyPromise from 'p-lazy';
 import { first, firstValueFrom, Subject, timeout } from 'rxjs';
 import usearch, { type Index, MetricKind } from 'usearch';
+import type {
+  Prisma,
+  Screenshot,
+  ScreenshotFeatureEmbedding
+} from '../../../prisma/generated/client';
 import { allFulfilled } from '../common';
 import { isPrismaError } from '../common/prisma-errors';
 import { config } from '../config';
@@ -64,11 +68,12 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
     return this.maybeInferenceWorker;
   });
 
-  // biome-ignore lint/nursery/useReadonlyClassProperties: false positive.
+  // biome-ignore lint/nursery/useReadonlyClassProperties: false positive
   private maybeInferenceWorker?: Worker;
 
   private readonly workerResponses = new Subject<WorkerResponse>();
 
+  // biome-ignore lint/correctness/noUnusedPrivateClassMembers: false positive
   private lastWorkerMessageId = 0;
 
   public onModuleInit(): void {

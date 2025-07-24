@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { ForbiddenException, Inject, Injectable, Logger } from '@nestjs/common';
-import type { Creator } from '@prisma/client';
 import * as sentry from '@sentry/bun';
 import { oneLine } from 'common-tags';
 import * as uuid from 'uuid';
+import type { Creator } from '../../../prisma/generated/client';
 import {
   type CreatorId,
   type HardwareId,

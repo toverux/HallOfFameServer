@@ -1,13 +1,19 @@
 import assert from 'node:assert/strict';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
-import { type Creator, type Favorite, Prisma, type Screenshot, type View } from '@prisma/client';
 import * as sentry from '@sentry/bun';
 import Bun from 'bun';
 import { oneLine } from 'common-tags';
 import * as dfns from 'date-fns';
 import type { FastifyRequest } from 'fastify';
 import { filesize } from 'filesize';
+import {
+  type Creator,
+  type Favorite,
+  Prisma,
+  type Screenshot,
+  type View
+} from '../../../prisma/generated/client';
 import {
   type JsonObject,
   type Maybe,

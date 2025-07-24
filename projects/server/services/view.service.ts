@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { Creator, Screenshot, View } from '@prisma/client';
 import * as dateFns from 'date-fns';
 import { LRUCache } from 'lru-cache';
+import type { Creator, Screenshot, View } from '../../../prisma/generated/client';
 import { type JsonObject, optionallySerialized } from '../common';
 import { CreatorService } from './creator.service';
 import { PrismaService } from './prisma.service';

@@ -18,9 +18,9 @@ import {
   Res,
   UseGuards
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { oneLine } from 'common-tags';
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import { Prisma } from '../../../../prisma/generated/client';
 import { type JsonObject, type ParadoxModId, StandardError } from '../../common';
 import { isPrismaError } from '../../common/prisma-errors';
 import { config } from '../../config';

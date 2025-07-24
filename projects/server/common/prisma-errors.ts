@@ -3,7 +3,7 @@
  * https://github.com/prisma/prisma/issues/12128
  */
 
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../../../prisma/generated/client';
 
 export function isPrismaError(error: unknown): error is Prisma.PrismaClientKnownRequestError {
   return error != null && error.constructor.name == Prisma.PrismaClientKnownRequestError.name;

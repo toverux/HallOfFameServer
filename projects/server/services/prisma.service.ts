@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { Injectable, Logger, type OnApplicationBootstrap } from '@nestjs/common';
-import { type Prisma, PrismaClient } from '@prisma/client';
 import { filesize } from 'filesize';
+import { type Prisma, PrismaClient } from '../../../prisma/generated/client';
 import { config } from '../config';
 
 // Remap all events to be emitted as events (for custom handling with `$on()`) rather than being

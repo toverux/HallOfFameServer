@@ -13,7 +13,9 @@ Sentry.init({
         (undefined as unknown as string)
       : config.sentry.dsn,
   environment: config.env,
+  enableLogs: true,
   sampleRate: 1.0,
+  sendDefaultPii: true,
   tracesSampleRate: config.env == 'development' ? 1.0 : 0.05,
-  _experiments: { enableLogs: true }
+  integrations: [Sentry.extraErrorDataIntegration(), Sentry.openAIIntegration()]
 });

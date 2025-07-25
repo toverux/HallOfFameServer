@@ -6,6 +6,7 @@ import { AppModule } from './app.module';
 import { config, setRuntimeType } from './config';
 import * as filters from './exception-filters';
 import { fastify } from './fastify';
+import { SentryConsoleLogger } from './logger';
 
 setRuntimeType('server');
 
@@ -16,15 +17,31 @@ void bootstrap();
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestFastifyApplication>(AppModule, fastify, {
     cors: true,
-    logger: [
-      'fatal',
-      'error',
-      'warn',
-      'log',
-      ...(config.env == 'development' ? (['verbose'] as const) : []),
-      ...(config.verbose ? (['verbose', 'debug'] as const) : [])
-    ]
+    bufferLogs: true
   });
+
+  app.useLogger(
+    new SentryConsoleLogger({
+      timestamp: true,
+      logLevels: [
+        'fatal',
+        'error',
+        'warn',
+        'log',
+        ...(config.env == 'development' ? (['verbose'] as const) : []),
+        ...(config.verbose ? (['verbose', 'debug'] as const) : [])
+      ],
+      sentryFilterContexts: [
+        'Fastify',
+        'InstanceLoader',
+        'NestApplication',
+        'NestFactory',
+        'PrismaService',
+        'RouterExplorer',
+        'RoutesResolver'
+      ]
+    })
+  );
 
   const browserDistFolder = path.resolve(import.meta.dir, '../../dist/browser');
 

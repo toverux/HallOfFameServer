@@ -341,7 +341,7 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
 
     this.logger.log(
       oneLine`
-      ${screenshots.length == 1 ? 'image' : 'batch'} ${batchName} embeddings generated in
+      ${screenshots.length == 1 ? 'Image' : 'Batch'} ${batchName} embeddings generated in
       ${Date.now() - inferenceStartTime}ms.`
     );
 

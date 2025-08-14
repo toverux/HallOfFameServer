@@ -1,8 +1,8 @@
 import type { ContainerClient } from '@azure/storage-blob';
 import { Inject, Injectable } from '@nestjs/common';
+import type { Creator, Screenshot } from '@prisma/client';
 import * as dateFns from 'date-fns';
 import slug from 'slug';
-import type { Creator, Screenshot } from '../../../prisma/generated/client';
 import { allFulfilled } from '../common';
 import { config } from '../config';
 import { AzureService } from './azure.service';

@@ -7,17 +7,12 @@ import {
   type OnModuleDestroy,
   type OnModuleInit
 } from '@nestjs/common';
+import type { Prisma, Screenshot, ScreenshotFeatureEmbedding } from '@prisma/client';
 import { oneLine } from 'common-tags';
 import LazyPromise from 'p-lazy';
 import { first, firstValueFrom, Subject, timeout } from 'rxjs';
 import usearch, { type Index, MetricKind } from 'usearch';
-import type {
-  Prisma,
-  Screenshot,
-  ScreenshotFeatureEmbedding
-} from '../../../prisma/generated/client';
-import { allFulfilled } from '../common';
-import { isPrismaError } from '../common/prisma-errors';
+import { allFulfilled, isPrismaError } from '../common';
 import { config } from '../config';
 import { PrismaService } from './prisma.service';
 import type { WorkerRequest, WorkerResponse } from './screenshot-similarity-detector.worker';
@@ -54,7 +49,7 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
     return this.buildUsearchIndex();
   });
 
-  // biome-ignore lint/nursery/useReadonlyClassProperties: false positive.
+  // biome-ignore lint/style/useReadonlyClassProperties: false positive
   private wasUsearchIndexRequired = false;
 
   @Inject(PrismaService)
@@ -68,12 +63,11 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
     return this.maybeInferenceWorker;
   });
 
-  // biome-ignore lint/nursery/useReadonlyClassProperties: false positive
+  // biome-ignore lint/style/useReadonlyClassProperties: false positive
   private maybeInferenceWorker?: Worker;
 
   private readonly workerResponses = new Subject<WorkerResponse>();
 
-  // biome-ignore lint/correctness/noUnusedPrivateClassMembers: false positive
   private lastWorkerMessageId = 0;
 
   public onModuleInit(): void {
@@ -135,7 +129,7 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
 
       const hexId = key.toString(16).padStart(16, '0');
 
-      // biome-ignore lint/nursery/noAwaitInLoop: could be optimized, but not needed for now.
+      // biome-ignore lint/performance/noAwaitInLoops: could be optimized, but not needed for now.
       const { screenshotId } = await this.prisma.screenshotFeatureEmbedding.findUniqueOrThrow({
         where: { id: hexId }
       });
@@ -163,7 +157,7 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
 
       assert(embedding?.length == this.embeddingDimensions);
 
-      // biome-ignore lint/nursery/noAwaitInLoop: no need for this kind of performance in this method.
+      // biome-ignore lint/performance/noAwaitInLoops: no need for this kind of performance in this method.
       const embeddingDoc = await prisma.screenshotFeatureEmbedding.upsert({
         where: { screenshotId: screenshot.id },
         create: {

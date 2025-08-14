@@ -1,3 +1,5 @@
+/** biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: generators are long and better that way. */
+
 import assert from 'node:assert/strict';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
@@ -15,8 +17,8 @@ import open from 'open';
 import puppeteer, { type Browser, type Page } from 'puppeteer';
 import logoSkyscraperSrc from '../../../shared/assets/logo-skyscraper.svg';
 import loveChirperSrc from '../../../shared/assets/love-chirper.png';
+import { iconsole } from '../../../shared/iconsole';
 import { config } from '../../config';
-import { iconsole } from '../../iconsole';
 import { PrismaService, ScreenshotStorageService } from '../../services';
 
 type SectionFunction = (options: SectionFunctionOptions) => SectionFunctionGenerator;
@@ -271,7 +273,7 @@ export class DigestCommand extends CommandRunner {
               $count: 'f'
             }
           ],
-          as: '_favsData'
+          as: '_favoritesData'
         }
       },
       {
@@ -280,7 +282,7 @@ export class DigestCommand extends CommandRunner {
             $ifNull: [{ $arrayElemAt: ['$_viewsData.v', 0] }, 0]
           },
           _favoritesCount: {
-            $ifNull: [{ $arrayElemAt: ['$_favsData.f', 0] }, 0]
+            $ifNull: [{ $arrayElemAt: ['$_favoritesData.f', 0] }, 0]
           }
         }
       },

@@ -2,13 +2,13 @@ import assert from 'node:assert/strict';
 import * as path from 'node:path';
 import process from 'node:process';
 import { Inject, type Provider } from '@nestjs/common';
+import type { Creator, Screenshot } from '@prisma/client';
 import Bun from 'bun';
 import { oneLine } from 'common-tags';
 import * as dateFns from 'date-fns';
 import { Command, CommandRunner, InquirerService, Question, QuestionSet } from 'nest-commander';
-import type { Creator, Screenshot } from '../../../../prisma/generated/client';
+import { iconsole } from '../../../shared/iconsole';
 import type { Maybe } from '../../common';
-import { iconsole } from '../../iconsole';
 import { PrismaService, ScreenshotService } from '../../services';
 
 // https://cs2.paradoxwikis.com/Progression#Milestones

@@ -1,8 +1,8 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import type { Creator } from '@prisma/client';
 import * as sentry from '@sentry/bun';
 import { oneLine } from 'common-tags';
 import { z } from 'zod';
-import type { Creator } from '../../../prisma/generated/client';
 import { allFulfilled } from '../common';
 import { CreatorService } from './creator.service';
 import { PrismaService } from './prisma.service';

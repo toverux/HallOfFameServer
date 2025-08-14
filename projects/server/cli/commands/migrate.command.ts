@@ -6,8 +6,8 @@ import chalk from 'chalk';
 import { type ClientSession, type Db, MongoClient } from 'mongodb';
 import { Command, CommandRunner } from 'nest-commander';
 import type { Migration } from '../../../../prisma/migrations';
+import { iconsole } from '../../../shared/iconsole';
 import { config } from '../../config';
-import { iconsole } from '../../iconsole';
 
 @Command({
   name: 'migrate',

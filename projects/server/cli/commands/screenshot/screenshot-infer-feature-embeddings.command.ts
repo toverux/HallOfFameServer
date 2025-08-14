@@ -5,7 +5,7 @@ import { oneLine } from 'common-tags';
 import { filesize } from 'filesize';
 import { CommandRunner, Option, SubCommand } from 'nest-commander';
 import { bufferCount, from, lastValueFrom, mergeMap, retry } from 'rxjs';
-import { iconsole } from '../../../iconsole';
+import { iconsole } from '../../../../shared/iconsole';
 import { PrismaService, ScreenshotSimilarityDetectorService } from '../../../services';
 
 @SubCommand({

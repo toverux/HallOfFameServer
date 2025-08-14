@@ -49,10 +49,10 @@
       "includes": ["**/*.command.ts"],
       "linter": {
         "rules": {
-          "nursery": {
-            // In CLI commands, either we need to await in loops for interactive CLIs, or we don't
-            // really need speed at the expense of readability.
-            "noAwaitInLoop": "off"
+          "performance": {
+            // In most CLI commands, either we need to await in loops for interactive CLIs, or we
+            // don't really need speed at the expense of readability.
+            "noAwaitInLoops": "off"
           },
           "style": {
             // In our setup, we can throw strings directly to display an error that is supposed to

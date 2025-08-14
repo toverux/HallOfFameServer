@@ -1,8 +1,8 @@
 import { Inject, type Provider } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import chalk from 'chalk';
 import { CommandRunner, SubCommand } from 'nest-commander';
-import type { Prisma } from '../../../../../prisma/generated/client';
-import { iconsole } from '../../../iconsole';
+import { iconsole } from '../../../../shared/iconsole';
 import { PrismaService } from '../../../services';
 
 @SubCommand({

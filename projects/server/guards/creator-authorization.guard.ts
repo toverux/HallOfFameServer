@@ -5,9 +5,9 @@ import {
   Inject,
   UnauthorizedException
 } from '@nestjs/common';
+import type { Creator } from '@prisma/client';
 import * as sentry from '@sentry/node';
 import type { FastifyRequest } from 'fastify';
-import type { Creator } from '../../../prisma/generated/client';
 import type { CreatorId, HardwareId, IpAddress } from '../common';
 import {
   BanService,
@@ -18,7 +18,6 @@ import {
 } from '../services';
 
 declare module 'fastify' {
-  // biome-ignore lint/nursery/noShadow: intended declaration merging.
   interface FastifyRequest {
     [CreatorAuthorizationGuard.authenticatedCreatorKey]?: Creator;
   }

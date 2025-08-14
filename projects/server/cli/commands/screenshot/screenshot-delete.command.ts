@@ -1,7 +1,7 @@
 import { Inject, type Provider } from '@nestjs/common';
 import chalk from 'chalk';
 import { CommandRunner, SubCommand } from 'nest-commander';
-import { iconsole } from '../../../iconsole';
+import { iconsole } from '../../../../shared/iconsole';
 import { ScreenshotService } from '../../../services';
 
 @SubCommand({

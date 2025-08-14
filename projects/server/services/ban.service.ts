@@ -1,7 +1,7 @@
 import { ForbiddenException, Inject, Injectable, Logger } from '@nestjs/common';
+import type { Ban, Creator } from '@prisma/client';
 import { oneLine } from 'common-tags';
 import { LRUCache } from 'lru-cache';
-import type { Ban, Creator } from '../../../prisma/generated/client';
 import { type HardwareId, type IpAddress, StandardError } from '../common';
 import { config } from '../config';
 import { PrismaService } from './prisma.service';

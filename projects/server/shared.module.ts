@@ -4,6 +4,7 @@ import { config } from './config';
 import { services } from './services';
 
 /**
+ * @public
  * Module used by both the Server and the CLI.
  */
 @Module({

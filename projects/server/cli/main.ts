@@ -1,9 +1,9 @@
 import process from 'node:process';
 import chalk from 'chalk';
 import { CommandFactory } from 'nest-commander';
+import { iconsole } from '../../shared/iconsole';
 import { StandardError } from '../common';
 import { config, setRuntimeType } from '../config';
-import { iconsole } from '../iconsole';
 import { CliModule } from './cli.module';
 
 setRuntimeType('cli');

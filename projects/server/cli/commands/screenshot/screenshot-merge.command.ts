@@ -1,9 +1,9 @@
 import { Inject, type Provider } from '@nestjs/common';
+import type { Favorite, Prisma, View } from '@prisma/client';
 import chalk from 'chalk';
 import { oneLine } from 'common-tags';
 import { CommandRunner, SubCommand } from 'nest-commander';
-import type { Favorite, Prisma, View } from '../../../../../prisma/generated/client';
-import { iconsole } from '../../../iconsole';
+import { iconsole } from '../../../../shared/iconsole';
 import { PrismaService, ScreenshotService } from '../../../services';
 
 @SubCommand({

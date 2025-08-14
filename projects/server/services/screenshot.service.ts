@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
+import { type Creator, type Favorite, Prisma, type Screenshot, type View } from '@prisma/client';
 import * as sentry from '@sentry/bun';
 import Bun from 'bun';
 import { oneLine } from 'common-tags';
@@ -8,20 +9,13 @@ import * as dfns from 'date-fns';
 import type { FastifyRequest } from 'fastify';
 import { filesize } from 'filesize';
 import {
-  type Creator,
-  type Favorite,
-  Prisma,
-  type Screenshot,
-  type View
-} from '../../../prisma/generated/client';
-import {
+  isPrismaError,
   type JsonObject,
   type Maybe,
   optionallySerialized,
   type ParadoxModId,
   StandardError
 } from '../common';
-import { isPrismaError } from '../common/prisma-errors';
 import { config } from '../config';
 import { AiTranslatorService } from './ai-translator.service';
 import { CitiesCollectiveService } from './cities-collective.service';
@@ -105,6 +99,7 @@ export class ScreenshotService {
    * - Uploading the screenshots to Azure Blob Storage.
    * - Creating a {@link Screenshot} record in the database.
    */
+  // biome-ignore lint/complexity/noExcessiveLinesPerFunction: easier to follow that way, intricate code.
   public async ingestScreenshot({
     healthcheck,
     ...data
@@ -561,6 +556,7 @@ export class ScreenshotService {
    *
    * @returns The number of screenshots updated.
    */
+  // biome-ignore lint/complexity/noExcessiveLinesPerFunction: simple linear flow.
   public async updateAverageViewsAndFavoritesPerDay({
     nice = true,
     screenshotId,
@@ -640,7 +636,7 @@ export class ScreenshotService {
         Math.abs(screenshot.viewsPerDay - viewsPerDay) > 0.1 ||
         screenshot.favoritingPercentage != favoritingPercentage
       ) {
-        // biome-ignore lint/nursery/noAwaitInLoop: we want to avoid making to much calls at once.
+        // biome-ignore lint/performance/noAwaitInLoops: we want to avoid making to much calls at once.
         await prisma.screenshot.update({
           where: { id: screenshot.id },
           data: { viewsPerDay, favoritesPerDay, favoritingPercentage }
@@ -718,7 +714,7 @@ export class ScreenshotService {
         this.logger.debug(`Try screenshot selection algorithm: ${algorithm}`);
 
         // We found a winner, try to get a screenshot!
-        // biome-ignore lint/nursery/noAwaitInLoop: algorithmically needed.
+        // biome-ignore lint/performance/noAwaitInLoops: algorithmically needed.
         const screenshot = await this.randomScreenshotFunctions[algorithm](viewedIds);
 
         // If we found a screenshot, return it with the algorithm name.

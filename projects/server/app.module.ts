@@ -15,6 +15,7 @@ import { FastifyLoggerMiddleware } from './fastify';
 import { SharedModule } from './shared.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 
+/** @public */
 @Module({
   imports: [
     ScheduleModule.forRoot(),

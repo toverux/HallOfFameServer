@@ -8,6 +8,7 @@ import { provideRouter } from '@angular/router';
 
 import { routes } from './app.routes';
 
+/** @public */
 export const appConfig: ApplicationConfig = {
   providers: [
     provideZonelessChangeDetection(),

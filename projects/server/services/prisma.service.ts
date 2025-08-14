@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { Injectable, Logger, type OnApplicationBootstrap } from '@nestjs/common';
+import { type Prisma, PrismaClient } from '@prisma/client';
 import { filesize } from 'filesize';
-import { type Prisma, PrismaClient } from '../../../prisma/generated/client';
 import { config } from '../config';
 
 // Remap all events to be emitted as events (for custom handling with `$on()`) rather than being
@@ -13,18 +13,21 @@ const logDefinitions = [
   { emit: 'event', level: 'query' }
 ] satisfies Prisma.LogDefinition[];
 
+const prismaOptions = {
+  log: logDefinitions,
+  datasourceUrl: config.databaseUrl,
+  errorFormat: 'pretty'
+} satisfies Prisma.PrismaClientOptions;
+
 @Injectable()
 export class PrismaService
-  extends PrismaClient<{ log: typeof logDefinitions; datasourceUrl: string }>
+  extends PrismaClient<typeof prismaOptions, (typeof logDefinitions)[number]['level']>
   implements OnApplicationBootstrap
 {
   private readonly logger = new Logger(PrismaService.name);
 
   public constructor() {
-    super({
-      log: logDefinitions,
-      datasourceUrl: config.databaseUrl
-    });
+    super(prismaOptions);
 
     this.$on('error', ({ target, message }) => {
       // You might be surprised that 'debug' level is used, but this is because all errors we

@@ -1,6 +1,6 @@
 import type { Provider } from '@nestjs/common';
 import { Command, CommandRunner } from 'nest-commander';
-import { iconsole } from '../../../iconsole';
+import { iconsole } from '../../../../shared/iconsole';
 import { ScreenshotDeleteCommand } from './screenshot-delete.command';
 import { ScreenshotFindSimilarCommand } from './screenshot-find-similar.command';
 import { ScreenshotInferFeatureEmbeddingsCommand } from './screenshot-infer-feature-embeddings.command';
@@ -9,6 +9,7 @@ import { ScreenshotModerateCommand } from './screenshot-moderate.command';
 import { ScreenshotTranslateCommand } from './screenshot-translate.command';
 import { ScreenshotUpdateAveragesCommand } from './screenshot-update-averages.command';
 
+/** @public */
 @Command({
   name: 'screenshot',
   description: `Commands related to screenshots.`,

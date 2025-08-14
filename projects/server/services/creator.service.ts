@@ -1,17 +1,17 @@
 import assert from 'node:assert/strict';
 import { ForbiddenException, Inject, Injectable, Logger } from '@nestjs/common';
+import type { Creator } from '@prisma/client';
 import * as sentry from '@sentry/bun';
 import { oneLine } from 'common-tags';
 import * as uuid from 'uuid';
-import type { Creator } from '../../../prisma/generated/client';
 import {
   type CreatorId,
   type HardwareId,
   type IpAddress,
+  isPrismaError,
   type JsonObject,
   StandardError
 } from '../common';
-import { isPrismaError } from '../common/prisma-errors';
 import { config } from '../config';
 import { AiTranslatorService } from './ai-translator.service';
 import { PrismaService } from './prisma.service';
@@ -161,6 +161,7 @@ export class CreatorService {
    * authentication that can be retried in case of error due to concurrent requests leading to an
    * account creation (and therefore a unique constraint violation).
    */
+  // biome-ignore lint/complexity/noExcessiveLinesPerFunction: it's long, but better that way.
   public async authenticateCreatorForModUnsafe({
     creatorId,
     creatorIdProvider,

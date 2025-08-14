@@ -26,11 +26,16 @@ void CommandFactory.run(CliModule, {
 });
 
 function handleError(error: Error): void {
+  // If it's a command not found, we just have to return, printing to the console and setting the
+  // exit code is already handled by Commander.
+  if ((error as { code?: string }).code == 'commander.unknownCommand') {
+    return;
+  }
+
   if (!config.verbose && error instanceof StandardError) {
     iconsole.error(chalk.red(error.message));
   } else {
-    // Do not recolor using chalk, this will use the standard formatting for errors which is
-    // much better.
+    // In verbose mode, we want to see the full stack trace and use the default error formatting.
     iconsole.error(error);
   }
 

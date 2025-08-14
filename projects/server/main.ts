@@ -1,5 +1,6 @@
 import './sentry';
 import * as path from 'node:path';
+import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from './app.module';
@@ -17,6 +18,7 @@ void bootstrap();
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestFastifyApplication>(AppModule, fastify, {
     cors: true,
+    // Buffer logs until Sentry logger is instantiated.
     bufferLogs: true
   });
 
@@ -42,6 +44,10 @@ async function bootstrap(): Promise<void> {
       ]
     })
   );
+
+  // We can now explicitly flush logs, if we do not do it manually now, Nest waits for application
+  // startup to complete.
+  Logger.flush();
 
   const browserDistFolder = path.resolve(import.meta.dir, '../../dist/browser');
 

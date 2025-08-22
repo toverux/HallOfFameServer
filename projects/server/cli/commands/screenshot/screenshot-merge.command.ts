@@ -25,12 +25,31 @@ export class ScreenshotMergeCommand extends CommandRunner {
   public override async run(args: [string, ...string[]]): Promise<void> {
     const [targetId, ...sourceIds] = args;
 
+    const target = await this.prisma.screenshot.findUnique({ where: { id: targetId } });
+    const sources = await this.prisma.screenshot.findMany({ where: { id: { in: sourceIds } } });
+
+    if (!target) {
+      throw `Target screenshot ${targetId} not found.`;
+    }
+
+    const missingSourceIds = new Set(sourceIds).difference(
+      new Set(sources.map(source => source.id))
+    );
+
+    for (const sourceId of missingSourceIds) {
+      iconsole.warn(
+        chalk.bold.yellowBright(`Source screenshot ${sourceId} not found, but continuing anyway.`)
+      );
+    }
+
     await this.prisma.$transaction(async prisma => {
       await this.mergeFavorites(prisma, targetId, sourceIds);
       await this.mergeViews(prisma, targetId, sourceIds);
       await this.deleteSourceScreenshots(prisma, sourceIds);
       await this.updateScreenshotStats(prisma, targetId);
     });
+
+    iconsole.info(chalk.bold(`Done.`));
   }
 
   private async mergeFavorites(

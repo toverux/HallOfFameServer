@@ -6,8 +6,8 @@ import { ScreenshotFindSimilarCommand } from './screenshot-find-similar.command'
 import { ScreenshotInferFeatureEmbeddingsCommand } from './screenshot-infer-feature-embeddings.command';
 import { ScreenshotMergeCommand } from './screenshot-merge.command';
 import { ScreenshotModerateCommand } from './screenshot-moderate.command';
+import { ScreenshotResyncStatsCommand } from './screenshot-resync-stats.command';
 import { ScreenshotTranslateCommand } from './screenshot-translate.command';
-import { ScreenshotUpdateAveragesCommand } from './screenshot-update-averages.command';
 
 /** @public */
 @Command({
@@ -19,8 +19,8 @@ import { ScreenshotUpdateAveragesCommand } from './screenshot-update-averages.co
     ScreenshotInferFeatureEmbeddingsCommand,
     ScreenshotMergeCommand,
     ScreenshotModerateCommand,
-    ScreenshotTranslateCommand,
-    ScreenshotUpdateAveragesCommand
+    ScreenshotResyncStatsCommand,
+    ScreenshotTranslateCommand
   ]
 })
 export class ScreenshotCommand extends CommandRunner {
@@ -31,8 +31,8 @@ export class ScreenshotCommand extends CommandRunner {
     ...ScreenshotInferFeatureEmbeddingsCommand.providers(),
     ...ScreenshotMergeCommand.providers(),
     ...ScreenshotModerateCommand.providers(),
-    ...ScreenshotTranslateCommand.providers(),
-    ...ScreenshotUpdateAveragesCommand.providers()
+    ...ScreenshotResyncStatsCommand.providers(),
+    ...ScreenshotTranslateCommand.providers()
   ];
 
   public override run(): Promise<void> {

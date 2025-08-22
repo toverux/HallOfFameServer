@@ -19,3 +19,13 @@ export abstract class StandardError extends Error {
     descriptionOrOptions?: string | HttpExceptionOptions
   ) => HttpException = BadRequestException;
 }
+
+export class NotFoundByIdError extends StandardError {
+  public readonly id: string;
+
+  public constructor(id: string, options?: ErrorOptions) {
+    super(`Could not find resource with ID "${id}".`, options);
+
+    this.id = id;
+  }
+}

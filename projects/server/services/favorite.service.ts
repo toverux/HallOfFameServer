@@ -3,6 +3,7 @@ import type { Creator, Favorite, Screenshot } from '@prisma/client';
 import { type JsonObject, optionallySerialized, StandardError } from '../common';
 import { CreatorService } from './creator.service';
 import { PrismaService } from './prisma.service';
+import { ScreenshotStatsService } from './screenshot-stats.service';
 
 @Injectable()
 export class FavoriteService {
@@ -11,6 +12,9 @@ export class FavoriteService {
 
   @Inject(CreatorService)
   private readonly creatorService!: CreatorService;
+
+  @Inject(ScreenshotStatsService)
+  private readonly screenshotStatsService!: ScreenshotStatsService;
 
   /**
    * Checks if a screenshot is favorited by a unique user.
@@ -79,7 +83,7 @@ export class FavoriteService {
     // Check if the user has already favorited this screenshot.
     // We can't use .findUnique() because of the OR clause.
     // The compound indexes [creatorId, screenshotId], etc. are still used!
-    const favorite = await this.prisma.favorite.findFirst({
+    const existingFavorite = await this.prisma.favorite.findFirst({
       select: { id: true },
       where: {
         // biome-ignore lint/style/useNamingConvention: prisma
@@ -92,7 +96,7 @@ export class FavoriteService {
     });
 
     // If the user has already favorited this screenshot, throw an error.
-    if (favorite) {
+    if (existingFavorite) {
       throw new AlreadyInFavoritesError();
     }
 
@@ -100,12 +104,13 @@ export class FavoriteService {
     await this.prisma.screenshot.update({
       where: { id: screenshotId },
       data: {
+        // Favoriting percentage will be updated in a background job.
         favoritesCount: { increment: 1 }
       }
     });
 
     // Create a new favorite.
-    return this.prisma.favorite.create({
+    const favorite = await this.prisma.favorite.create({
       data: {
         screenshotId,
         creatorId: creator.id,
@@ -114,6 +119,11 @@ export class FavoriteService {
         hwid: creator.hwids[0] ?? null
       }
     });
+
+    // Update stats.
+    this.screenshotStatsService.requestStatsUpdate(screenshotId);
+
+    return favorite;
   }
 
   /**
@@ -126,7 +136,7 @@ export class FavoriteService {
     // Find the favorite to remove.
     // We can't use .remove() directly because we can't use .remove() which requires a where
     // clause that guarantees uniqueness, but we use an OR clause.
-    const favorite = await this.prisma.favorite.findFirst({
+    const existingFavorite = await this.prisma.favorite.findFirst({
       where: {
         // biome-ignore lint/style/useNamingConvention: prisma
         OR: [
@@ -138,22 +148,19 @@ export class FavoriteService {
     });
 
     // If the user has not favorited this screenshot, throw an error.
-    if (!favorite) {
+    if (!existingFavorite) {
       throw new NotInFavoritesError();
     }
 
-    // Decrement the favorite count of the screenshot.
-    await this.prisma.screenshot.update({
-      where: { id: screenshotId },
-      data: {
-        favoritesCount: { decrement: 1 }
-      }
+    // Remove the favorite.
+    const favorite = this.prisma.favorite.delete({
+      where: { id: existingFavorite.id }
     });
 
-    // Remove the favorite.
-    return this.prisma.favorite.delete({
-      where: { id: favorite.id }
-    });
+    // Update stats.
+    this.screenshotStatsService.requestStatsUpdate(screenshotId);
+
+    return favorite;
   }
 
   /**

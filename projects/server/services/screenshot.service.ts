@@ -1,9 +1,7 @@
 import assert from 'node:assert/strict';
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
-import { type Creator, type Favorite, Prisma, type Screenshot, type View } from '@prisma/client';
+import type { Creator, Favorite, Prisma, Screenshot, View } from '@prisma/client';
 import * as sentry from '@sentry/bun';
-import Bun from 'bun';
 import { oneLine } from 'common-tags';
 import * as dfns from 'date-fns';
 import type { FastifyRequest } from 'fastify';
@@ -12,6 +10,7 @@ import {
   isPrismaError,
   type JsonObject,
   type Maybe,
+  NotFoundByIdError,
   optionallySerialized,
   type ParadoxModId,
   StandardError
@@ -128,7 +127,7 @@ export class ScreenshotService {
 
     let mark = Date.now();
 
-    // Generate the two resized screenshot from the uploaded file.
+    // Generate the two resized screenshots from the uploaded file.
     const { imageThumbnailBuffer, imageFhdBuffer, image4kBuffer } =
       await this.screenshotProcessing.resizeScreenshots(data.file, {
         creatorName: data.creator.creatorName,
@@ -138,7 +137,7 @@ export class ScreenshotService {
     this.logger.log(`Screenshot "${data.cityName}" resized (${Date.now() - mark}ms).`);
     mark = Date.now();
 
-    // Create the screenshot in the database and upload the screenshots, in a transaction so if
+    // Create the screenshot in the database and upload the screenshots in a transaction, so if
     // the upload fails, the database is not updated.
     const screenshot = await this.prisma.$transaction(saveScreenshotTransaction.bind(this), {
       timeout: ScreenshotService.ingestScreenshotTransactionTimeout
@@ -206,7 +205,7 @@ export class ScreenshotService {
           paradoxModIds: Array.from(data.paradoxModIds),
           renderSettings: data.renderSettings,
           metadata: data.metadata,
-          isReported: healthcheck // make sure healthcheck uploads are never shown
+          isReported: healthcheck // make sure health check uploads are never shown
         }
       });
 
@@ -263,9 +262,7 @@ export class ScreenshotService {
         return screenshot;
       } catch (error) {
         if (isPrismaError(error) && error.code == 'P2025') {
-          throw new ScreenshotNotFoundError(screenshotId, {
-            cause: error
-          });
+          throw new NotFoundByIdError(screenshotId, { cause: error });
         }
 
         throw error;
@@ -294,7 +291,7 @@ export class ScreenshotService {
     });
 
     if (!screenshot) {
-      throw new ScreenshotNotFoundError(screenshotId);
+      throw new NotFoundByIdError(screenshotId);
     }
 
     if (screenshot.isApproved) {
@@ -309,9 +306,7 @@ export class ScreenshotService {
       });
     } catch (error) {
       if (isPrismaError(error) && error.code == 'P2025') {
-        throw new ScreenshotNotFoundError(screenshotId, {
-          cause: error
-        });
+        throw new NotFoundByIdError(screenshotId, { cause: error });
       }
 
       throw error;
@@ -334,9 +329,7 @@ export class ScreenshotService {
       });
     } catch (error) {
       if (isPrismaError(error) && error.code == 'P2025') {
-        throw new ScreenshotNotFoundError(screenshotId, {
-          cause: error
-        });
+        throw new NotFoundByIdError(screenshotId, { cause: error });
       }
 
       throw error;
@@ -349,8 +342,8 @@ export class ScreenshotService {
    * Skips screenshots with city names that are not eligible to transliteration/translation (see
    * {@link AiTranslatorService.isEligibleForTranslation}).
    * If another screenshot with the same city name is found that was already translated, its values
-   * are reused. This serves both the purpose of saving on OpenAI requests but most importantly make
-   * sure we have a stable translation for different uploads of the same city.
+   * are reused. This serves both the purpose of saving on OpenAI requests but most importantly,
+   * makes sure we have a stable translation for different uploads of the same city.
    */
   public async updateCityNameTranslation(
     screenshot: Pick<Screenshot, 'id' | 'creatorId' | 'cityName'>
@@ -429,7 +422,7 @@ export class ScreenshotService {
     creatorId: Maybe<Creator['id']>,
     alreadyViewedMaxAgeInDays: number | undefined
   ): Promise<ScreenshotWithAlgo> {
-    // Get the IDs of the screenshots viewed by the user, to avoid showing them screenshots they
+    // Get the IDs of the screenshots viewed by the user to avoid showing them screenshots they
     // have already seen.
     const viewedIds = creatorId
       ? await this.viewService.getViewedScreenshotIds(creatorId, alreadyViewedMaxAgeInDays)
@@ -443,7 +436,7 @@ export class ScreenshotService {
       (creator id: ${creatorId ? `#${creatorId}` : 'anon'}, viewed ids: ${viewedIds.size}).`
     );
 
-    // Try to get a screenshot using the weighted random selection and taking in account the
+    // Try to get a screenshot using the weighted random selection and taking into account the
     // viewed screenshots.
     let screenshot = await this.tryGetWeightedRandomScreenshot(weights, viewedOids);
 
@@ -491,10 +484,9 @@ export class ScreenshotService {
       isApproved: screenshot.isApproved,
       isReported: screenshot.isReported,
       favoritesCount: screenshot.favoritesCount,
-      favoritesPerDay: screenshot.favoritesPerDay,
       favoritingPercentage: screenshot.favoritingPercentage,
       viewsCount: screenshot.viewsCount,
-      viewsPerDay: screenshot.viewsPerDay,
+      uniqueViewsCount: screenshot.uniqueViewsCount,
       cityName: screenshot.cityName,
       cityNameLocale: screenshot.cityNameLocale,
       cityNameLatinized: screenshot.cityNameLatinized,
@@ -529,130 +521,6 @@ export class ScreenshotService {
       ),
       views: optionallySerialized(screenshot.views?.map(view => this.viewService.serialize(view)))
     };
-  }
-
-  /**
-   * Calls {@link updateAverageViewsAndFavoritesPerDay} every hour.
-   * Updating averages can also be done from the CLI with `bun run:cli update-screenshots-averages`.
-   */
-  @Cron('0 0 * * * *')
-  public cronUpdateAverageViewsAndFavoritesPerDay(): void {
-    this.updateAverageViewsAndFavoritesPerDay().catch(error => {
-      this.logger.error(`Failed CRON update of screenshot averages.`, error);
-
-      sentry.captureException(error);
-    });
-  }
-
-  /**
-   * Updates the average views and favorites per day for each screenshot in the database.
-   *
-   * Averages are rounded to one decimal place, and updates are only made if the difference between
-   * the calculated average and the stored average is greater than 0.1.
-   *
-   * @param nice If true, sleeps for 100 ms between each update. Useful for background work (cron).
-   * @param screenshotId If set, only updates the averages for the screenshot with this ID.
-   * @param prisma The Prisma client to use.
-   *
-   * @returns The number of screenshots updated.
-   */
-  // biome-ignore lint/complexity/noExcessiveLinesPerFunction: simple linear flow.
-  public async updateAverageViewsAndFavoritesPerDay({
-    nice = true,
-    screenshotId,
-    prisma = this.prisma
-  }: {
-    nice?: boolean;
-    screenshotId?: string;
-    prisma?: Prisma.TransactionClient;
-  } = {}): Promise<number> {
-    this.logger.log(`Start updating screenshots average views and favorites per day.`);
-
-    const screenshots = await prisma.screenshot.findMany({
-      where: {
-        id: screenshotId ?? Prisma.skip,
-        // biome-ignore lint/style/useNamingConvention: prisma
-        OR: [{ favoritesCount: { gt: 0 } }, { viewsCount: { gt: 0 } }]
-      },
-      select: {
-        id: true,
-        createdAt: true,
-        viewsCount: true,
-        viewsPerDay: true,
-        favoritesCount: true,
-        favoritesPerDay: true,
-        favoritingPercentage: true
-      }
-    });
-
-    this.logger.log(`Found ${screenshots.length} screenshots to update.`);
-
-    const viewsImplementationDate = new Date('2024-09-23');
-    const favoritesImplementationDate = new Date('2024-10-5');
-
-    let updatedCount = 0;
-    let lastProgress = 0;
-
-    for (let index = 0; index < screenshots.length; index++) {
-      // biome-ignore lint/style/noNonNullAssertion: cannot be null
-      const screenshot = screenshots[index]!;
-
-      const progress = Math.floor(((index + 1) / screenshots.length) * 100);
-
-      if (progress % 10 == 0 && progress != lastProgress) {
-        this.logger.log(
-          `Screenshot averages update progress: ${progress}% (${index + 1}/${screenshots.length})`
-        );
-
-        lastProgress = progress;
-      }
-
-      const favoritesRefTime = Math.max(
-        favoritesImplementationDate.getTime(),
-        screenshot.createdAt.getTime()
-      );
-
-      const viewsRefTime = Math.max(
-        viewsImplementationDate.getTime(),
-        screenshot.createdAt.getTime()
-      );
-
-      let favoritesPerDay =
-        screenshot.favoritesCount / ((Date.now() - favoritesRefTime) / 1000 / 60 / 60 / 24);
-
-      let viewsPerDay = screenshot.viewsCount / ((Date.now() - viewsRefTime) / 1000 / 60 / 60 / 24);
-
-      favoritesPerDay = Math.round(favoritesPerDay * 10) / 10;
-      viewsPerDay = Math.round(viewsPerDay * 10) / 10;
-
-      const favoritingPercentage = Math.round(
-        (screenshot.favoritesCount / screenshot.viewsCount) * 100
-      );
-
-      // Check if saved averages are different from the calculated one by more than 0.1;
-      // if it is, update the average.
-      if (
-        Math.abs(screenshot.favoritesPerDay - favoritesPerDay) > 0.1 ||
-        Math.abs(screenshot.viewsPerDay - viewsPerDay) > 0.1 ||
-        screenshot.favoritingPercentage != favoritingPercentage
-      ) {
-        // biome-ignore lint/performance/noAwaitInLoops: we want to avoid making to much calls at once.
-        await prisma.screenshot.update({
-          where: { id: screenshot.id },
-          data: { viewsPerDay, favoritesPerDay, favoritingPercentage }
-        });
-
-        updatedCount++;
-
-        if (nice && index < screenshots.length - 1) {
-          await Bun.sleep(100);
-        }
-      }
-    }
-
-    this.logger.log(`Done updating screenshots averages, updated ${updatedCount} screenshots.`);
-
-    return updatedCount;
   }
 
   /**
@@ -784,7 +652,7 @@ export class ScreenshotService {
   }
 
   /**
-   * Retrieves a non-reported screenshot that has a high amount of "likes" (favorites) *per day*.
+   * Retrieves a non-reported screenshot that has a high number of "likes" (favorites) *per day*.
    */
   private getScreenshotTrending(nin: readonly JsonOid[]): Promise<Screenshot | null> {
     // Uses [isReported, favoritingPercentage] compound index for sorting with limiting and
@@ -804,15 +672,15 @@ export class ScreenshotService {
   }
 
   /**
-   * Retrieves a non-reported random screenshot that was uploaded within the last X days
-   * (configurable in env).
+   * Retrieves a non-reported random screenshot uploaded within the last X days (configurable as an
+   * environment variable).
    */
   private getScreenshotRecent(nin: readonly JsonOid[]): Promise<Screenshot | null> {
     const $date = dfns.subDays(new Date(), config.screenshots.recencyThresholdDays);
 
     // Uses [isReported, createdAt] compound index for sorting with limiting and filtering when
-    // there are less than sampleSize results, and [isReported, viewsCount, createdAt] when
-    // there are more than sampleSize results, test changes to ensure index usage.
+    // there is less than sampleSize results, and [isReported, viewsCount, createdAt] when there are
+    // more than sampleSize results, test changes to ensure index usage.
     return this.runAggregateForSingleScreenshot([
       {
         $match: {
@@ -829,7 +697,7 @@ export class ScreenshotService {
 
   /**
    * Retrieves a non-reported screenshot that was uploaded more than X days ago (configurable in
-   * env), has the lowest amount of views, and then prioritizes the oldest screenshots.
+   * env), has the lowest number of views, and then prioritizes the oldest screenshots.
    */
   private getScreenshotArcheologist(nin: readonly JsonOid[]): Promise<Screenshot | null> {
     const $date = dfns.subDays(new Date(), config.screenshots.recencyThresholdDays);
@@ -852,7 +720,7 @@ export class ScreenshotService {
 
   /**
    * Retrieves a non-reported random screenshot from a random supporter.
-   * Prioritizes the oldest screenshots with the least views for the randomly-selected supporter.
+   * Prioritizes the oldest screenshots with the fewest views for the randomly selected supporter.
    */
   private async getScreenshotSupporter(nin: readonly JsonOid[]): Promise<Screenshot | null> {
     const supporters = await this.prisma.creator.aggregateRaw({
@@ -909,10 +777,9 @@ export class ScreenshotService {
       isReported: screenshot.isReported,
       reportedById: screenshot.reportedById,
       favoritesCount: screenshot.favoritesCount,
-      favoritesPerDay: screenshot.favoritesPerDay,
       favoritingPercentage: screenshot.favoritingPercentage,
+      uniqueViewsCount: screenshot.uniqueViewsCount,
       viewsCount: screenshot.viewsCount,
-      viewsPerDay: screenshot.viewsPerDay,
       hwid: screenshot.hwid,
       ip: screenshot.ip,
       creatorId: screenshot.creatorId.$oid,
@@ -935,16 +802,6 @@ export class ScreenshotService {
 }
 
 export abstract class ScreenshotError extends StandardError {}
-
-export class ScreenshotNotFoundError extends ScreenshotError {
-  public readonly id: Screenshot['id'];
-
-  public constructor(id: Screenshot['id'], options?: ErrorOptions) {
-    super(`Could not find screenshot #${id}.`, options);
-
-    this.id = id;
-  }
-}
 
 export class ScreenshotApprovedError extends ScreenshotError {
   public readonly screenshot: Pick<Screenshot, 'cityName'> & {

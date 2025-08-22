@@ -4,7 +4,7 @@ import chalk from 'chalk';
 import { oneLine } from 'common-tags';
 import { CommandRunner, SubCommand } from 'nest-commander';
 import { iconsole } from '../../../../shared/iconsole';
-import { PrismaService, ScreenshotService } from '../../../services';
+import { PrismaService, ScreenshotService, ScreenshotStatsService } from '../../../services';
 
 @SubCommand({
   name: 'merge',
@@ -21,6 +21,9 @@ export class ScreenshotMergeCommand extends CommandRunner {
 
   @Inject(ScreenshotService)
   private readonly screenshotService!: ScreenshotService;
+
+  @Inject(ScreenshotStatsService)
+  private readonly screenshotStatsService!: ScreenshotStatsService;
 
   public override async run(args: [string, ...string[]]): Promise<void> {
     const [targetId, ...sourceIds] = args;
@@ -46,7 +49,7 @@ export class ScreenshotMergeCommand extends CommandRunner {
       await this.mergeFavorites(prisma, targetId, sourceIds);
       await this.mergeViews(prisma, targetId, sourceIds);
       await this.deleteSourceScreenshots(prisma, sourceIds);
-      await this.updateScreenshotStats(prisma, targetId);
+      await this.screenshotStatsService.resyncStats(new Set([targetId]), prisma);
     });
 
     iconsole.info(chalk.bold(`Done.`));
@@ -150,30 +153,5 @@ export class ScreenshotMergeCommand extends CommandRunner {
     }
 
     iconsole.info(chalk.bold(`Deleted ${sources.length} source screenshot(s).`));
-  }
-
-  private async updateScreenshotStats(
-    prisma: Prisma.TransactionClient,
-    targetId: string
-  ): Promise<void> {
-    const viewsCount = await prisma.view.count({
-      where: { screenshotId: targetId }
-    });
-
-    const favoritesCount = await prisma.favorite.count({
-      where: { screenshotId: targetId }
-    });
-
-    await prisma.screenshot.update({
-      where: { id: targetId },
-      data: { favoritesCount, viewsCount }
-    });
-
-    await this.screenshotService.updateAverageViewsAndFavoritesPerDay({
-      prisma,
-      screenshotId: targetId
-    });
-
-    iconsole.info(chalk.bold(`Updated target screenshot stats.`));
   }
 }

@@ -6,7 +6,7 @@ import {
   UnauthorizedException
 } from '@nestjs/common';
 import type { Creator } from '@prisma/client';
-import * as sentry from '@sentry/node';
+import * as sentry from '@sentry/bun';
 import type { FastifyRequest } from 'fastify';
 import type { CreatorId, HardwareId, IpAddress } from '../common';
 import {

@@ -5,6 +5,7 @@ import { LRUCache } from 'lru-cache';
 import { type JsonObject, optionallySerialized } from '../common';
 import { CreatorService } from './creator.service';
 import { PrismaService } from './prisma.service';
+import { ScreenshotStatsService } from './screenshot-stats.service';
 
 @Injectable()
 export class ViewService {
@@ -13,6 +14,9 @@ export class ViewService {
 
   @Inject(CreatorService)
   private readonly creatorService!: CreatorService;
+
+  @Inject(ScreenshotStatsService)
+  private readonly screenshotStatsService!: ScreenshotStatsService;
 
   /**
    * Cache of Creator ID (database one, not the UUID v4) to viewed screenshot IDs to avoid
@@ -61,13 +65,7 @@ export class ViewService {
         // biome-ignore lint/style/useNamingConvention: prisma
         AND: [
           { creatorId },
-          maxAgeInDays
-            ? {
-                viewedAt: {
-                  gte: dateFns.subDays(new Date(), maxAgeInDays)
-                }
-              }
-            : {}
+          maxAgeInDays ? { viewedAt: { gte: dateFns.subDays(new Date(), maxAgeInDays) } } : {}
         ]
       }
     });
@@ -85,20 +83,10 @@ export class ViewService {
   }
 
   /**
-   * Marks a screenshot as viewed:
-   * - Increments the view count ({@link Screenshot.views}).
-   * - Creates a new {@link View} record.
+   * Marks a screenshot as viewed, creates a new {@link View} record.
+   * The view count properties will be updated with the background job.
    */
   public async markViewed(screenshotId: Screenshot['id'], creatorId: Creator['id']): Promise<View> {
-    // Update the Screenshot view count and create a new View record.
-    // No transaction with the View record creation, this is not critical data & we can
-    // reconstruct it.
-    await this.prisma.screenshot.update({
-      select: { id: true },
-      where: { id: screenshotId },
-      data: { viewsCount: { increment: 1 } }
-    });
-
     // Add the view to the cache once we recorded it in the database.
     const cache = this.viewsCache.get(creatorId) ?? {
       screenshotIds: new Set()
@@ -109,9 +97,24 @@ export class ViewService {
     this.viewsCache.set(creatorId, cache);
 
     // Create the View record.
-    return this.prisma.view.create({
+    const view = await this.prisma.view.create({
       data: { screenshotId, creatorId }
     });
+
+    // Update the Screenshot view count.
+    // No transaction with the View record creation, this is not critical data, and a background job
+    // will ensure that the view count is kept in sync anyway. It will also update the favoriting
+    // percentage and unique view count, which are not handled here.
+    await this.prisma.screenshot.update({
+      select: { id: true },
+      where: { id: screenshotId },
+      data: { viewsCount: { increment: 1 } }
+    });
+
+    // Update stats.
+    this.screenshotStatsService.requestStatsUpdate(screenshotId);
+
+    return view;
   }
 
   /**

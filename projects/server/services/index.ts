@@ -10,6 +10,7 @@ import { PrismaService } from './prisma.service';
 import { ScreenshotService } from './screenshot.service';
 import { ScreenshotProcessingService } from './screenshot-processing.service';
 import { ScreenshotSimilarityDetectorService } from './screenshot-similarity-detector.service';
+import { ScreenshotStatsService } from './screenshot-stats.service';
 import { ScreenshotStorageService } from './screenshot-storage.service';
 import { ViewService } from './view.service';
 
@@ -24,6 +25,7 @@ export * from './prisma.service';
 export * from './screenshot.service';
 export * from './screenshot-processing.service';
 export * from './screenshot-similarity-detector.service';
+export * from './screenshot-stats.service';
 export * from './screenshot-storage.service';
 export * from './view.service';
 
@@ -39,6 +41,7 @@ export const services: Provider[] = [
   ScreenshotService,
   ScreenshotProcessingService,
   ScreenshotSimilarityDetectorService,
+  ScreenshotStatsService,
   ScreenshotStorageService,
   ViewService
 ];

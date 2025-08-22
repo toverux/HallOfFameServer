@@ -84,8 +84,7 @@ export class CreatorController {
       allCreatorsCount,
       allViewsCount,
       screenshotsCount,
-      viewsCount,
-      favoritesCount
+      { viewsCount, uniqueViewsCount, favoritesCount }
     ] = await allFulfilled([
       this.prisma.screenshot.count(),
       this.prisma.creator.count(),
@@ -96,25 +95,16 @@ export class CreatorController {
       this.prisma.screenshot
         .aggregate({
           where: { creatorId: creator.id },
-          _sum: { viewsCount: true }
+          _sum: { viewsCount: true, uniqueViewsCount: true, favoritesCount: true }
         })
-        .then(
-          result => result._sum.viewsCount ?? 0,
-          err => {
-            throw err;
-          }
-        ),
-      this.prisma.screenshot
-        .aggregate({
-          where: { creatorId: creator.id },
-          _sum: { favoritesCount: true }
+        .then(({ _sum: sum }) => ({
+          viewsCount: sum.viewsCount ?? 0,
+          uniqueViewsCount: sum.uniqueViewsCount ?? 0,
+          favoritesCount: sum.favoritesCount ?? 0
+        }))
+        .catch(err => {
+          throw err;
         })
-        .then(
-          result => result._sum.favoritesCount ?? 0,
-          err => {
-            throw err;
-          }
-        )
     ]);
 
     return {
@@ -123,6 +113,7 @@ export class CreatorController {
       allViewsCount,
       screenshotsCount,
       viewsCount,
+      uniqueViewsCount,
       favoritesCount
     };
   }

@@ -40,11 +40,9 @@ export class ScreenshotStatsService {
   public async resyncStats(
     screenshotIds?: ReadonlySet<Screenshot['id']>,
     prisma: Prisma.TransactionClient = this.prisma
-  ): Promise<Screenshot['id'][]> {
+  ): Promise<void> {
     if (screenshotIds?.size == 0) {
-      this.logger.verbose(`No screenshots to resync.`);
-
-      return [];
+      return this.logger.verbose(`No screenshots to resync.`);
     }
 
     this.logger.log(`Resyncing screenshot stats for ${screenshotIds?.size ?? 'all'} screenshots.`);
@@ -110,10 +108,10 @@ export class ScreenshotStatsService {
       computedFavorites: number;
     }>[];
 
-    this.logger.log(`Found ${results.length} screenshot(s) to update.`);
+    this.logger.log(`Found ${results.length} screenshot(s) needing to be updated.`);
 
     if (!results.length) {
-      return [];
+      return;
     }
     const updateOps = results.map(result =>
       prisma.screenshot.update({
@@ -129,13 +127,11 @@ export class ScreenshotStatsService {
       })
     );
 
-    // Updating all at once, there shouldn't be too many screenshots, otherwise use RxJS like we did
-    // elsewhere (ex. with `mergeMap(op, concurrency)`).
+    // Updating all at once, there shouldn't ever be too many screenshots. Even during a migration,
+    // the database has been fine taking 8k+ requests simultaneously.
     await allFulfilled(updateOps);
 
     this.logger.log(`Updated stats for ${updateOps.length} screenshot(s).`);
-
-    return results.map(result => result._id.$oid);
   }
 
   /**
@@ -144,7 +140,7 @@ export class ScreenshotStatsService {
    */
   @Cron('*/5 * * * *')
   public resyncRequestsCron(): Promise<void> {
-    return this.doCronUpdate(this.screenshotsToSync);
+    return this.doCronUpdate(new Set(this.screenshotsToSync));
   }
 
   /**
@@ -158,11 +154,13 @@ export class ScreenshotStatsService {
 
   private async doCronUpdate(screenshotIds?: ReadonlySet<Screenshot['id']>): Promise<void> {
     try {
-      const syncedIds = await this.resyncStats(screenshotIds);
+      await this.resyncStats(screenshotIds);
 
       // Remove synced IDs from the list of IDs to sync.
-      for (const id of syncedIds) {
-        this.screenshotsToSync.delete(id);
+      if (screenshotIds) {
+        for (const id of screenshotIds) {
+          this.screenshotsToSync.delete(id);
+        }
       }
     } catch (error) {
       this.logger.error(`Failed CRON update of screenshot stats.`, error);

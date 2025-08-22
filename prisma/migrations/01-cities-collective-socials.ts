@@ -1,5 +1,5 @@
 import type { AnyBulkWriteOperation } from 'mongodb';
-import type { Migration } from './index';
+import type { Migration } from './types';
 
 export const migration: Migration = {
   async run(db, session) {

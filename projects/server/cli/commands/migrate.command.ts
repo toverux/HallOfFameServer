@@ -5,7 +5,7 @@ import type { Provider } from '@nestjs/common';
 import chalk from 'chalk';
 import { type ClientSession, type Db, MongoClient } from 'mongodb';
 import { Command, CommandRunner } from 'nest-commander';
-import type { Migration } from '../../../../prisma/migrations';
+import type { Migration } from '../../../../prisma/migrations/types';
 import { iconsole } from '../../../shared/iconsole';
 import { config } from '../../config';
 
@@ -80,7 +80,7 @@ export class MigrateCommand extends CommandRunner {
 
     // Get all .ts files in the migrations directory
     return (await fs.readdir(this.migrationsPath))
-      .filter(file => file != 'index.ts' && file.endsWith('.ts'))
+      .filter(file => file != 'types.ts' && file.endsWith('.ts'))
       .sort();
   }
 

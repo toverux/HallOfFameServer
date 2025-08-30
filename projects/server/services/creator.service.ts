@@ -52,19 +52,6 @@ export type ModCreatorAuthorization = Readonly<{
  */
 @Injectable()
 export class CreatorService {
-  /**
-   * Regular expression to validate a Creator Name:
-   * - Must contain only letters, numbers, spaces, hyphens, apostrophes, underscores and Chinese
-   *   middle dot.
-   * - Must be between 1 and 25 characters long. One-character-long names are for languages like
-   *   Chinese.
-   *
-   * @see validateCreatorName
-   * @see getCreatorNameSlug
-   * @see InvalidCreatorNameError
-   */
-  private static readonly nameRegex = /^[\p{L}\p{N}\- '’_•]{1,25}$/u;
-
   @Inject(PrismaService)
   private readonly prisma!: PrismaService;
 
@@ -275,7 +262,7 @@ export class CreatorService {
         backgroundUpdateCreatorNameTranslation.call(this, updatedCreator);
       }
 
-      this.logger.log(`Updated creator "${creator.creatorName}".`);
+      this.logger.verbose(`Updated creator "${creator.creatorName}".`);
 
       return updatedCreator;
     }
@@ -383,7 +370,8 @@ export class CreatorService {
   }
 
   /**
-   * Validates that a string is a valid Creator Name according to {@link CreatorService.nameRegex}
+   * Trims start, end and consecutive spaces and validates that the string does not exceed 25
+   * characters.
    *
    * @throws InvalidCreatorNameError If it is not a valid Creator Name.
    */
@@ -392,7 +380,7 @@ export class CreatorService {
       return null;
     }
 
-    if (!name.match(CreatorService.nameRegex)) {
+    if (name.length > 25) {
       throw new InvalidCreatorNameError(name);
     }
 
@@ -417,12 +405,7 @@ export class InvalidCreatorNameError extends CreatorError {
   public readonly incorrectName: string;
 
   public constructor(incorrectName: string) {
-    super(
-      oneLine`
-      Creator Name "${incorrectName}" is invalid, it must contain only
-      letters, numbers, spaces, hyphens and apostrophes, and be between 1
-      and 25 characters long.`
-    );
+    super(`Creator Name "${incorrectName}" is invalid, it must between 1 and 25 characters long.`);
 
     this.incorrectName = incorrectName;
   }

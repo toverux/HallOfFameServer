@@ -58,6 +58,16 @@ export class CreatorAuthorizationGuard implements CanActivate {
       return true;
     }
 
+    sentry.getCurrentScope().setUser({
+      id: authorization.creatorId,
+      username:
+        authorization.kind == 'mod' && authorization.creatorName
+          ? `${authorization.creatorName} (unverified)`
+          : (undefined as unknown as string),
+      // biome-ignore lint/style/useNamingConvention: sentry's API
+      ip_address: authorization.ip
+    });
+
     await this.ban.ensureNotBanned(
       authorization.ip,
       authorization.kind == 'mod' ? authorization.hwid : undefined
@@ -66,7 +76,7 @@ export class CreatorAuthorizationGuard implements CanActivate {
     // noinspection UnnecessaryLocalVariableJS
     const creator = await this.creatorService.authenticateCreator(authorization);
 
-    sentry.setUser({
+    sentry.getCurrentScope().setUser({
       id: creator.id,
       username: creator.creatorName ?? (undefined as unknown as string),
       // biome-ignore lint/style/useNamingConvention: sentry's API

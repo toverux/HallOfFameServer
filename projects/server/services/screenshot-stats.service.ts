@@ -45,7 +45,9 @@ export class ScreenshotStatsService {
       return this.logger.verbose(`No screenshots to resync.`);
     }
 
-    this.logger.log(`Resyncing screenshot stats for ${screenshotIds?.size ?? 'all'} screenshots.`);
+    this.logger.log(
+      `Resyncing screenshot stats for ${screenshotIds ? `up to ${screenshotIds.size}` : 'all'} screenshots.`
+    );
 
     const pipeline = [
       {
@@ -108,7 +110,7 @@ export class ScreenshotStatsService {
       computedFavorites: number;
     }>[];
 
-    this.logger.log(`Found ${results.length} screenshot(s) needing to be updated.`);
+    this.logger.verbose(`Found ${results.length} screenshot(s) needing to be updated.`);
 
     if (!results.length) {
       return;

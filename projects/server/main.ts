@@ -59,7 +59,6 @@ async function bootstrap(): Promise<void> {
     // The catch-all error filter should actually come first to let the other more specific
     // filters take precedence.
     new filters.GlobalExceptionFilter(app.getHttpAdapter()),
-    new filters.StandardErrorExceptionFilter(app.getHttpAdapter()),
     new filters.NotFoundExceptionFilter(app.getHttpAdapter())
   );
 

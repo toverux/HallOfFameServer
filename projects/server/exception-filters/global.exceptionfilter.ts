@@ -1,6 +1,7 @@
-import { type ArgumentsHost, Catch, HttpException } from '@nestjs/common';
+import { type ArgumentsHost, Catch, HttpException, Logger } from '@nestjs/common';
 import { BaseExceptionFilter } from '@nestjs/core';
 import * as sentry from '@sentry/bun';
+import { StandardError } from '../common';
 
 /**
  * Catch-all error filter, uses the base exception filter to handle all errors that reach it, but
@@ -9,22 +10,32 @@ import * as sentry from '@sentry/bun';
  */
 @Catch()
 export class GlobalExceptionFilter extends BaseExceptionFilter {
+  private readonly logger = new Logger(GlobalExceptionFilter.name);
+
   public override catch(error: unknown, host: ArgumentsHost): void {
-    // Report unknown errors and 500+ errors to Sentry.
-    if (!(error instanceof HttpException) || error.getStatus() >= 500) {
+    const responseError =
+      error instanceof StandardError
+        ? new error.httpErrorType(error.message, { cause: error })
+        : error;
+
+    // Report unknown errors and 500+ errors to Sentry, log the rest as warnings.
+    if (!(responseError instanceof HttpException) || responseError.getStatus() >= 500) {
+      // We do not need to call this.logger.error() as it's already handled by super.catch().
       sentry.captureException(error);
+    } else {
+      this.logger.warn(error, { name: responseError.name, status: responseError.getStatus() });
     }
 
-    super.catch(error, host);
+    super.catch(responseError, host);
   }
 
   /**
-   * The default implementation of this method isn't great, it's called for "unknown errors" (i.e.
-   * errors that aren't {@link HttpException}) it's supposed to catch http-errors lib's errors
+   * The default implementation of this method isn't great, it's called for "unknown errors" (i.e.,
+   * errors that aren't {@link HttpException}) it's supposed to catch http-errors' lib errors
    * (which we don't use btw), but just checks if the error has `statusCode` and `message` props.
    *
-   * In our case this was a problem with the Azure SDK errors which has `statusCode` and
-   * `message`, but they're not user errors, we want to treat that as an unknown errors too
+   * In our case this was a problem with the Azure SDK errors which have `statusCode` and
+   * `message`. However, they're not user errors; we want to treat these as unknown errors too
    * (resulting in a 500 error to the end user).
    *
    * So right now we don't ever want to return true for anything else as {@link HttpException} and

@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { Creator } from '@prisma/client';
 import { oneLine } from 'common-tags';
 import OpenAi from 'openai';
@@ -16,15 +16,19 @@ export interface TranslationResponse {
  */
 @Injectable()
 export class AiTranslatorService {
+  private readonly logger = new Logger(AiTranslatorService.name);
+
   private static readonly cityNamePrompt = oneLine`
-    You are an assistant translating and transliterating city names to English.
+    You are an assistant translating and transliterating city/region/location names to English.
+    Avoid literal translation if it is unclear, translate like you would translate a map.
     For the twoLetterLocaleCode field, put the locale code of the source language.
-    Use tone marks for the transliteration field.`;
+    Use tone marks, spaces and proper capitalization for the transliteration field.`;
 
   private static readonly creatorNamePrompt = oneLine`
-    You are an assistant translating and transliterating usernames.
+    You are an assistant translating and transliterating usernames to English.
+    Avoid literal translation if it is unclear.
     For the twoLetterLocaleCode field, put the locale code of the source language.
-    Use tone marks for the transliteration field.`;
+    Use tone marks, spaces and proper capitalization for the transliteration field.`;
 
   /**
    * The schema we want the AI to output, OpenAI supports JSON Schema.
@@ -69,7 +73,7 @@ export class AiTranslatorService {
     return (
       // Match any text with non-Latin characters.
       AiTranslatorService.nonLatinTextRegex.test(text) &&
-      // Ignore mixed-script text, for example some people put the translation themselves or do
+      // Ignore mixed-script text, for example, some people put the translation themselves or do
       // fancy things with their username, we won't touch those strings.
       !AiTranslatorService.latinTextRegex.test(text)
     );
@@ -98,10 +102,13 @@ export class AiTranslatorService {
     input: string;
     creatorId: Creator['id'];
   }): Promise<TranslationResponse> {
+    this.logger.verbose(`Translating "${input}"`);
+
     const response = await this.openAi.responses.create({
-      model: 'gpt-4o',
-      temperature: 0,
-      user: creatorId,
+      model: 'gpt-5',
+      reasoning: { effort: 'medium', summary: 'auto' },
+      // biome-ignore lint/style/useNamingConvention: OpenAI's API.
+      safety_identifier: creatorId,
       input: [
         { role: 'system', content: prompt },
         { role: 'user', content: input }
@@ -126,12 +133,22 @@ export class AiTranslatorService {
     try {
       translation = JSON.parse(response.output_text);
     } catch (error) {
-      throw new Error(`Invalid JSON response from OpenAI: "${response.output_text}".`, {
+      throw new Error(`Invalid JSON response from OpenAI: ${response.output_text}`, {
         cause: error
       });
     }
 
     // Make sure the JSON from the model is valid.
-    return AiTranslatorService.openAiResponseZodSchema.parse(translation);
+    const result = AiTranslatorService.openAiResponseZodSchema.parse(translation);
+
+    this.logger.log(
+      oneLine`
+      Translated "${input}" to "${result.translation}",
+      transliteration "${result.transliteration}",
+      guessed locale "${result.twoLetterLocaleCode}".`,
+      response
+    );
+
+    return result;
   }
 }

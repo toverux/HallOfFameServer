@@ -4,6 +4,7 @@ import { oneLine } from 'common-tags';
 import OpenAi from 'openai';
 import { z } from 'zod';
 import type { JsonObject } from '../common';
+import { config } from '../config';
 
 export interface TranslationResponse {
   readonly twoLetterLocaleCode: string;
@@ -26,7 +27,7 @@ export class AiTranslatorService {
 
   private static readonly creatorNamePrompt = oneLine`
     You are an assistant translating and transliterating usernames to English.
-    Avoid literal translation if it is unclear.
+    Avoid literal translation if it is unclear, but you MUST provide an answer.
     For the twoLetterLocaleCode field, put the locale code of the source language.
     Use tone marks, spaces and proper capitalization for the transliteration field.`;
 
@@ -106,7 +107,7 @@ export class AiTranslatorService {
 
     const response = await this.openAi.responses.create({
       model: 'gpt-5',
-      reasoning: { effort: 'medium', summary: 'auto' },
+      reasoning: { effort: config.env == 'production' ? 'medium' : 'minimal' },
       // biome-ignore lint/style/useNamingConvention: OpenAI's API.
       safety_identifier: creatorId,
       input: [
@@ -145,9 +146,11 @@ export class AiTranslatorService {
       oneLine`
       Translated "${input}" to "${result.translation}",
       transliteration "${result.transliteration}",
-      guessed locale "${result.twoLetterLocaleCode}".`,
-      response
+      guessed locale "${result.twoLetterLocaleCode}"
+      (${response.id}).`
     );
+
+    this.logger.verbose(response);
 
     return result;
   }

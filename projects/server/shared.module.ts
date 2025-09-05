@@ -12,12 +12,7 @@ import { services } from './services';
     ...services,
     {
       provide: OpenAi,
-      useFactory() {
-        return new OpenAi({
-          apiKey: config.openAi.apiKey,
-          timeout: 30_000
-        });
-      }
+      useFactory: () => new OpenAi({ apiKey: config.openAi.apiKey })
     }
   ],
   exports: [...services, OpenAi]

@@ -2,7 +2,6 @@ import type { Provider } from '@nestjs/common';
 import { AiTranslatorService } from './ai-translator.service';
 import { AzureService } from './azure.service';
 import { BanService } from './ban.service';
-import { CitiesCollectiveService } from './cities-collective.service';
 import { CreatorService } from './creator.service';
 import { DateFnsLocalizationService } from './date-fns-localization.service';
 import { FavoriteService } from './favorite.service';
@@ -17,7 +16,6 @@ import { ViewService } from './view.service';
 export * from './ai-translator.service';
 export * from './azure.service';
 export * from './ban.service';
-export * from './cities-collective.service';
 export * from './creator.service';
 export * from './date-fns-localization.service';
 export * from './favorite.service';
@@ -33,7 +31,6 @@ export const services: Provider[] = [
   AiTranslatorService,
   AzureService,
   BanService,
-  CitiesCollectiveService,
   CreatorService,
   DateFnsLocalizationService,
   FavoriteService,

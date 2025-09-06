@@ -360,7 +360,6 @@ export class CreatorService {
       creatorNameLatinized: creator.creatorNameLatinized,
       creatorNameTranslated: creator.creatorNameTranslated,
       createdAt: creator.createdAt.toISOString(),
-      citiesCollectiveId: creator.citiesCollectiveId,
       socials: creator.socials.map(social => ({
         platform: social.platform,
         link: `${config.http.baseUrl}/api/v1/creators/${creator.id}/social/${social.platform}`,

@@ -69,9 +69,6 @@ model Creator {
   /// JSON object containing the latest known mod settings this user used.
   /// Used to better understand the mod's usage.
   modSettings           Json?
-  /// Cities Collective User ID (https://citiescollective.space) when that user synced their account
-  /// with Hall of Fame.
-  citiesCollectiveId    String?
   /// One to many relationship with posted Screenshots.
   screenshots           Screenshot[]      @relation("screenshots")
   /// One to many relationship with reported Screenshots.
@@ -96,7 +93,6 @@ enum CreatorIdProvider {
 }
 
 /// A social link for a Creator.
-/// Synchronized from the Cities Collective API.
 type CreatorSocial {
   /// Platform, ex. "youtube", "twitch", etc.
   platform String
@@ -169,9 +165,6 @@ model Screenshot {
   /// Each setting that has a non-default value is recorded here, otherwise it is simply not present.
   /// It is a map of "setting code => float value" and validated by application code.
   renderSettings       Json
-  /// Cities Collective City ID (https://citiescollective.space) set on matching cities when the
-  /// user synced their account with Hall of Fame.
-  citiesCollectiveId   String?
   /// Schema-less JSON object of metadata sent by the client.
   /// Used for analytical/debugging purposes; not used by business logic.
   metadata             Json

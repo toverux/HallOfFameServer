@@ -23,8 +23,8 @@ Find our user feedback, feature request and roadmap board here:
 1. Install [Bun](https://bun.sh).
 2. (Recommended) Install [mise-en-place](https://mise.jdx.dev) for per-project Node.js & Bun
    version management. Without mise, just match the required versions specified in `mise.toml`.
-   For now, Node is still and only needed alongside Bun to run Webpack
-   (https://github.com/oven-sh/bun/issues/10768).
+   For now, Node is still and only needed alongside Bun to run Angular CLI, which hangs on
+   "Building..." on Bun.
 3. Run `bun i` to install dependencies.
 4. You may `bun run build` to test that the project builds and everything is in order.
 5. Install [MongoDB](https://www.mongodb.com/docs/manual/administration/install-community)

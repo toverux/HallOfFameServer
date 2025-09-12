@@ -115,7 +115,7 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
 
     const index = await this.usearchIndex;
 
-    const { keys, distances } = index.search(new Float32Array(embeddingDoc.embedding), 20);
+    const { keys, distances } = index.search(new Float32Array(embeddingDoc.embedding), 20, 0);
 
     for (let i = 0; i < keys.length; i++) {
       // biome-ignore lint/style/noNonNullAssertion: cannot be null.

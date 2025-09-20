@@ -2,7 +2,7 @@
 #    required.
 #    I also had to switch from alpine to slim because TensorFlow doesn't run on musl, it needs a
 #    glibc distro. Other than that alpine was fine if we could switch back.
-FROM debian:bookworm-slim AS base
+FROM ubuntu:24.04 AS base
 WORKDIR /usr/src/app
 
 # Fail fast!
@@ -27,12 +27,13 @@ COPY mise.toml $MISE_CONFIG_DIR/config.toml
 RUN curl https://mise.run | sh
 RUN mise install
 
-# => Configure Bun
+# => Configure Bun user
+# Use GID/UID 1001 to avoid conflict with Ubuntu's default user (GID 1000)
 
 RUN groupadd bun \
-      --gid 1000 \
+      --gid 1001 \
     && useradd bun \
-      --uid 1000 \
+      --uid 1001 \
       --gid bun \
       --shell /bin/sh \
       --create-home

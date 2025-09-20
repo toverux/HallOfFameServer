@@ -15,7 +15,7 @@
     "// Useful when working on the mod with the editor and game open so the server does not consume too much memory": "",
     "run:server:light": "TF_CPP_MIN_LOG_LEVEL=1 bun --smol projects/server/main.ts",
     "serve:client": "ng serve",
-    "build": "bun prisma generate && bun check:ro && ng build",
+    "build": "bun prisma generate --no-hints && bun check:ro && ng build",
     "start": "bun run:server"
   },
   "packageManager": "bun@1.2.22",

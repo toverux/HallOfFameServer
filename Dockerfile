@@ -1,7 +1,10 @@
-# => Use Debian Slim, we could migrate back to the official bun image once Node.js is no longer
-#    required.
-#    I also had to switch from alpine to slim because TensorFlow doesn't run on musl, it needs a
-#    glibc distro. Other than that alpine was fine if we could switch back.
+# => Use Ubuntu because:
+#    - TensorFlow doesn't run on musl, it needs a glibc distro. Other than that alpine was fine if
+#      we could switch back.
+#    - I used Debian Slim to fix the musl issue but that later conflicted with mise requiring a more
+#      recent version of glibc.
+#    - Using a custom distro instead of bun's one, we can install tools via mise and have one souce
+#      of truth for tools' versions.
 FROM ubuntu:24.04 AS base
 WORKDIR /usr/src/app
 
@@ -25,7 +28,7 @@ ENV PATH="/mise/shims:$PATH"
 COPY mise.toml $MISE_CONFIG_DIR/config.toml
 
 RUN curl https://mise.run | sh
-RUN mise install
+RUN mise trust && mise install
 
 # => Configure Bun user
 # Use GID/UID 1001 to avoid conflict with Ubuntu's default user (GID 1000)

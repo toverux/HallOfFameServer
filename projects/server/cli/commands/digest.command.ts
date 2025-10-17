@@ -68,7 +68,7 @@ export class DigestCommand extends CommandRunner {
     likesThreshold: 20
   };
 
-  private static readonly digestStorePath = path.join(import.meta.dir, '../../../../.digest');
+  private static readonly outputPath = path.join(import.meta.dir, '../../../../.output/digest');
 
   @Inject(PrismaService)
   private readonly prisma!: PrismaService;
@@ -113,7 +113,7 @@ export class DigestCommand extends CommandRunner {
       chalk.bold.underline(`\n🏆 Hall of Fame Digest — ${dateFns.format(startDate, 'MMMM yyyy')}`)
     );
 
-    await fs.rm(DigestCommand.digestStorePath, { recursive: true, force: true });
+    await fs.rm(DigestCommand.outputPath, { recursive: true, force: true });
 
     let browser: Browser | undefined;
 
@@ -169,7 +169,7 @@ export class DigestCommand extends CommandRunner {
     }
 
     if (options.open) {
-      await open(DigestCommand.digestStorePath, { wait: false });
+      await open(DigestCommand.outputPath, { wait: false });
     }
   }
 
@@ -451,8 +451,8 @@ export class DigestCommand extends CommandRunner {
 
       padding: 8rem;
 
-      > :nth-child(1) { place-self: start start; } /* ⬏ top-left   */
-      > :nth-child(2) { place-self: start end;   } /* ⬑ top-right  */
+      > :nth-child(1) { place-self: start start; } /* ⬑ top-left   */
+      > :nth-child(2) { place-self: start end;   } /* ⬏ top-right  */
       > :nth-child(3) { place-self: end   start; } /* ⬐ bottom-left*/
       > :nth-child(4) { place-self: end   end;   } /* ⬎ bottom-right*/
 
@@ -566,11 +566,11 @@ export class DigestCommand extends CommandRunner {
         </div>
 
         <div class="layout_hof">
-            <img src="file://${logoSkyscraperSrc}">
-            <span class="layout_hof_name">Hall of Fame</span>
-            <span class="layout_hof_date">
-              ${dateFns.format(generatorOptions.startDate, `MMMM ’yy`)}
-            </span>
+          <img src="file://${logoSkyscraperSrc}">
+          <span class="layout_hof_name">Hall of Fame</span>
+          <span class="layout_hof_date">
+            ${dateFns.format(generatorOptions.startDate, `MMMM ’yy`)}
+          </span>
         </div>
       </section>
     </main>`;
@@ -600,7 +600,7 @@ export class DigestCommand extends CommandRunner {
     assert(clipEl);
 
     const filePath = path.join(
-      DigestCommand.digestStorePath,
+      DigestCommand.outputPath,
       options.generatorName,
       `${options.position} - ${options.cityName} by ${options.creatorName}.webp`
     );

@@ -1,4 +1,5 @@
 import type { Provider } from '@nestjs/common';
+import { AnniversaryCommand } from './anniversary.command';
 import { CreatorCommand } from './creator/creator.command';
 import { DigestCommand } from './digest.command';
 import { ImportCityCommand } from './import-city.command';
@@ -8,9 +9,10 @@ import { ScreenshotCommand } from './screenshot/screenshot.command';
 // Lists commands but also their other nest-commander DI dependencies.
 export const commands: Provider[] = [
   // Root-level commands.
+  ...AnniversaryCommand.providers(),
+  ...DigestCommand.providers(),
   ...ImportCityCommand.providers(),
   ...MigrateCommand.providers(),
-  ...DigestCommand.providers(),
   // Commands with sub-commands.
   ...CreatorCommand.providers(),
   ...ScreenshotCommand.providers()

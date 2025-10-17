@@ -8,7 +8,7 @@
 
 # Build artifacts, temporary files
 /prisma/generated
-/.digest
+/.output
 /dist
 /halloffame.mongoarchive
 

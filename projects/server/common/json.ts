@@ -4,7 +4,9 @@ export type JsonPrimitive = string | number | boolean | null;
 
 export type JsonList = JsonValue[];
 
-export type JsonObject = { [key: string]: JsonValue | JsonNonSerialized };
+export interface JsonObject {
+  [key: string]: JsonValue | JsonNonSerialized;
+}
 
 export type JsonValue = JsonPrimitive | JsonObject | JsonList;
 

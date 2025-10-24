@@ -38,7 +38,9 @@ type ScreenshotWithAlgo = Screenshot & {
   __algorithm: RandomScreenshotAlgorithm | 'random_default';
 };
 
-type JsonOid = { readonly $oid: string };
+interface JsonOid extends Prisma.InputJsonObject {
+  readonly $oid: string;
+}
 
 @Injectable()
 export class ScreenshotService {

@@ -18,10 +18,10 @@ import { PrismaService } from './prisma.service';
 import type { WorkerRequest, WorkerResponse } from './screenshot-similarity-detector.worker';
 import { ScreenshotStorageService } from './screenshot-storage.service';
 
-type InputScreenshot = {
+interface InputScreenshot {
   readonly id: Screenshot['id'];
   readonly imageUrlOrBuffer: Screenshot['imageUrlFHD'] | Uint8Array;
-};
+}
 
 /**
  * Service for detecting similar screenshots based on their embeddings, extracted through a feature

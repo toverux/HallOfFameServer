@@ -15,26 +15,26 @@ import path from 'node:path';
 import * as tf from '@tensorflow/tfjs-node';
 
 /**
- * Worker input message, must support the Structured Clone Algorithm.
+ * Worker input message, it must support the Structured Clone Algorithm.
  * The ID is a number to match a request with a response.
  * @see https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm
  */
-export type WorkerRequest = {
+export interface WorkerRequest {
   readonly id: number;
   readonly imagesData: Uint8Array[];
-};
+}
 
 /**
- * Worker output message, must support the Structured Clone Algorithm.
+ * Worker output message, it must support the Structured Clone Algorithm.
  * The ID is a number to match a request with a response.
  * @see https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm
  */
-export type WorkerResponse = {
+export interface WorkerResponse {
   id: number;
   payload:
     | Error // Note: `Error` is serializable — non-standard subclasses are converted to `Error`.
     | Float32Array[];
-};
+}
 
 /**
  * Configuration for a feature vector model.
@@ -135,7 +135,7 @@ function inferEmbeddings(buffers: readonly Uint8Array[]): Float32Array[] {
     // image resizing) and synchronous. This is what justified moving the logic in a
     // worker and make it all sync.
     // Moreover, this has the benefit that this function MUST NOT be reentrant as there can only be
-    // one active scope at a time, so with sync function we do not need to add a mutex.
+    // one active scope at a time, so with a sync function we do not need to add a mutex.
     const flatEmbeddings = normalizedEmbedding.dataSync();
 
     // noinspection SuspiciousTypeOfGuard

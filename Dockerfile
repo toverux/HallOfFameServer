@@ -29,7 +29,7 @@ ENV PATH="/mise/shims:$PATH"
 COPY mise.toml $MISE_CONFIG_DIR/config.toml
 
 RUN curl https://mise.run | sh
-RUN mise trust && mise install
+RUN mise install
 
 # => Configure Bun user
 # Use GID/UID 1001 to avoid conflict with Ubuntu's default user (GID 1000)
@@ -62,8 +62,12 @@ RUN cp -r /temp/dev/* /temp/prod/ \
 # => Copy node_modules from temp directory.
 #    Then copy all (non-ignored) project files into the image.
 FROM base AS prerelease
+
 COPY --from=install /temp/dev/node_modules node_modules
 COPY . .
+
+# let global file we copied earlier take precedence
+RUN rm mise.toml
 
 # => Build
 ENV NODE_ENV=production

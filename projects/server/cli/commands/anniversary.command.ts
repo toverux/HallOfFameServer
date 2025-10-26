@@ -8,6 +8,7 @@ import { format } from 'date-fns';
 import { Command, CommandRunner, Option } from 'nest-commander';
 import open from 'open';
 import { iconsole } from '../../../shared/iconsole';
+import { nn } from '../../../shared/utils';
 import { PrismaService, ScreenshotStorageService } from '../../services';
 
 @Command({
@@ -61,8 +62,7 @@ export class AnniversaryCommand extends CommandRunner {
     >();
 
     for (const screenshot of screenshots) {
-      // biome-ignore lint/style/noNonNullAssertion: cannot be null
-      const cityName = screenshot.cityName.split(',').at(0)!;
+      const cityName = screenshot.cityName.split(',').at(0);
 
       const cityId = `${screenshot.creatorId}_${cityName}` as const;
 
@@ -84,10 +84,8 @@ export class AnniversaryCommand extends CommandRunner {
           (a, b) => a.createdAt.getTime() - b.createdAt.getTime()
         );
 
-        // biome-ignore lint/style/noNonNullAssertion: cannot be null
-        const firstSeenAt = screenshotsOrderedByDate[0]!.createdAt;
-        // biome-ignore lint/style/noNonNullAssertion: cannot be null
-        const lastSeenAt = screenshotsOrderedByDate[screenshots.length - 1]!.createdAt;
+        const firstSeenAt = nn(screenshotsOrderedByDate.at(0)).createdAt;
+        const lastSeenAt = nn(screenshotsOrderedByDate.at(-1)).createdAt;
 
         const favoritesCount = screenshots.reduce((count, s) => count + s.favoritesCount, 0);
 
@@ -105,12 +103,12 @@ export class AnniversaryCommand extends CommandRunner {
               sorted[middle]!;
         })();
 
+        const firstScreenshot = nn(screenshots[0]);
+
         return {
           screenshots: screenshotsOrderedByFavoritingRatio,
-          // biome-ignore lint/style/noNonNullAssertion: cannot be null
-          creatorName: screenshots[0]!.creator.creatorName,
-          // biome-ignore lint/style/noNonNullAssertion: cannot be null
-          cityName: screenshots[0]!.cityName,
+          creatorName: firstScreenshot.creator.creatorName,
+          cityName: firstScreenshot.cityName,
           favoritesCount,
           firstSeenAt,
           lastSeenAt,
@@ -130,8 +128,7 @@ export class AnniversaryCommand extends CommandRunner {
     }
 
     for (let cityIndex = 0; cityIndex < citiesRecap.length; cityIndex++) {
-      // biome-ignore lint/style/noNonNullAssertion: cannot be null
-      const city = citiesRecap[cityIndex]!;
+      const city = nn(citiesRecap[cityIndex]);
 
       iconsole.info(
         oneLine`
@@ -140,8 +137,7 @@ export class AnniversaryCommand extends CommandRunner {
       );
 
       for (let screenshotIndex = 0; screenshotIndex < city.screenshots.length; screenshotIndex++) {
-        // biome-ignore lint/style/noNonNullAssertion: cannot be null
-        const screenshot = city.screenshots[screenshotIndex]!;
+        const screenshot = nn(city.screenshots[screenshotIndex]);
 
         iconsole.info(
           oneLine`

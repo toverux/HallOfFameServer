@@ -6,6 +6,7 @@ import { oneLine } from 'common-tags';
 import * as dfns from 'date-fns';
 import type { FastifyRequest } from 'fastify';
 import { filesize } from 'filesize';
+import { nn } from '../../shared/utils';
 import {
   isPrismaError,
   type JsonObject,
@@ -624,8 +625,7 @@ export class ScreenshotService {
     if (latestScreenshots.length >= config.screenshots.limitPer24h) {
       throw new ScreenshotRateLimitExceededError(
         config.screenshots.limitPer24h,
-        // biome-ignore lint/style/noNonNullAssertion: cannot be null
-        dfns.addDays(latestScreenshots[0]!.createdAt, 1)
+        dfns.addDays(nn(latestScreenshots[0]).createdAt, 1)
       );
     }
   }

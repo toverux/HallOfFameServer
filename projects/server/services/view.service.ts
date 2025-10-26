@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { Creator, Screenshot, View } from '@prisma/client';
 import * as dateFns from 'date-fns';
 import { LRUCache } from 'lru-cache';
+import { nn } from '../../shared/utils';
 import { type JsonObject, optionallySerialized } from '../common';
 import { CreatorService } from './creator.service';
 import { PrismaService } from './prisma.service';
@@ -45,8 +46,7 @@ export class ViewService {
     maxAgeInDays: number | undefined
   ): Promise<Set<Screenshot['id']>> {
     if (this.viewsCache.has(creatorId)) {
-      // biome-ignore lint/style/noNonNullAssertion: cannot be null
-      const cache = this.viewsCache.get(creatorId)!;
+      const cache = nn(this.viewsCache.get(creatorId));
 
       if (cache.maxAge && cache.maxAge != maxAgeInDays) {
         // If the max age has changed, we need to clear the cache entry

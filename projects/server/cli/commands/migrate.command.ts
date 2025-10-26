@@ -1,4 +1,3 @@
-import assert from 'node:assert/strict';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import type { Provider } from '@nestjs/common';
@@ -7,6 +6,7 @@ import { type ClientSession, type Db, MongoClient } from 'mongodb';
 import { Command, CommandRunner } from 'nest-commander';
 import type { Migration } from '../../../../prisma/migrations/types';
 import { iconsole } from '../../../shared/iconsole';
+import { nn } from '../../../shared/utils';
 import { config } from '../../config';
 
 @Command({
@@ -106,7 +106,7 @@ export class MigrateCommand extends CommandRunner {
    * Get all pending migrations.
    */
   private async getPendingMigrations(): Promise<string[]> {
-    assert(this.db);
+    nn.assert(this.db);
 
     const migrationFiles = await this.getMigrationFiles();
 
@@ -125,7 +125,7 @@ export class MigrateCommand extends CommandRunner {
    * Run a single migration from a file path.
    */
   private async runMigration(migrationFile: string, session: ClientSession): Promise<void> {
-    assert(this.db);
+    nn.assert(this.db);
 
     const migrationFilePath = path.join(this.migrationsPath, migrationFile);
 

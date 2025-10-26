@@ -1,6 +1,5 @@
 /** biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: generators are long and better that way. */
 
-import assert from 'node:assert/strict';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import path from 'node:path';
@@ -18,6 +17,7 @@ import puppeteer, { type Browser, type Page } from 'puppeteer';
 import logoSkyscraperSrc from '../../../shared/assets/logo-skyscraper.svg';
 import loveChirperSrc from '../../../shared/assets/love-chirper.png';
 import { iconsole } from '../../../shared/iconsole';
+import { nn } from '../../../shared/utils';
 import { config } from '../../config';
 import { PrismaService, ScreenshotStorageService } from '../../services';
 
@@ -357,9 +357,9 @@ export class DigestCommand extends CommandRunner {
     }));
 
     for (let index = 0; index < results.length; index++) {
-      const { screenshot, cityName, creatorName, favoritesCount, favoritingPercentage } =
-        // biome-ignore lint/style/noNonNullAssertion: cannot be null.
-        results[index]!;
+      const { screenshot, cityName, creatorName, favoritesCount, favoritingPercentage } = nn(
+        results[index]
+      );
 
       const imageUrl = `${config.http.baseUrl}/api/v1/screenshots/${screenshot._id.$oid}/4k.jpg`;
 
@@ -371,9 +371,9 @@ export class DigestCommand extends CommandRunner {
     yield '';
 
     for (let index = 0; index < DigestCommand.configuration.topSizeForImages; index++) {
-      const { screenshot, cityName, creatorName, favoritesCount, favoritingPercentage } =
-        // biome-ignore lint/style/noNonNullAssertion: cannot be null.
-        results[index]!;
+      const { screenshot, cityName, creatorName, favoritesCount, favoritingPercentage } = nn(
+        results[index]
+      );
 
       const startDateMonthStr = dateFns.format(startDate, 'MMMM').toLowerCase();
       const endDateMonthStr = dateFns.format(options.endDate, 'MMMM').toLowerCase();
@@ -597,7 +597,7 @@ export class DigestCommand extends CommandRunner {
     await page.setViewport({ width, height });
 
     const clipEl = await page.$('img');
-    assert(clipEl);
+    nn.assert(clipEl);
 
     const filePath = path.join(
       DigestCommand.outputPath,

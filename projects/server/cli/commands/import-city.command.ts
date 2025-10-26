@@ -1,4 +1,3 @@
-import assert from 'node:assert/strict';
 import * as path from 'node:path';
 import process from 'node:process';
 import { Inject, type Provider } from '@nestjs/common';
@@ -8,6 +7,7 @@ import { oneLine } from 'common-tags';
 import * as dateFns from 'date-fns';
 import { Command, CommandRunner, InquirerService, Question, QuestionSet } from 'nest-commander';
 import { iconsole } from '../../../shared/iconsole';
+import { nn } from '../../../shared/utils';
 import type { Maybe } from '../../common';
 import { PrismaService, ScreenshotService } from '../../services';
 
@@ -75,7 +75,7 @@ export class ImportCityCommand extends CommandRunner {
         continue;
       }
 
-      assert(cityInfo);
+      nn.assert(cityInfo);
 
       // Check if the creator already exists.
       const creator = await this.prisma.creator.findFirst({
@@ -268,8 +268,7 @@ class CityInfoQuestions {
     choices: milestones.map((milestone, index) => `${index + 1}. ${milestone}`)
   })
   public parseMilestone(val: string): number {
-    // biome-ignore lint/style/noNonNullAssertion: input is safe
-    return milestones.indexOf(val.split('. ')[1]!) + 1;
+    return milestones.indexOf(nn(val.split('. ').at(1))) + 1;
   }
 
   @Question({

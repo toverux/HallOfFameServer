@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { Creator, Favorite, Screenshot } from '@prisma/client';
+import { nn } from '../../shared/utils';
 import { type JsonObject, optionallySerialized, StandardError } from '../common';
 import { CreatorService } from './creator.service';
 import { PrismaService } from './prisma.service';
@@ -114,8 +115,7 @@ export class FavoriteService {
       data: {
         screenshotId,
         creatorId: creator.id,
-        // biome-ignore lint/style/noNonNullAssertion: IP address should never be null in practice
-        ip: creator.ips[0]!,
+        ip: nn(creator.ips[0]),
         hwid: creator.hwids[0] ?? null
       }
     });

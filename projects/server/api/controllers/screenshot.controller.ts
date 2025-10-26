@@ -1,4 +1,3 @@
-import assert from 'node:assert/strict';
 import type { Multipart } from '@fastify/multipart';
 import {
   BadRequestException,
@@ -21,6 +20,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { oneLine } from 'common-tags';
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import { nn } from '../../../shared/utils';
 import { isPrismaError, type JsonObject, type ParadoxModId, StandardError } from '../../common';
 import { config } from '../../config';
 import { CreatorAuthorizationGuard } from '../../guards';
@@ -236,7 +236,7 @@ export class ScreenshotController {
       where: { id: screenshot.creatorId }
     });
 
-    assert(createdBy, `Could not find Creator #${screenshot.creatorId}`);
+    nn.assert(createdBy);
 
     const payload = this.screenshotService.serialize({ ...screenshot, creator: createdBy }, req);
 

@@ -3,6 +3,7 @@ import * as dfns from 'date-fns';
 import * as locales from 'date-fns/locale';
 import type { FastifyRequest } from 'fastify';
 import { resolveAcceptLanguage } from 'resolve-accept-language';
+import { nn } from '../../shared/utils';
 
 @Injectable()
 export class DateFnsLocalizationService {
@@ -73,13 +74,7 @@ export class DateFnsLocalizationService {
       // possibly extend script support in the future given a valid use case, but in the
       // meantime, our goal is to keep this library as simple as possible, while providing the
       // best matches.” - resolve-accept-language author.
-      .filter(
-        ({ code }) =>
-          !['cyrl', 'hira', 'latn', 'tarask'].includes(
-            // biome-ignore lint/style/noNonNullAssertion: always set in the previous map
-            code.split('-')[1]!
-          )
-      )
+      .filter(({ code }) => !['cyrl', 'hira', 'latn', 'tarask'].includes(nn(code.split('-')[1])))
       .map(({ code, locale }) => [code, locale] as const);
 
     return new Map(entries);

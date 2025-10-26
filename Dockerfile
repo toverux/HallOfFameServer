@@ -14,8 +14,9 @@ SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 # => Install mise-en-place to handle Bun and Node installation from mise.toml
 #    Node is needed for Angular to build correctly, 'ng build' does not run well under Bun (hangs).
 
+# libatomic1 is required by mise
 RUN apt-get update  \
-    && apt-get -y --no-install-recommends install curl ca-certificates \
+    && apt-get -y --no-install-recommends install curl ca-certificates libatomic1 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 

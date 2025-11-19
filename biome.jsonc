@@ -25,6 +25,9 @@
     },
     "rules": {
       "correctness": {
+        // Buggy, as of the current version of Biome, marks all static private members as unused.
+        // And TS already got us covered for that.
+        "noUnusedPrivateClassMembers": "off",
         // Not needed nor wanted in this project.
         "useImportExtensions": "off"
       },

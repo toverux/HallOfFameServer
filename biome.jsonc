@@ -8,7 +8,7 @@
     "@toverux/blanc-hopital/biome/node"
   ],
   "files": {
-    "includes": ["**", "!package.json", "!efficientnetv2"]
+    "includes": ["**", "!package.json", "!!dist", "!efficientnetv2"]
   },
   "vcs": {
     "enabled": true,
@@ -19,9 +19,11 @@
   "linter": {
     "domains": {
       "next": "none",
+      "qwik": "none",
       "react": "none",
       "solid": "none",
-      "test": "none"
+      "test": "none",
+      "vue": "none"
     },
     "rules": {
       "correctness": {

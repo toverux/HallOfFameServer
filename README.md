@@ -20,11 +20,11 @@ Find our user feedback, feature request and roadmap board here:
 
 ### Installation
 
-1. Install [Bun](https://bun.sh).
-2. (Recommended) Install [mise-en-place](https://mise.jdx.dev) for per-project Node.js & Bun
+1. (Recommended) Install [mise-en-place](https://mise.jdx.dev) for per-project Bun & Node.js
    version management. Without mise, just match the required versions specified in `mise.toml`.
    For now, Node is still and only needed alongside Bun to run Angular CLI, which hangs on
    "Building..." on Bun.
+2. Run `mise i` to install the required version of Bun and Node.js,
 3. Run `bun i` to install dependencies.
 4. You may `bun run build` to test that the project builds and everything is in order.
 5. Install [MongoDB](https://www.mongodb.com/docs/manual/administration/install-community)
@@ -81,8 +81,8 @@ bun prisma db push && bun run:cli migrate
 
 ### Updating Dependencies & Toolchain
 
-`bun pm:update` will update mise, will propose to update Bun, and then show an interactive update
-for npm dependencies.
+`mise deps:upgrade` will update mise, will propose to update Bun, and then show an interactive
+update for npm dependencies.
 
 ## Code Style
 

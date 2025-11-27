@@ -7,11 +7,11 @@ import {
   type OnModuleDestroy,
   type OnModuleInit
 } from '@nestjs/common';
-import type { Prisma, Screenshot, ScreenshotFeatureEmbedding } from '@prisma/client';
 import { oneLine } from 'common-tags';
 import LazyPromise from 'p-lazy';
 import { first, firstValueFrom, Subject, timeout } from 'rxjs';
 import usearch, { type Index, MetricKind } from 'usearch';
+import type { Prisma, Screenshot, ScreenshotFeatureEmbedding } from '#prisma-lib/client';
 import { allFulfilled, isPrismaError } from '../common';
 import { config } from '../config';
 import { PrismaService } from './prisma.service';

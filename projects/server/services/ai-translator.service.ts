@@ -1,8 +1,8 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import type { Creator } from '@prisma/client';
 import { oneLine } from 'common-tags';
 import OpenAi from 'openai';
 import { z } from 'zod';
+import type { Creator } from '#prisma-lib/client';
 import type { JsonObject } from '../common';
 import { config } from '../config';
 

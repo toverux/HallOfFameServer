@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
-import type { Prisma, Screenshot } from '@prisma/client';
 import * as sentry from '@sentry/bun';
+import type { Prisma, Screenshot } from '#prisma-lib/client';
 import { allFulfilled } from '../common';
 import { PrismaService } from './prisma.service';
 

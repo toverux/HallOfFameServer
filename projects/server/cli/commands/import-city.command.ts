@@ -1,11 +1,11 @@
 import * as path from 'node:path';
 import process from 'node:process';
 import { Inject, type Provider } from '@nestjs/common';
-import type { Creator, Screenshot } from '@prisma/client';
 import Bun from 'bun';
 import { oneLine } from 'common-tags';
 import * as dateFns from 'date-fns';
 import { Command, CommandRunner, InquirerService, Question, QuestionSet } from 'nest-commander';
+import type { Creator, Screenshot } from '#prisma-lib/client';
 import { iconsole } from '../../../shared/iconsole';
 import { nn } from '../../../shared/utils';
 import type { Maybe } from '../../common';

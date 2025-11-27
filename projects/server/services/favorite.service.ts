@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { Creator, Favorite, Screenshot } from '@prisma/client';
+import type { Creator, Favorite, Screenshot } from '#prisma-lib/client';
 import { nn } from '../../shared/utils';
 import { type JsonObject, optionallySerialized, StandardError } from '../common';
 import { CreatorService } from './creator.service';

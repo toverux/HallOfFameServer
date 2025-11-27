@@ -7,7 +7,7 @@
 /.angular/cache
 
 # Build artifacts, temporary files
-/prisma/generated
+/prisma/lib
 /.output
 /dist
 /halloffame.mongoarchive

@@ -2,7 +2,6 @@ import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { Inject, type Provider } from '@nestjs/common';
-import type { Creator, Screenshot } from '@prisma/client';
 import chalk from 'chalk';
 import { oneLine } from 'common-tags';
 import {
@@ -14,6 +13,7 @@ import {
   SubCommand
 } from 'nest-commander';
 import open from 'open';
+import type { Creator, Screenshot } from '#prisma-lib/client';
 import { iconsole } from '../../../../shared/iconsole';
 import { assertUnreachable } from '../../../common';
 import {

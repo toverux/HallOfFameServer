@@ -5,9 +5,9 @@ import {
   Inject,
   UnauthorizedException
 } from '@nestjs/common';
-import type { Creator } from '@prisma/client';
 import * as sentry from '@sentry/bun';
 import type { FastifyRequest } from 'fastify';
+import type { Creator } from '#prisma-lib/client';
 import type { CreatorId, HardwareId, IpAddress } from '../common';
 import {
   BanService,

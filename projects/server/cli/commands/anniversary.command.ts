@@ -1,12 +1,12 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Inject, type Provider } from '@nestjs/common';
-import type { Creator, Screenshot } from '@prisma/client';
 import chalk from 'chalk';
 import { oneLine } from 'common-tags';
 import { format } from 'date-fns';
 import { Command, CommandRunner, Option } from 'nest-commander';
 import open from 'open';
+import type { Creator, Screenshot } from '#prisma-lib/client';
 import { iconsole } from '../../../shared/iconsole';
 import { nn } from '../../../shared/utils';
 import { PrismaService, ScreenshotStorageService } from '../../services';

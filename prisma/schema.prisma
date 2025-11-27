@@ -2,12 +2,7 @@ generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["strictUndefinedChecks"]
   runtime         = "bun"
-  // Still use the 'old' way: generate in node_modules/.prisma/client to be able to import from
-  // @prisma/client. Today it is instead recommended to generate in the project's files and in a
-  // future version of Prisma, to commit these files in the VCS.
-  // For now, we will do it this way because thiq avoids clashing with the Biome rule
-  // "noPrivateImports", because Prisma does not generate "@public" annotations on its exports.
-  output          = "../node_modules/.prisma/client"
+  output          = "./lib/client"
 }
 
 datasource db {

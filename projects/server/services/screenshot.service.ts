@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import type { Creator, Favorite, Prisma, Screenshot, View } from '@prisma/client';
 import * as sentry from '@sentry/bun';
 import { oneLine } from 'common-tags';
 import * as dfns from 'date-fns';
 import type { FastifyRequest } from 'fastify';
 import { filesize } from 'filesize';
+import type { Creator, Favorite, Prisma, Screenshot, View } from '#prisma-lib/client';
 import { nn } from '../../shared/utils';
 import {
   isPrismaError,

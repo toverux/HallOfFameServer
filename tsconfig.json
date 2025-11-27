@@ -10,7 +10,10 @@
     "declaration": false,
     "sourceMap": true,
     // restore noEmit to true (set to false by bun config) otherwise Angular CLI cannot build.
-    "noEmit": false
+    "noEmit": false,
+    "paths": {
+      "#prisma-lib/*": ["./prisma/lib/*"]
+    }
   },
   "angularCompilerOptions": {
     "disableTypeScriptVersionCheck": true

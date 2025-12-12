@@ -1,5 +1,11 @@
 import assert from 'node:assert/strict';
-import { ForbiddenException, Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  Logger,
+  UnauthorizedException
+} from '@nestjs/common';
 import * as sentry from '@sentry/bun';
 import { oneLine } from 'common-tags';
 import * as uuid from 'uuid';
@@ -66,7 +72,7 @@ export class CreatorService {
    * @see authenticateCreatorSimple
    * @see authenticateCreatorForMod
    */
-  public async authenticateCreator(authorization: CreatorAuthorization): Promise<Creator> {
+  public authenticateCreator(authorization: CreatorAuthorization): Promise<Creator> {
     // Validate the Creator ID.
     if (!uuid.validate(authorization.creatorId) || uuid.version(authorization.creatorId) != 4) {
       throw new InvalidCreatorIdError(authorization.creatorId);
@@ -74,9 +80,9 @@ export class CreatorService {
 
     switch (authorization.kind) {
       case 'simple':
-        return await this.authenticateCreatorSimple(authorization);
+        return this.authenticateCreatorSimple(authorization);
       case 'mod':
-        return await this.authenticateCreatorForMod(authorization);
+        return this.authenticateCreatorForMod(authorization);
       default:
         throw authorization satisfies never;
     }
@@ -136,7 +142,7 @@ export class CreatorService {
       // to race condition, for example, "/me" and "/me/stats" when launching the mod.
       // In that case we only have to retry the authentication.
       if (isPrismaError(error) && error.code == 'P2002') {
-        return await this.authenticateCreatorForModUnsafe(authorization);
+        return this.authenticateCreatorForModUnsafe(authorization);
       }
 
       throw error;
@@ -369,7 +375,7 @@ export class CreatorService {
   }
 
   /**
-   * Trims start, end and consecutive spaces and validates that the string does not exceed 25
+   * Trims start, end, and consecutive spaces and validates that the string does not exceed 25
    * characters.
    *
    * @throws InvalidCreatorNameError If it is not a valid Creator Name.
@@ -391,6 +397,8 @@ export class CreatorService {
 export abstract class CreatorError extends StandardError {}
 
 export class InvalidCreatorIdError extends CreatorError {
+  public override httpErrorType = BadRequestException;
+
   public readonly creatorId: string;
 
   public constructor(creatorId: string) {
@@ -401,6 +409,8 @@ export class InvalidCreatorIdError extends CreatorError {
 }
 
 export class InvalidCreatorNameError extends CreatorError {
+  public override httpErrorType = BadRequestException;
+
   public readonly incorrectName: string;
 
   public constructor(incorrectName: string) {
@@ -411,13 +421,15 @@ export class InvalidCreatorNameError extends CreatorError {
 }
 
 export class CreatorNotFoundError extends CreatorError {
+  public override httpErrorType = UnauthorizedException;
+
   public constructor() {
     super(`No Creator with this Creator ID was found.`);
   }
 }
 
 export class IncorrectCreatorIdError extends CreatorError {
-  public override httpErrorType = ForbiddenException;
+  public override httpErrorType = UnauthorizedException;
 
   public readonly creatorName: string;
 
@@ -425,10 +437,9 @@ export class IncorrectCreatorIdError extends CreatorError {
     super(
       oneLine`
       Incorrect Creator ID for user "${creatorName}".
-      If you've never used HallOfFame before or just changed your Creator
-      Name, this means this username is already claimed, choose another!
-      Otherwise, check that you are logged in with the correct Paradox
-      account.`
+      If you've never used HallOfFame before or just changed your Creator Name, this means this
+      username is already claimed, choose another!
+      Otherwise, check that you are logged in with the correct Paradox account.`
     );
 
     this.creatorName = creatorName;

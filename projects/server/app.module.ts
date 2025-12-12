@@ -8,10 +8,11 @@ import {
 import { RouterModule } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { SentryModule } from '@sentry/nestjs/setup';
-import { ApiModule } from './api/api.module';
 import { StandardError } from './common';
 import { config } from './config';
 import { FastifyLoggerMiddleware } from './fastify';
+import { GraphQLModule } from './graphql';
+import { RestModule } from './rest';
 import { SharedModule } from './shared.module';
 
 /** @public */
@@ -19,9 +20,10 @@ import { SharedModule } from './shared.module';
   imports: [
     ScheduleModule.forRoot(),
     SentryModule.forRoot(),
-    RouterModule.register([{ path: 'api/v1', module: ApiModule }]),
-    SharedModule,
-    ApiModule
+    RouterModule.register([{ path: 'api/v1', module: RestModule }]),
+    GraphQLModule.forRoot(),
+    SharedModule.forRoot(),
+    RestModule
   ]
 })
 export class AppModule implements NestModule {

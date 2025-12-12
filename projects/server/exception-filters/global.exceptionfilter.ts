@@ -28,7 +28,7 @@ export class GlobalExceptionFilter extends BaseExceptionFilter {
     // Report unknown errors and 500+ errors to Sentry, log the rest as warnings.
     if (!(responseError instanceof HttpException) || responseError.getStatus() >= 500) {
       // We do not need to call this.logger.error() as it's already handled by super.catch().
-      sentry.captureException(error, { data: { reqId } });
+      sentry.captureException(error, { extra: { reqId } });
     } else {
       this.logger.warn(
         `[${reqId}/error] ${responseError.name}/${responseError.getStatus()}: ${(error as object).constructor.name}: ${responseError.message}`

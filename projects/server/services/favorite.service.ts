@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import type { Creator, Favorite, Screenshot } from '#prisma-lib/client';
 import { nn } from '../../shared/utils';
 import { type JsonObject, optionallySerialized, StandardError } from '../common';
@@ -182,12 +182,16 @@ export class FavoriteService {
 export abstract class FavoriteError extends StandardError {}
 
 export class NotInFavoritesError extends FavoriteError {
+  public override httpErrorType = BadRequestException;
+
   public constructor(options?: ErrorOptions) {
     super(`You have not favorited this screenshot.`, options);
   }
 }
 
 export class AlreadyInFavoritesError extends FavoriteError {
+  public override httpErrorType = BadRequestException;
+
   public constructor(options?: ErrorOptions) {
     super(`You have already favorited this screenshot.`, options);
   }

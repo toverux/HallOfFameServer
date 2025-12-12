@@ -5,6 +5,13 @@ generator client {
   output          = "./lib/client"
 }
 
+generator pothos {
+  provider     = "prisma-pothos-types"
+  prismaUtils  = true
+  clientOutput = "./client" // relative path from pothos output to prisma client
+  output       = "./lib/pothos-prisma-types.ts"
+}
+
 datasource db {
   provider = "mongodb"
   url      = env("HOF_DATABASE_URL")

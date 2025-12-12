@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
-import { type CanActivate, type ExecutionContext, ForbiddenException } from '@nestjs/common';
+import type { CanActivate, ExecutionContext } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
+import { UnauthorizedError } from '../common';
 import { config } from '../config';
 
 export class SystemAuthorizationGuard implements CanActivate {
@@ -19,7 +20,7 @@ export class SystemAuthorizationGuard implements CanActivate {
     } catch (error) {
       // biome-ignore lint/suspicious/noMisplacedAssertion: false positive
       if (error instanceof assert.AssertionError) {
-        throw new ForbiddenException(`Invalid Authorization header (${error.message}).`);
+        throw new UnauthorizedError(`Invalid Authorization header (${error.message}).`);
       }
 
       throw error;

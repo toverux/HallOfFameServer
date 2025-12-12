@@ -1,6 +1,5 @@
 import { Controller, Get, Req, ServiceUnavailableException, UseGuards } from '@nestjs/common';
 import Bun from 'bun';
-import { oneLine } from 'common-tags';
 import type { FastifyRequest } from 'fastify';
 import type { JsonObject } from '../../common';
 import { SystemAuthorizationGuard } from '../../guards';
@@ -34,9 +33,7 @@ export class SystemController {
 
     if (response.status != 201) {
       throw new ServiceUnavailableException(
-        oneLine`
-        Upload request failed (${response.status} ${response.statusText}):
-        ${await response.text()}`
+        `Upload request failed (${response.status} ${response.statusText}): ${await response.text()}`
       );
     }
 

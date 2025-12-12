@@ -7,7 +7,7 @@ import { commands } from './commands';
 /** @public */
 @Module({
   providers: commands,
-  imports: [SharedModule]
+  imports: [SharedModule.forRoot()]
 })
 export class CliModule {
   public constructor(@InjectCommander() commander: Command) {

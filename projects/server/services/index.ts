@@ -3,6 +3,7 @@ import { AiTranslatorService } from './ai-translator.service';
 import { AzureService } from './azure.service';
 import { BanService } from './ban.service';
 import { CreatorService } from './creator.service';
+import { CreatorAuthenticationService } from './creator-authentication.service';
 import { DateFnsLocalizationService } from './date-fns-localization.service';
 import { FavoriteService } from './favorite.service';
 import { PrismaService } from './prisma.service';
@@ -17,6 +18,7 @@ export * from './ai-translator.service';
 export * from './azure.service';
 export * from './ban.service';
 export * from './creator.service';
+export * from './creator-authentication.service';
 export * from './date-fns-localization.service';
 export * from './favorite.service';
 export * from './prisma.service';
@@ -32,6 +34,7 @@ export const services: Provider[] = [
   AzureService,
   BanService,
   CreatorService,
+  CreatorAuthenticationService,
   DateFnsLocalizationService,
   FavoriteService,
   PrismaService,

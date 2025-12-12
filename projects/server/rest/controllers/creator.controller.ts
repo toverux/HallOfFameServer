@@ -14,7 +14,7 @@ import {
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { Creator, Prisma } from '#prisma-lib/client';
-import { allFulfilled, type JsonObject } from '../../common';
+import { allFulfilled, type JsonObject, NotFoundByIdError } from '../../common';
 import { CreatorAuthorizationGuard } from '../../guards';
 import { ZodParsePipe } from '../../pipes';
 import { CreatorService, PrismaService } from '../../services';
@@ -160,7 +160,7 @@ export class CreatorController {
     });
 
     if (!creator) {
-      throw new NotFoundException(`Creator "${id}" not found.`);
+      throw new NotFoundByIdError(id);
     }
 
     return creator;

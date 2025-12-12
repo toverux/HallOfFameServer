@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, Logger } from '@nestjs/common';
 import * as sentry from '@sentry/bun';
 import { oneLine } from 'common-tags';
 import * as dfns from 'date-fns';
@@ -797,6 +797,8 @@ export class ScreenshotService {
 export abstract class ScreenshotError extends StandardError {}
 
 export class ScreenshotApprovedError extends ScreenshotError {
+  public override httpErrorType = ForbiddenException;
+
   public readonly screenshot: Pick<Screenshot, 'cityName'> & {
     creator: Pick<Creator, 'creatorName'>;
   };
@@ -822,6 +824,8 @@ export class ScreenshotApprovedError extends ScreenshotError {
 }
 
 export class ScreenshotRateLimitExceededError extends ScreenshotError {
+  public override httpErrorType = ForbiddenException;
+
   public readonly limit: number;
 
   public readonly notBefore: Date;

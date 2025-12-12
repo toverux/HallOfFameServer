@@ -3,11 +3,9 @@ import {
   BadRequestException,
   Controller,
   Delete,
-  ForbiddenException,
   Get,
   HttpStatus,
   Inject,
-  NotFoundException,
   Param,
   ParseBoolPipe,
   ParseIntPipe,
@@ -21,7 +19,14 @@ import { oneLine } from 'common-tags';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { Prisma } from '#prisma-lib/client';
 import { nn } from '../../../shared/utils';
-import { isPrismaError, type JsonObject, type ParadoxModId, StandardError } from '../../common';
+import {
+  ForbiddenError,
+  isPrismaError,
+  type JsonObject,
+  NotFoundByIdError,
+  type ParadoxModId,
+  StandardError
+} from '../../common';
 import { config } from '../../config';
 import { CreatorAuthorizationGuard } from '../../guards';
 import {
@@ -133,7 +138,7 @@ export class ScreenshotController {
     });
 
     if (!screenshot) {
-      throw new NotFoundException(`Could not find Screenshot #${id}.`);
+      throw new NotFoundByIdError(id);
     }
 
     const payload = this.screenshotService.serialize(screenshot, req);
@@ -161,7 +166,7 @@ export class ScreenshotController {
     const screenshot = await this.prisma.screenshot.findUnique({ where: { id } });
 
     if (!screenshot) {
-      throw new NotFoundException(`Could not find Screenshot #${id}.`);
+      throw new NotFoundByIdError(id);
     }
 
     const urls: Record<string, string> = {
@@ -253,9 +258,9 @@ export class ScreenshotController {
   /**
    * Delete a screenshot by ID.
    *
-   * @throws NotFoundException if the screenshot cannot be found.
-   * @throws ForbiddenException if the authenticated creator is not the one who posted the
-   *                            screenshot.
+   * @throws NotFoundByIdError If the screenshot cannot be found.
+   * @throws ForbiddenError    If the authenticated creator is not the one who posted the
+   *                           screenshot.
    */
   @Delete(':id')
   public async deleteOne(@Req() req: FastifyRequest, @Param('id') id: string): Promise<JsonObject> {
@@ -267,11 +272,11 @@ export class ScreenshotController {
     });
 
     if (!screenshot) {
-      throw new NotFoundException(`Could not find Screenshot #${id}.`);
+      throw new NotFoundByIdError(id);
     }
 
     if (screenshot.creatorId != creator.id) {
-      throw new ForbiddenException(`You cannot delete screenshots that are not yours.`);
+      throw new ForbiddenError(`You cannot delete screenshots that are not yours.`);
     }
 
     const deletedScreenshot = await this.screenshotService.deleteScreenshot(id);
@@ -345,9 +350,7 @@ export class ScreenshotController {
       return this.screenshotService.serialize(screenshot, req);
     } catch (error) {
       if (isPrismaError(error) && error.code == 'P2025') {
-        throw new BadRequestException(`Could not find Screenshot #${screenshotId}.`, {
-          cause: error
-        });
+        throw new NotFoundByIdError(screenshotId, { cause: error });
       }
 
       throw error;
@@ -374,6 +377,7 @@ export class ScreenshotController {
   ): Promise<JsonObject> {
     const creator = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
 
+    // noinspection JSUnusedGlobalSymbols False positive.
     const multipart = await req.file({
       isPartAFile: fieldName => fieldName == 'screenshot',
       limits: {
@@ -568,7 +572,9 @@ export class ScreenshotController {
   }
 }
 
-abstract class UploadError extends StandardError {}
+abstract class UploadError extends StandardError {
+  public override httpErrorType = BadRequestException;
+}
 
 /**
  * Error class for invalid payloads, but it should not happen for users using the actual mod.
@@ -583,9 +589,8 @@ class InvalidCityNameError extends UploadError {
   public constructor(incorrectName: string) {
     super(
       oneLine`
-      City name "${incorrectName}" is invalid, it must contain only
-      letters, numbers, spaces, hyphens and apostrophes, and be between 1
-      and 25 characters long.`
+      City name "${incorrectName}" is invalid, it must contain only letters, numbers, spaces,
+      hyphens and apostrophes, and be between 1 and 25 characters long.`
     );
 
     this.incorrectName = incorrectName;

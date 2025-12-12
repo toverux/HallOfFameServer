@@ -7,5 +7,7 @@
 /dataSources*
 # Biome plugin preferences (ie. enable format-on-save)
 /biome.xml
+# Bun preferences (contains machine-specific config)
+/bun.xml
 # Developer Tools plugin preferences
 /developer-tools.xml

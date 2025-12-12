@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { type DynamicModule, Module } from '@nestjs/common';
 import OpenAi from 'openai';
 import { config } from './config';
 import { services } from './services';
@@ -17,4 +17,9 @@ import { services } from './services';
   ],
   exports: [...services, OpenAi]
 })
-export class SharedModule {}
+// biome-ignore lint/complexity/noStaticOnlyClass: classic NestJS pattern.
+export class SharedModule {
+  public static forRoot(): DynamicModule {
+    return { global: true, module: SharedModule };
+  }
+}

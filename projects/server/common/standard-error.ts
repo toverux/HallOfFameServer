@@ -1,4 +1,10 @@
-import { BadRequestException, type HttpException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  type HttpException,
+  NotFoundException,
+  UnauthorizedException
+} from '@nestjs/common';
 import type { HttpExceptionOptions } from '@nestjs/common/exceptions/http.exception';
 
 /**
@@ -14,13 +20,33 @@ export abstract class StandardError extends Error {
    * {@link BadRequestException} (400).
    * Override this in subclasses to use a different error class.
    */
-  public readonly httpErrorType: new (
+  public abstract readonly httpErrorType: new (
     objectOrError?: unknown,
     descriptionOrOptions?: string | HttpExceptionOptions
-  ) => HttpException = BadRequestException;
+  ) => HttpException;
+}
+
+export abstract class AuthError extends StandardError {}
+
+export class UnauthorizedError extends AuthError {
+  public override httpErrorType = UnauthorizedException;
+
+  public constructor(message?: string) {
+    super(message ?? `You need to be authenticated to perform this action.`);
+  }
+}
+
+export class ForbiddenError extends AuthError {
+  public override httpErrorType = ForbiddenException;
+
+  public constructor(message?: string) {
+    super(message ?? `You do not have the permission to perform this action.`);
+  }
 }
 
 export class NotFoundByIdError extends StandardError {
+  public override httpErrorType = NotFoundException;
+
   public readonly id: string;
 
   public constructor(id: string, options?: ErrorOptions) {

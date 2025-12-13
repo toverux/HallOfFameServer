@@ -183,10 +183,7 @@ export class ScreenshotController {
       );
     }
 
-    res.redirect(
-      url,
-      config.env == 'development' ? HttpStatus.FOUND : HttpStatus.MOVED_PERMANENTLY
-    );
+    res.redirect(url, HttpStatus.TEMPORARY_REDIRECT);
   }
 
   /**

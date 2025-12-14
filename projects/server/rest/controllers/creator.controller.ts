@@ -54,7 +54,6 @@ export class CreatorController {
    *    settings.
    */
   @Put('me')
-  @UseGuards(CreatorAuthorizationGuard)
   public async updateMyself(
     @Req() req: FastifyRequest,
     @Body(new ZodParsePipe(CreatorController.updateMyselfBodySchema))

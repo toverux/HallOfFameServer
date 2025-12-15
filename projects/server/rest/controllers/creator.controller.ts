@@ -140,7 +140,7 @@ export class CreatorController {
     }
 
     // Redirect to the direct link stored in the database.
-    res.redirect(platform.link, HttpStatus.FOUND);
+    res.redirect(platform.link, HttpStatus.TEMPORARY_REDIRECT);
 
     // Increment click count for this platform.
     platform.clicks++;

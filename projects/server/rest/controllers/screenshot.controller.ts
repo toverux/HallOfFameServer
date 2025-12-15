@@ -1,6 +1,7 @@
 import type { Multipart } from '@fastify/multipart';
 import {
   BadRequestException,
+  Body,
   Controller,
   Delete,
   Get,
@@ -10,6 +11,7 @@ import {
   ParseBoolPipe,
   ParseIntPipe,
   Post,
+  Put,
   Query,
   Req,
   Res,
@@ -17,7 +19,8 @@ import {
 } from '@nestjs/common';
 import { oneLine } from 'common-tags';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { Prisma } from '#prisma-lib/client';
+import { z } from 'zod';
+import { type Creator, Prisma } from '#prisma-lib/client';
 import { nn } from '../../../shared/utils';
 import {
   ForbiddenError,
@@ -29,8 +32,10 @@ import {
 } from '../../common';
 import { config } from '../../config';
 import { CreatorAuthorizationGuard } from '../../guards';
+import { ZodParsePipe } from '../../pipes';
 import {
   FavoriteService,
+  ModService,
   PrismaService,
   ScreenshotService,
   ScreenshotStorageService,
@@ -49,8 +54,20 @@ export class ScreenshotController {
    */
   private static readonly cityNameRegex = /^[\p{L}\p{N}\- '’,、•]{1,35}$/u;
 
+  /** @see updateOne */
+  private static readonly updateScreenshotBodySchema = z.strictObject({
+    cityName: z.string().optional(),
+    showcasedModId: z.string().optional(),
+    description: z.string().optional(),
+    shareParadoxModIds: z.boolean().optional(),
+    shareRenderSettings: z.boolean().optional()
+  });
+
   @Inject(PrismaService)
   private readonly prisma!: PrismaService;
+
+  @Inject(ModService)
+  private readonly modService!: ModService;
 
   @Inject(FavoriteService)
   private readonly favoriteService!: FavoriteService;
@@ -73,11 +90,14 @@ export class ScreenshotController {
     @Req() req: FastifyRequest,
     @Query('creatorId') creatorId: string | undefined,
     @Query('favorites', new ParseBoolPipe({ optional: true })) includeFavorites = false,
-    @Query('views', new ParseBoolPipe({ optional: true })) includeViews = false
+    @Query('views', new ParseBoolPipe({ optional: true })) includeViews = false,
+    @Query('showcasedMod', new ParseBoolPipe({ optional: true })) includeShowcasedMod = false
   ): Promise<JsonObject[]> {
-    if (!creatorId && (includeFavorites || includeViews)) {
+    if (!creatorId && (includeFavorites || includeViews || includeShowcasedMod)) {
       throw new BadRequestException(
-        `The 'favorites' and 'views' query parameters are only supported when filtering by creator ID.`
+        oneLine`
+        The 'favorites', 'views' and 'showcasedMods' include query parameters are only supported
+        when filtering by creator ID.`
       );
     }
 
@@ -106,8 +126,21 @@ export class ScreenshotController {
         creator
       ));
 
+    // Find all showcased mods.
+    const showcasedModIds = includeShowcasedMod
+      ? screenshots.map(s => s.showcasedModId as ParadoxModId).filter(id => id != null)
+      : [];
+
+    const showcasedMods = includeShowcasedMod
+      ? await this.modService.getMods(new Set(showcasedModIds))
+      : [];
+
     return screenshots.map((screenshot, index) => {
-      const payload = this.screenshotService.serialize(screenshot, req);
+      const showcasedMod = includeShowcasedMod
+        ? (showcasedMods.find(mod => mod.paradoxModId == screenshot.showcasedModId) ?? null)
+        : undefined;
+
+      const payload = this.screenshotService.serialize({ ...screenshot, showcasedMod }, req);
 
       payload.__favorited = favorited?.[index] ?? false;
 
@@ -141,7 +174,11 @@ export class ScreenshotController {
       throw new NotFoundByIdError(id);
     }
 
-    const payload = this.screenshotService.serialize(screenshot, req);
+    const showcasedMod = screenshot.showcasedModId
+      ? await this.modService.getMod(screenshot.showcasedModId as ParadoxModId)
+      : null;
+
+    const payload = this.screenshotService.serialize({ ...screenshot, showcasedMod }, req);
 
     // If the user is authenticated, we check if the screenshot is already in their favorites.
     // Otherwise, set it to false.
@@ -237,13 +274,20 @@ export class ScreenshotController {
       viewMaxAge
     );
 
+    const showcasedMod = screenshot.showcasedModId
+      ? await this.modService.getMod(screenshot.showcasedModId as ParadoxModId)
+      : null;
+
     const createdBy = await this.prisma.creator.findFirst({
       where: { id: screenshot.creatorId }
     });
 
     nn.assert(createdBy);
 
-    const payload = this.screenshotService.serialize({ ...screenshot, creator: createdBy }, req);
+    const payload = this.screenshotService.serialize(
+      { ...screenshot, showcasedMod, creator: createdBy },
+      req
+    );
 
     payload.__algorithm = screenshot.__algorithm;
 
@@ -282,6 +326,55 @@ export class ScreenshotController {
     const deletedScreenshot = await this.screenshotService.deleteScreenshot(id);
 
     return this.screenshotService.serialize(deletedScreenshot, req);
+  }
+
+  /**
+   * Update a screenshot by ID.
+   * Only these properties can be updated:
+   * - {@link Screenshot.cityName}
+   * - {@link Screenshot.showcasedModId}
+   * - {@link Screenshot.description}
+   * - {@link Screenshot.shareParadoxModIds}
+   * - {@link Screenshot.shareRenderSettings}
+   *
+   * @throws NotFoundByIdError If the screenshot cannot be found.
+   * @throws ForbiddenError    If the authenticated creator is not the one who posted the
+   *                           screenshot.
+   */
+  @Put(':id')
+  public async updateOne(
+    @Req() req: FastifyRequest,
+    @Param('id') screenshotId: Creator['id'],
+    @Body(new ZodParsePipe(ScreenshotController.updateScreenshotBodySchema))
+    body: z.infer<typeof ScreenshotController.updateScreenshotBodySchema>
+  ): Promise<JsonObject> {
+    const authenticatedCreator = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
+
+    const screenshot = await this.prisma.screenshot.findUnique({
+      where: { id: screenshotId },
+      select: { creatorId: true }
+    });
+
+    if (!screenshot) {
+      throw new NotFoundByIdError(screenshotId);
+    }
+
+    if (authenticatedCreator.id != screenshot.creatorId) {
+      throw new ForbiddenError(`You cannot update screenshots that are not yours.`);
+    }
+
+    const cityName = body.cityName && this.validateCityName(body.cityName);
+    const showcasedModId = Array.from(this.validateModIds(body.showcasedModId)).at(0);
+
+    const updatedScreenshot = await this.screenshotService.updateScreenshot(screenshotId, {
+      cityName: cityName ?? Prisma.skip,
+      showcasedModId: showcasedModId ?? Prisma.skip,
+      description: body.description ?? Prisma.skip,
+      shareParadoxModIds: body.shareParadoxModIds ?? Prisma.skip,
+      shareRenderSettings: body.shareRenderSettings ?? Prisma.skip
+    });
+
+    return this.screenshotService.serialize(updatedScreenshot, req);
   }
 
   /**
@@ -382,7 +475,7 @@ export class ScreenshotController {
       isPartAFile: fieldName => fieldName == 'screenshot',
       limits: {
         files: 1,
-        fields: 6,
+        fields: 10,
         fileSize: config.screenshots.maxFileSizeBytes
       }
     });
@@ -401,7 +494,20 @@ export class ScreenshotController {
       this.getMultipartString(multipart, 'cityPopulation', true)
     );
 
+    const showcasedModId = Array.from(
+      this.validateModIds(this.getMultipartString(multipart, 'showcasedModId', false))
+    ).at(0);
+
+    const description = this.validateDescription(
+      this.getMultipartString(multipart, 'description', false)
+    );
+
+    const shareParadoxModIds = this.getMultipartString(multipart, 'shareModIds', false) == 'true';
+
     const paradoxModIds = this.validateModIds(this.getMultipartString(multipart, 'modIds', false));
+
+    const shareRenderSettings =
+      this.getMultipartString(multipart, 'shareRenderSettings', false) == 'true';
 
     const renderSettings = this.validateRenderSettings(
       this.getMultipartString(multipart, 'renderSettings', false)
@@ -417,7 +523,11 @@ export class ScreenshotController {
         cityName,
         cityMilestone,
         cityPopulation,
+        showcasedModId,
+        description,
+        shareParadoxModIds,
         paradoxModIds,
+        shareRenderSettings,
         renderSettings,
         metadata,
         createdAt: new Date(),
@@ -497,6 +607,18 @@ export class ScreenshotController {
     return parsed;
   }
 
+  private validateDescription(description: string | undefined): string | undefined {
+    if (!description) {
+      return undefined;
+    }
+
+    if (description.length > 4000) {
+      throw new InvalidPayloadError(`Description must be at most 4000 characters long.`);
+    }
+
+    return description;
+  }
+
   private validateModIds(commaSeparatedModIds: string | undefined): Set<ParadoxModId> {
     if (!commaSeparatedModIds) {
       return new Set();
@@ -525,7 +647,7 @@ export class ScreenshotController {
     try {
       const settings = JSON.parse(settingsJson);
 
-      if (typeof settings != 'object' || Array.isArray(settings)) {
+      if (!settings || typeof settings != 'object' || Array.isArray(settings)) {
         // noinspection ExceptionCaughtLocallyJS
         throw new Error(`expected a JSON object`);
       }
@@ -556,7 +678,7 @@ export class ScreenshotController {
     try {
       const metadata = JSON.parse(metadataJson);
 
-      if (typeof metadata != 'object' || Array.isArray(metadata)) {
+      if (!metadata || typeof metadata != 'object' || Array.isArray(metadata)) {
         // noinspection ExceptionCaughtLocallyJS
         throw new Error(`expected a JSON object`);
       }

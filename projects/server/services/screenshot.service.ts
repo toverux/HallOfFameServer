@@ -5,7 +5,14 @@ import { oneLine } from 'common-tags';
 import * as dfns from 'date-fns';
 import type { FastifyRequest } from 'fastify';
 import { filesize } from 'filesize';
-import type { Creator, Favorite, Prisma, Screenshot, View } from '#prisma-lib/client';
+import {
+  type Creator,
+  type Favorite,
+  type Mod,
+  Prisma,
+  type Screenshot,
+  type View
+} from '#prisma-lib/client';
 import { nn } from '../../shared/utils';
 import {
   isPrismaError,
@@ -17,10 +24,12 @@ import {
   StandardError
 } from '../common';
 import { config } from '../config';
+import { CreatorAuthorizationGuard } from '../guards';
 import { AiTranslatorService } from './ai-translator.service';
 import { CreatorService } from './creator.service';
 import { DateFnsLocalizationService } from './date-fns-localization.service';
 import { FavoriteService } from './favorite.service';
+import { ModService } from './mod.service';
 import { PrismaService } from './prisma.service';
 import { ScreenshotProcessingService } from './screenshot-processing.service';
 import { ScreenshotSimilarityDetectorService } from './screenshot-similarity-detector.service';
@@ -60,6 +69,9 @@ export class ScreenshotService {
 
   @Inject(AiTranslatorService)
   private readonly aiTranslator!: AiTranslatorService;
+
+  @Inject(ModService)
+  private readonly modService!: ModService;
 
   @Inject(CreatorService)
   private readonly creatorService!: CreatorService;
@@ -106,7 +118,11 @@ export class ScreenshotService {
     cityName: string;
     cityMilestone: number;
     cityPopulation: number;
+    showcasedModId: ParadoxModId | undefined;
+    description: string | undefined;
+    shareParadoxModIds: boolean | undefined;
     paradoxModIds: ReadonlySet<ParadoxModId>;
+    shareRenderSettings: boolean | undefined;
     renderSettings: Record<string, number>;
     metadata: JsonObject;
     createdAt: Date;
@@ -174,11 +190,25 @@ export class ScreenshotService {
         ])
         .catch(error => {
           this.logger.error(
-            `Failed to infer embeddings for screenshot "${screenshot.cityName}" (#${screenshot.id}).`
+            `Failed to infer embeddings for screenshot "${screenshot.cityName}" (#${screenshot.id}).`,
+            error
           );
 
           sentry.captureException(error);
         });
+
+      // Warmup mods cache asynchronously.
+      // Note: no need to include `showcasedModId` as it's necessarily included in `paradoxModIds`.
+      const modIds = new Set(screenshot.paradoxModIds as ParadoxModId[]);
+
+      this.modService.getMods(modIds).catch(error => {
+        this.logger.error(
+          `Failed to warmup mods cache for screenshot "${screenshot.cityName}" (#${screenshot.id}).`,
+          error
+        );
+
+        sentry.captureException(error);
+      });
     }
 
     return screenshot;
@@ -201,7 +231,11 @@ export class ScreenshotService {
           imageUrlThumbnail: '',
           imageUrlFHD: '',
           imageUrl4K: '',
+          showcasedModId: data.showcasedModId ?? null,
+          description: data.description ?? null,
+          shareParadoxModIds: data.shareParadoxModIds ?? true,
           paradoxModIds: Array.from(data.paradoxModIds),
+          shareRenderSettings: data.shareRenderSettings ?? true,
           renderSettings: data.renderSettings,
           metadata: data.metadata,
           isReported: healthcheck // make sure health check uploads are never shown
@@ -232,6 +266,73 @@ export class ScreenshotService {
       }
 
       return updatedScreenshot;
+    }
+  }
+
+  public updateScreenshot(
+    screenshotId: Screenshot['id'],
+    data: Pick<
+      Prisma.ScreenshotUpdateInput,
+      'cityName' | 'showcasedModId' | 'description' | 'shareParadoxModIds' | 'shareRenderSettings'
+    >,
+    prisma?: Prisma.TransactionClient
+  ): Promise<Screenshot> {
+    return prisma
+      ? transaction.call(this, prisma)
+      : this.prisma.$transaction(transaction.bind(this));
+
+    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: splitting it would make it harder to follow.
+    async function transaction(
+      this: ScreenshotService,
+      tx: Prisma.TransactionClient
+    ): Promise<Screenshot> {
+      try {
+        const originalScreenshot = await tx.screenshot.findUniqueOrThrow({
+          where: { id: screenshotId }
+        });
+
+        const needsTranslation =
+          data.cityName != Prisma.skip && originalScreenshot.cityName != data.cityName;
+
+        const screenshot = await tx.screenshot.update({
+          where: { id: screenshotId },
+          data: {
+            ...data,
+            cityNameLocale: needsTranslation ? null : Prisma.skip,
+            cityNameLatinized: needsTranslation ? null : Prisma.skip,
+            cityNameTranslated: needsTranslation ? null : Prisma.skip,
+            needsTranslation
+          }
+        });
+
+        // A reference to a mod has been added, update mods' cache.
+        if (
+          screenshot.showcasedModId &&
+          screenshot.showcasedModId != originalScreenshot.showcasedModId
+        ) {
+          await this.modService.getMod(screenshot.showcasedModId as ParadoxModId);
+        }
+
+        // Translate city name asynchronously.
+        if (needsTranslation) {
+          this.updateCityNameTranslation(screenshot).catch(error => {
+            this.logger.error(
+              `Failed to translate city name "${screenshot.cityName}" (#${screenshot.id}).`,
+              error
+            );
+
+            sentry.captureException(error);
+          });
+        }
+
+        return screenshot;
+      } catch (error) {
+        if (isPrismaError(error) && error.code == 'P2025') {
+          throw new NotFoundByIdError(screenshotId, { cause: error });
+        }
+
+        throw error;
+      }
     }
   }
 
@@ -465,12 +566,19 @@ export class ScreenshotService {
    */
   public serialize(
     screenshot: Screenshot & {
-      creator?: Creator;
-      favorites?: Favorite[];
-      views?: View[];
+      // Undefined if relation not loaded.
+      creator?: Creator | undefined;
+      // Undefined if relation not loaded.
+      favorites?: Favorite[] | undefined;
+      // Undefined if relation not loaded.
+      views?: View[] | undefined;
+      // Semantics for showcasedMod: undefined = not loaded, null = loaded but empty
+      showcasedMod?: Mod | undefined | null;
     },
     req: FastifyRequest
   ): JsonObject {
+    const viewer = req[CreatorAuthorizationGuard.authenticatedCreatorKey];
+
     const dfnsLocale = this.dateFnsLocalization.getLocaleForRequest(req);
 
     const createdAtAdjusted = this.dateFnsLocalization.applyTimezoneOffsetOnDateForRequest(
@@ -492,11 +600,20 @@ export class ScreenshotService {
       cityNameTranslated: screenshot.cityNameTranslated,
       cityMilestone: screenshot.cityMilestone,
       cityPopulation: screenshot.cityPopulation,
+      description: screenshot.description,
       imageUrlThumbnail: this.screenshotStorage.getScreenshotUrl(screenshot.imageUrlThumbnail),
       imageUrlFHD: this.screenshotStorage.getScreenshotUrl(screenshot.imageUrlFHD),
       imageUrl4K: this.screenshotStorage.getScreenshotUrl(screenshot.imageUrl4K),
-      paradoxModIds: screenshot.paradoxModIds,
-      renderSettings: screenshot.renderSettings as JsonObject,
+      shareParadoxModIds: screenshot.shareParadoxModIds,
+      paradoxModIds:
+        viewer?.id == screenshot.creatorId || screenshot.shareParadoxModIds
+          ? screenshot.paradoxModIds
+          : [],
+      shareRenderSettings: screenshot.shareRenderSettings,
+      renderSettings:
+        viewer?.id == screenshot.creatorId || screenshot.shareRenderSettings
+          ? (screenshot.renderSettings as JsonObject)
+          : {},
       createdAt: screenshot.createdAt.toISOString(),
       createdAtFormatted: dfns.format(createdAtAdjusted, 'Pp', {
         locale: dfnsLocale
@@ -511,6 +628,13 @@ export class ScreenshotService {
       creator: optionallySerialized(
         screenshot.creator && this.creatorService.serialize(screenshot.creator)
       ),
+      showcasedModId: screenshot.showcasedModId,
+      showcasedMod:
+        screenshot.showcasedMod === undefined
+          ? optionallySerialized(undefined)
+          : screenshot.showcasedMod
+            ? this.modService.serialize(screenshot.showcasedMod)
+            : null,
       favorites: optionallySerialized(
         screenshot.favorites?.map(favorite => this.favoriteService.serialize(favorite))
       ),
@@ -589,8 +713,8 @@ export class ScreenshotService {
         // so it is not selected again, assigning a weight of 0 would work too.
         delete currentWeights[algorithm];
 
-        // Break the for loop, we tried this algorithm, the outer loop will call us again to
-        // try another one, if there are any left.
+        // Break the for loop, we tried this algorithm. The outer loop will call us again to
+        // try another one if there are any left.
         break;
       }
     }
@@ -690,8 +814,8 @@ export class ScreenshotService {
   }
 
   /**
-   * Retrieves a non-reported screenshot that was uploaded more than X days ago (configurable in
-   * env), has the lowest number of views, and then prioritizes the oldest screenshots.
+   * Retrieves a non-reported screenshot uploaded more than X days ago (configurable in env), has
+   * the lowest number of views, and then prioritizes the oldest screenshots.
    */
   private getScreenshotArcheologist(nin: readonly JsonOid[]): Promise<Screenshot | null> {
     const $date = dfns.subDays(new Date(), config.screenshots.recencyThresholdDays);
@@ -787,7 +911,11 @@ export class ScreenshotService {
       imageUrlThumbnail: screenshot.imageUrlThumbnail,
       imageUrlFHD: screenshot.imageUrlFHD,
       imageUrl4K: screenshot.imageUrl4K,
+      showcasedModId: screenshot.showcasedModId,
+      description: screenshot.description,
+      shareParadoxModIds: screenshot.shareParadoxModIds,
       paradoxModIds: screenshot.paradoxModIds,
+      shareRenderSettings: screenshot.shareRenderSettings,
       renderSettings: screenshot.renderSettings,
       metadata: screenshot.metadata
     };

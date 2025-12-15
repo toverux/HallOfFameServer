@@ -134,9 +134,33 @@ Content-Disposition: form-data; name="cityPopulation"
 1200
 
 --WebAppBoundary
+Content-Disposition: form-data; name="showcasedModId"
+
+125566
+
+--WebAppBoundary
+Content-Disposition: form-data; name="description"
+
+A city where stone streets glow at dusk, café tables spill onto the sidewalks, and time seems to slow over a tiny cup of coffee.
+Iron lace rises above the rooftops, artists argue passionately by the river, and every corner smells faintly of butter, books, and possibility.
+It’s a place that turns ordinary walks into cinema scenes and convinces you—just for a moment.
+
+That life should always be lived with a little more style.
+
+--WebAppBoundary
+Content-Disposition: form-data; name="shareModIds"
+
+true
+
+--WebAppBoundary
 Content-Disposition: form-data; name="modIds"
 
 90641, 94394
+
+--WebAppBoundary
+Content-Disposition: form-data; name="shareRenderSettings"
+
+true
 
 --WebAppBoundary
 Content-Disposition: form-data; name="renderSettings"

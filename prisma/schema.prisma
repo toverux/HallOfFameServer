@@ -145,7 +145,7 @@ model Screenshot {
   /// between 1 and 20 characters long.
   cityName             String
   /// Iif the city name uses non-Latin characters and was automatically translated, this will be set
-  // to the guessed two-letter locale code.
+  /// to the guessed two-letter locale code.
   cityNameLocale       String?
   /// Latinized version of the city name if the original uses non-Latin characters.
   /// Null if not applicable or there was an error calling translation APIs.
@@ -155,14 +155,27 @@ model Screenshot {
   cityNameTranslated   String?
   /// Whether `cityNameLatinized` or `cityNameTranslated` need to be (re)generated.
   needsTranslation     Boolean                     @default(true)
+  /// City milestone. Goes from 0 (Founding) to 20 (Megalopolis).
+  /// https://cs2.paradoxwikis.com/Progression#Milestones
   cityMilestone        Int
+  /// City population
   cityPopulation       Int
-  imageUrlThumbnail    String
-  imageUrlFHD          String
+  /// Highest quality version of the image.
   imageUrl4K           String
+  /// URL to the Full HD version of the image.
+  imageUrlFHD          String
+  /// URL to the thumbnail-size version of the image.
+  imageUrlThumbnail    String
+  /// User-provided ID of the Paradox Mods asset or map that is showcased in this screenshot, if any.
+  showcasedModId       Int?
+  /// Image description provided by the user.
+  description          String?
+  /// Whether `paradoxModIds` is made available to other users.
+  shareParadoxModIds   Boolean
   /// Paradox Mods IDs of the active mods when the screenshot was taken.
-  /// A Paradox mod ID is an auto-incremented integer.
   paradoxModIds        Int[]
+  /// Whether `renderSettings` is made available to other users.
+  shareRenderSettings  Boolean
   /// Rendering settings used to take a screenshot.
   /// Each setting that has a non-default value is recorded here, otherwise it is simply not present.
   /// It is a map of "setting code => float value" and validated by application code.
@@ -271,6 +284,47 @@ model View {
   // in a while.
   @@index([creatorId, viewedAt])
   @@map("views")
+}
+
+/// A mod from Paradox Mods.
+/// The model is meant to cache data on our side to:
+/// - Answer to queries faster rather than querying Paradox's API;
+/// - Avoid DDoSing Paradox's API when serving playsets that can contain hundreds of mods;
+/// - Avoid suffering from Paradox's API outages.
+/// - Improve overall DX.
+model Mod {
+  /// A mod should NOT be referenced from another collection from its `_id` unless there is a
+  /// specific reason.
+  /// Instead, loose references to `paradoxModId` should be used.
+  /// It's the responsibility of `ModsService` to connect mod IDs to Mod records.
+  /// We still use an `_id` as `@id` field to play nicer with tooling.
+  id                 String   @id @default(auto()) @map("_id") @db.ObjectId
+  /// Mod ID on Paradox Mods.
+  paradoxModId       Int      @unique
+  /// Display name of the mod.
+  name               String
+  /// Author's name.
+  authorName         String
+  /// Short description of the mod.
+  shortDescription   String
+  /// Thumbnail URL.
+  thumbnailUrl       String
+  /// Mod tags (ex. "Code Mod", "Building", "European", etc).
+  tags               String[]
+  /// Number of subscribers to this mod.
+  subscribersCount   Int
+  /// Number of times we redirected to this mod's page.
+  clicks             Int      @default(0)
+  /// Last update date of the mod page on Paradox Mods.
+  /// This is not necessarily an update of the mod itself, it can be name/description/etc changes.
+  /// If that date is more recent than `updatedAt`, we want to update.
+  knownLastUpdatedAt DateTime
+  /// Last time this document was updated from Paradox's API.
+  /// Note that this is not a Prisma `@updatedAt` column as we can update the document (ex. clicks)
+  /// without wanting to bump the date.
+  lastSyncedAt       DateTime @default(now())
+
+  @@map("mods")
 }
 
 /// A record of a database migration that has been executed.

@@ -8,7 +8,7 @@ import { Command, CommandRunner, InquirerService, Question, QuestionSet } from '
 import type { Creator, Screenshot } from '#prisma-lib/client';
 import { iconsole } from '../../../shared/iconsole';
 import { nn } from '../../../shared/utils';
-import type { Maybe } from '../../common';
+import type { Maybe, ParadoxModId } from '../../common';
 import { PrismaService, ScreenshotService } from '../../services';
 
 // https://cs2.paradoxwikis.com/Progression#Milestones
@@ -198,7 +198,11 @@ export class ImportCityCommand extends CommandRunner {
         cityName: cityInfo.cityName,
         cityMilestone: cityInfo.cityMilestone,
         cityPopulation: cityInfo.cityPopulation,
-        paradoxModIds: new Set(),
+        showcasedModId: undefined,
+        description: undefined,
+        shareParadoxModIds: true,
+        paradoxModIds: new Set<ParadoxModId>(),
+        shareRenderSettings: true,
         renderSettings: {},
         metadata: {},
         createdAt: cityInfo.date,

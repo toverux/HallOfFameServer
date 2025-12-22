@@ -3,7 +3,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import * as sentry from '@sentry/bun';
 import * as dateFns from 'date-fns';
-import { from, lastValueFrom, mergeMap, retry, toArray } from 'rxjs';
+import { filter, from, lastValueFrom, mergeMap, retry, toArray } from 'rxjs';
 import { z } from 'zod';
 import type { Mod, Prisma } from '#prisma-lib/client';
 import { nn } from '../../shared/utils';
@@ -70,6 +70,7 @@ export class ModService {
     const missingModDetails = await lastValueFrom(
       from(missingModIds).pipe(
         mergeMap(id => this.fetchModDetailsFromParadoxMods(id), ModService.paradoxApiConcurrency),
+        filter(details => details != null),
         retry(ModService.paradoxApiRetries),
         toArray()
       )
@@ -80,18 +81,16 @@ export class ModService {
     }
 
     await this.prisma.mod.createMany({
-      data: missingModDetails
-        .filter(details => details != null)
-        .map<Prisma.ModCreateInput>(modDetails => ({
-          paradoxModId: modDetails.modId,
-          name: modDetails.displayName,
-          authorName: modDetails.author,
-          shortDescription: modDetails.shortDescription,
-          thumbnailUrl: modDetails.displayImagePath,
-          tags: modDetails.tags,
-          subscribersCount: modDetails.subscriptions,
-          knownLastUpdatedAt: modDetails.latestUpdate
-        }))
+      data: missingModDetails.map<Prisma.ModCreateInput>(modDetails => ({
+        paradoxModId: modDetails.modId,
+        name: modDetails.displayName,
+        authorName: modDetails.author,
+        shortDescription: modDetails.shortDescription,
+        thumbnailUrl: modDetails.displayImagePath,
+        tags: modDetails.tags,
+        subscribersCount: modDetails.subscriptions,
+        knownLastUpdatedAt: modDetails.latestUpdate
+      }))
     });
 
     // We have to fetch new mods via a separate query because createMany doesn't return records.
@@ -151,6 +150,7 @@ export class ModService {
       const modDetails = await lastValueFrom(
         from(modsToCheck.map(mod => mod.paradoxModId)).pipe(
           mergeMap(id => this.fetchModDetailsFromParadoxMods(id), ModService.paradoxApiConcurrency),
+          filter(details => details != null),
           retry(ModService.paradoxApiRetries),
           toArray()
         )
@@ -158,7 +158,6 @@ export class ModService {
 
       // Keep mods that have been updated since the last sync.
       const updatedModDetails = modDetails
-        .filter(details => details != null)
         .map(details => ({
           details,
           mod: nn(modsToCheck.find(mod => mod.paradoxModId == details.modId))

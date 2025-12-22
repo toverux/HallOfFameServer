@@ -118,6 +118,7 @@ export class ScreenshotService {
     cityName: string;
     cityMilestone: number;
     cityPopulation: number;
+    mapName: string | undefined;
     showcasedModId: ParadoxModId | undefined;
     description: string | undefined;
     shareParadoxModIds: boolean | undefined;
@@ -228,6 +229,7 @@ export class ScreenshotService {
           cityName: data.cityName,
           cityMilestone: data.cityMilestone,
           cityPopulation: data.cityPopulation,
+          mapName: data.mapName ?? null,
           imageUrlThumbnail: '',
           imageUrlFHD: '',
           imageUrl4K: '',
@@ -600,6 +602,7 @@ export class ScreenshotService {
       cityNameTranslated: screenshot.cityNameTranslated,
       cityMilestone: screenshot.cityMilestone,
       cityPopulation: screenshot.cityPopulation,
+      mapName: screenshot.mapName,
       description: screenshot.description,
       imageUrlThumbnail: this.screenshotStorage.getScreenshotUrl(screenshot.imageUrlThumbnail),
       imageUrlFHD: this.screenshotStorage.getScreenshotUrl(screenshot.imageUrlFHD),
@@ -908,6 +911,7 @@ export class ScreenshotService {
       needsTranslation: screenshot.needsTranslation,
       cityMilestone: screenshot.cityMilestone,
       cityPopulation: screenshot.cityPopulation,
+      mapName: screenshot.mapName,
       imageUrlThumbnail: screenshot.imageUrlThumbnail,
       imageUrlFHD: screenshot.imageUrlFHD,
       imageUrl4K: screenshot.imageUrl4K,

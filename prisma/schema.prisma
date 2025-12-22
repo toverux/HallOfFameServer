@@ -160,6 +160,10 @@ model Screenshot {
   cityMilestone        Int
   /// City population
   cityPopulation       Int
+  /// Name of the map that was used for this city.
+  /// Nullable: it is not always known, and isn't set either for pictures taken before the fied was
+  /// implemented.
+  mapName              String?
   /// Highest quality version of the image.
   imageUrl4K           String
   /// URL to the Full HD version of the image.

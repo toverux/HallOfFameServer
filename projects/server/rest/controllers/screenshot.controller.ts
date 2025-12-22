@@ -462,6 +462,7 @@ export class ScreenshotController {
    *
    * Response will be 201 with a serialized Screenshot.
    */
+  // biome-ignore lint/complexity/noExcessiveLinesPerFunction: inherently sequential, but we will refactor using a proper validator.
   @Post()
   public async upload(
     @Req() req: FastifyRequest,
@@ -474,8 +475,9 @@ export class ScreenshotController {
     const multipart = await req.file({
       isPartAFile: fieldName => fieldName == 'screenshot',
       limits: {
+        // Number of fields we expect to receive at most.
+        fields: 11,
         files: 1,
-        fields: 10,
         fileSize: config.screenshots.maxFileSizeBytes
       }
     });
@@ -493,6 +495,8 @@ export class ScreenshotController {
     const cityPopulation = this.validatePopulation(
       this.getMultipartString(multipart, 'cityPopulation', true)
     );
+
+    const mapName = this.getMultipartString(multipart, 'mapName', false);
 
     const showcasedModId = Array.from(
       this.validateModIds(this.getMultipartString(multipart, 'showcasedModId', false))
@@ -523,6 +527,7 @@ export class ScreenshotController {
         cityName,
         cityMilestone,
         cityPopulation,
+        mapName,
         showcasedModId,
         description,
         shareParadoxModIds,

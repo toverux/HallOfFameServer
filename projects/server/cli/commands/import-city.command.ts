@@ -198,6 +198,7 @@ export class ImportCityCommand extends CommandRunner {
         cityName: cityInfo.cityName,
         cityMilestone: cityInfo.cityMilestone,
         cityPopulation: cityInfo.cityPopulation,
+        mapName: undefined,
         showcasedModId: undefined,
         description: undefined,
         shareParadoxModIds: true,

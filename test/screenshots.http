@@ -134,6 +134,11 @@ Content-Disposition: form-data; name="cityPopulation"
 1200
 
 --WebAppBoundary
+Content-Disposition: form-data; name="mapName"
+
+Colossal Map
+
+--WebAppBoundary
 Content-Disposition: form-data; name="showcasedModId"
 
 125566

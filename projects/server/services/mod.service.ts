@@ -3,7 +3,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import * as sentry from '@sentry/bun';
 import * as dateFns from 'date-fns';
-import { filter, from, lastValueFrom, mergeMap, retry, toArray } from 'rxjs';
+import { catchError, EMPTY, from, lastValueFrom, mergeMap, retry, toArray } from 'rxjs';
 import { z } from 'zod';
 import type { Mod, Prisma } from '#prisma-lib/client';
 import { nn } from '../../shared/utils';
@@ -67,30 +67,56 @@ export class ModService {
 
     const missingModIds = modIds.difference(new Set(foundMods.map(mod => mod.paradoxModId)));
 
-    const missingModDetails = await lastValueFrom(
+    const missingModResults = await lastValueFrom(
       from(missingModIds).pipe(
-        mergeMap(id => this.fetchModDetailsFromParadoxMods(id), ModService.paradoxApiConcurrency),
-        filter(details => details != null),
-        retry(ModService.paradoxApiRetries),
+        mergeMap(
+          modId =>
+            from(this.fetchModDetailsFromParadoxMods(modId)).pipe(
+              retry(ModService.paradoxApiRetries),
+              catchError(error => {
+                this.logger.error(`Failed to fetch mod details for new mod ${modId}.`, error);
+                sentry.captureException(error);
+
+                return EMPTY;
+              })
+            ),
+          ModService.paradoxApiConcurrency
+        ),
         toArray()
       )
     );
 
-    if (missingModDetails.length == 0) {
+    if (missingModResults.length == 0) {
       return foundMods.sort((a, b) => b.subscribersCount - a.subscribersCount);
     }
 
     await this.prisma.mod.createMany({
-      data: missingModDetails.map<Prisma.ModCreateInput>(modDetails => ({
-        paradoxModId: modDetails.modId,
-        name: modDetails.displayName,
-        authorName: modDetails.author,
-        shortDescription: modDetails.shortDescription,
-        thumbnailUrl: modDetails.displayImagePath,
-        tags: modDetails.tags,
-        subscribersCount: modDetails.subscriptions,
-        knownLastUpdatedAt: modDetails.latestUpdate
-      }))
+      data: missingModResults.map<Prisma.ModCreateInput>(result =>
+        result.kind == 'mod'
+          ? {
+              paradoxModId: result.details.modId,
+              isRetired: false,
+              name: result.details.displayName,
+              authorName: result.details.author,
+              shortDescription: result.details.shortDescription,
+              thumbnailUrl: result.details.displayImagePath,
+              tags: result.details.tags,
+              subscribersCount: result.details.subscriptions,
+              knownLastUpdatedAt: result.details.latestUpdate
+            }
+          : {
+              isRetired: true,
+              retiredReason: result.reason,
+              paradoxModId: result.modId,
+              name: 'Unknown',
+              authorName: 'Unknown',
+              shortDescription: 'Unknown',
+              thumbnailUrl: 'Unknown',
+              tags: [],
+              subscribersCount: 0,
+              knownLastUpdatedAt: new Date(0)
+            }
+      )
     });
 
     // We have to fetch new mods via a separate query because createMany doesn't return records.
@@ -99,7 +125,10 @@ export class ModService {
       where: { paradoxModId: { in: Array.from(missingModIds) } }
     });
 
-    return foundMods.concat(newMods).sort((a, b) => b.subscribersCount - a.subscribersCount);
+    return foundMods
+      .concat(newMods)
+      .filter(mod => !mod.isRetired)
+      .sort((a, b) => b.subscribersCount - a.subscribersCount);
   }
 
   /**
@@ -128,13 +157,17 @@ export class ModService {
    * update, this can be changed to fetch ex. (number of mods / 48) mods per hour, so approximately
    * everything is treated in 48 hours, and/or we can shorten the cron interval.
    */
+  // biome-ignore lint/complexity/noExcessiveLinesPerFunction: inherently sequential and simple
   @Cron('0 * * * *')
   public async syncModDetailsCron(): Promise<void> {
     try {
       // Find the 50 mods that have the most ancient sync date and that have been updated more than
       // a day ago.
       const modsToCheck = await this.prisma.mod.findMany({
-        where: { knownLastUpdatedAt: { lte: dateFns.subDays(new Date(), 1) } },
+        where: {
+          isRetired: false,
+          knownLastUpdatedAt: { lte: dateFns.subDays(new Date(), 1) }
+        },
         orderBy: { knownLastUpdatedAt: 'asc' },
         take: 50,
         select: { paradoxModId: true, knownLastUpdatedAt: true }
@@ -147,40 +180,65 @@ export class ModService {
       this.logger.log(`Checking mod details freshness for ${modsToCheck.length} mods...`);
 
       // Make a query for each mod.
-      const modDetails = await lastValueFrom(
-        from(modsToCheck.map(mod => mod.paradoxModId)).pipe(
-          mergeMap(id => this.fetchModDetailsFromParadoxMods(id), ModService.paradoxApiConcurrency),
-          filter(details => details != null),
-          retry(ModService.paradoxApiRetries),
+      const modResults = await lastValueFrom(
+        from(modsToCheck.map(mod => mod.paradoxModId as ParadoxModId)).pipe(
+          mergeMap(
+            modId =>
+              from(this.fetchModDetailsFromParadoxMods(modId)).pipe(
+                retry(ModService.paradoxApiRetries),
+                catchError(error => {
+                  this.logger.error(`Failed to update mod details for known mod ${modId}.`, error);
+                  sentry.captureException(error);
+
+                  return EMPTY;
+                })
+              ),
+            ModService.paradoxApiConcurrency
+          ),
           toArray()
         )
       );
 
       // Keep mods that have been updated since the last sync.
-      const updatedModDetails = modDetails
-        .map(details => ({
-          details,
-          mod: nn(modsToCheck.find(mod => mod.paradoxModId == details.modId))
+      const updatedModDetails = modResults
+        .map(result => ({
+          result,
+          mod: nn(modsToCheck.find(mod => mod.paradoxModId == result.modId))
         }))
-        .filter(({ details, mod }) => details.latestUpdate > mod.knownLastUpdatedAt);
+        .filter(
+          ({ result, mod }) =>
+            result.kind == 'retired' || result.details.latestUpdate > mod.knownLastUpdatedAt
+        );
 
       if (!updatedModDetails.length) {
         return this.logger.verbose(`No mods need to be updated.`);
       }
 
       // Save the updated mods details.
-      await this.prisma.mod.updateMany({
-        data: updatedModDetails.map<Prisma.ModUpdateInput>(({ details }) => ({
-          name: details.displayName,
-          authorName: details.author,
-          shortDescription: details.shortDescription,
-          thumbnailUrl: details.displayImagePath,
-          tags: details.tags,
-          subscribersCount: details.subscriptions,
-          knownLastUpdatedAt: details.latestUpdate,
-          lastSyncedAt: new Date()
-        }))
-      });
+      await this.prisma.$transaction(
+        updatedModDetails.map(({ result }) =>
+          this.prisma.mod.update({
+            where: { paradoxModId: result.modId },
+            data:
+              result.kind == 'mod'
+                ? {
+                    name: result.details.displayName,
+                    authorName: result.details.author,
+                    shortDescription: result.details.shortDescription,
+                    thumbnailUrl: result.details.displayImagePath,
+                    tags: result.details.tags,
+                    subscribersCount: result.details.subscriptions,
+                    knownLastUpdatedAt: result.details.latestUpdate,
+                    lastSyncedAt: new Date()
+                  }
+                : {
+                    isRetired: true,
+                    retiredReason: result.reason,
+                    lastSyncedAt: new Date()
+                  }
+          })
+        )
+      );
 
       this.logger.log(
         `Saved updated mod details for ${updatedModDetails.length} of ${modsToCheck.length} mods.`
@@ -194,74 +252,89 @@ export class ModService {
 
   /**
    * Fetches a mod's details from Paradox's API.
-   * Returns undefined if the mod cannot be retrieved due to various reasons, such as a failed
-   * HTTP request or invalid JSON response, although the error will be logged and sent to Sentry.
+   * Returns an enum-like object of kind `retired` when a mod has been removed or banned.
+   *
+   * @throws Error                 for any unknown error.
+   * @throws assert.AssertionError for unexpected Paradox API responses shapes.
+   * @throws z.ZodError            if the Paradox API HTTP response seemed correct but the body does
+   *                               not pass {@link paradoxModDetailsSchema} validation.
    */
-  private async fetchModDetailsFromParadoxMods(
-    modId: number
-  ): Promise<z.infer<typeof ModService.paradoxModDetailsSchema> | undefined> {
+  private async fetchModDetailsFromParadoxMods(modId: ParadoxModId): Promise<
+    | {
+        kind: 'mod';
+        modId: ParadoxModId;
+        details: z.infer<typeof ModService.paradoxModDetailsSchema>;
+      }
+    | { kind: 'retired'; modId: ParadoxModId; reason: string }
+  > {
+    // `&os=` is required, and Windows is the one platform where we're sure to get a result
+    // because everything is available to Windows. The "Any" platform only concerns portable
+    // assets that can be used everywhere.
+    const url = `https://api.paradox-interactive.com/mods?modId=${modId}&os=Windows`;
+
+    this.logger.verbose(`Fetching mod details from Paradox API: ${url}`);
+
+    const response = await fetch(url);
+
+    const debugResponseStatusStr = `${response.status} ${response.statusText}`;
+
+    let responseText: string | null = null;
+    let responseData: JsonValue = null;
     try {
-      // `&os=` is required, and Windows is the one platform where we're sure to get a result
-      // because everything is available to Windows. The "Any" platform only concerns portable
-      // assets that can be used everywhere.
-      const url = `https://api.paradox-interactive.com/mods?modId=${modId}&os=Windows`;
-
-      this.logger.verbose(`Fetching mod details from Paradox API: ${url}`);
-
-      const response = await fetch(url);
-
-      const debugResponseStatusStr = `${response.status} ${response.statusText}`;
-
-      let responseText: string | null = null;
-      let responseData: JsonValue = null;
-      try {
-        responseText = await response.text();
-        responseData = JSON.parse(responseText) as JsonValue;
-      } catch {
-        // Assert below will take care.
-      }
-
-      this.logger.debug(
-        `Fetched mod details from Paradox API (${debugResponseStatusStr}).`,
-        responseData
-      );
-
-      // First, check that we have a JSON object in response, no matter the status.
-      assert(
-        responseData && typeof responseData == 'object',
-        `Invalid Paradox API response (${debugResponseStatusStr}): ${responseText}`
-      );
-
-      // Error: Mod was retired, ignore it ("The mod with the specified modId could not be found").
-      if (
-        'errorMessage' in responseData &&
-        typeof responseData.errorMessage == 'string' &&
-        responseData.errorMessage.includes('found')
-      ) {
-        this.logger.warn(`Mod with ID ${modId} was retired or not found, ignoring.`);
-        return undefined;
-      }
-
-      // Now assert that we have a 2XX response.
-      assert(
-        response.ok,
-        `Failed to fetch mod details from Paradox API (${debugResponseStatusStr}): ${responseText}`
-      );
-
-      // Now assert that we have a seemingly valid response.
-      assert(
-        'modDetail' in responseData,
-        `Missing "modDetail" in response for ${debugResponseStatusStr} response: ${responseText}`
-      );
-
-      // Now parse the response, this will also error if there is a validation error.
-      return ModService.paradoxModDetailsSchema.parse(responseData.modDetail);
-    } catch (error) {
-      this.logger.error(`Failed to fetch mod details for ${modId}.`, error);
-
-      sentry.captureException(error);
-
-      return undefined;
+      responseText = await response.text();
+      responseData = JSON.parse(responseText) as JsonValue;
+    } catch {
+      // Assert below will take care.
     }
+
+    this.logger.debug(
+      `Fetched mod details from Paradox API (${debugResponseStatusStr}).`,
+      responseData
+    );
+
+    // First, check that we have a JSON object in response, no matter the status.
+    assert(
+      responseData && typeof responseData == 'object',
+      `Invalid Paradox API response (${debugResponseStatusStr}): ${responseText}`
+    );
+
+    // Handle Paradox Mods error for mods that cannot be found, have been retired, etc.
+    // noinspection JSObjectNullOrUndefined false positive
+    if (
+      'errorMessage' in responseData &&
+      typeof responseData.errorMessage == 'string' &&
+      // Match by message because Paradox's API does not provide a useful code.
+      // Ex. `errorCode` for unavailable mods is always "bad-input".
+      // "The mod with the specified modId could not be found"
+      // "This mod version is banned"
+      // biome-ignore lint/performance/useTopLevelRegex: infrequent call
+      responseData.errorMessage.match(/found|banned/i)
+    ) {
+      this.logger.warn(
+        `Mod with ID ${modId} was retired or not found (${responseData.errorMessage}).`
+      );
+
+      return { kind: 'retired', modId, reason: responseData.errorMessage };
+    }
+
+    // Now assert that we have a 2XX response.
+    assert(
+      response.ok,
+      `Failed to fetch mod details from Paradox API (${debugResponseStatusStr}): ${responseText}`
+    );
+
+    // Now assert that we have a seemingly valid response.
+    assert(
+      'modDetail' in responseData,
+      `Missing "modDetail" in response for ${debugResponseStatusStr} response: ${responseText}`
+    );
+
+    // Now parse the response, this will also error if there is a validation error.
+    // noinspection JSObjectNullOrUndefined false positive
+    return {
+      kind: 'mod',
+      modId,
+      details: ModService.paradoxModDetailsSchema.parse(responseData.modDetail)
+    };
   }
 }

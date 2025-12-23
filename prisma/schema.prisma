@@ -305,6 +305,12 @@ model Mod {
   id                 String   @id @default(auto()) @map("_id") @db.ObjectId
   /// Mod ID on Paradox Mods.
   paradoxModId       Int      @unique
+  /// Whether the mod could not be fetched because it was removed/banned.
+  /// In this case we will still store a reference to it to remember not to fetch it again.
+  /// A retired mod should NOT appear in our API results and be skipped.
+  isRetired          Boolean
+  /// If `isRetired` is true, this is the error message we received from Paradox's API.
+  retiredReason      String?
   /// Display name of the mod.
   name               String
   /// Author's name.

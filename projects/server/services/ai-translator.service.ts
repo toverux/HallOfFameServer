@@ -106,8 +106,8 @@ export class AiTranslatorService {
     this.logger.verbose(`Translating "${input}"`);
 
     const response = await this.openAi.responses.create({
-      model: 'gpt-5',
-      reasoning: { effort: config.env == 'production' ? 'medium' : 'minimal' },
+      model: 'gpt-5.2',
+      reasoning: { effort: config.env == 'production' ? 'medium' : 'none' },
       // biome-ignore lint/style/useNamingConvention: OpenAI's API.
       safety_identifier: creatorId,
       input: [

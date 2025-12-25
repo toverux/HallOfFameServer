@@ -3,7 +3,7 @@ import * as dfns from 'date-fns';
 import * as locales from 'date-fns/locale';
 import type { FastifyRequest } from 'fastify';
 import { resolveAcceptLanguage } from 'resolve-accept-language';
-import { nn } from '../../shared/utils';
+import { nn } from '../../shared/utils/type-assertion';
 
 @Injectable()
 export class DateFnsLocalizationService {

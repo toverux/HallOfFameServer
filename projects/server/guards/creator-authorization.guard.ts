@@ -1,7 +1,7 @@
 import { type CanActivate, type ExecutionContext, Inject } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
 import type { Creator } from '#prisma-lib/client';
-import { UnauthorizedError } from '../common';
+import { UnauthorizedError } from '../common/standard-error';
 import { CreatorAuthenticationService } from '../services';
 
 declare module 'fastify' {

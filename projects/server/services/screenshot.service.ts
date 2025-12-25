@@ -13,16 +13,12 @@ import {
   type Screenshot,
   type View
 } from '#prisma-lib/client';
-import { nn } from '../../shared/utils';
-import {
-  isPrismaError,
-  type JsonObject,
-  type Maybe,
-  NotFoundByIdError,
-  optionallySerialized,
-  type ParadoxModId,
-  StandardError
-} from '../common';
+import type { ParadoxModId } from '../../shared/utils/branded-types';
+import { type JsonObject, optionallySerialized } from '../../shared/utils/json';
+import { nn } from '../../shared/utils/type-assertion';
+import type { Maybe } from '../../shared/utils/utility-types';
+import { isPrismaError } from '../common/prisma-errors';
+import { NotFoundByIdError, StandardError } from '../common/standard-error';
 import { config } from '../config';
 import { CreatorAuthorizationGuard } from '../guards';
 import { AiTranslatorService } from './ai-translator.service';
@@ -854,7 +850,7 @@ export class ScreenshotService {
 
     assert(Array.isArray(supporters), `Expected an array of 0..1 results.`);
 
-    const supporter = supporters[0];
+    const supporter = supporters[0] as JsonObject;
     if (!supporter?._id) {
       return null;
     }
@@ -886,42 +882,42 @@ export class ScreenshotService {
 
     assert(Array.isArray(results), `Expected an array of 0..1 results.`);
 
-    const screenshot = results[0];
-    if (!screenshot?._id?.$oid) {
+    const screenshot = results[0] as JsonObject;
+    if (!(screenshot?._id as JsonObject | undefined)?.$oid) {
       return null;
     }
 
     return {
-      id: screenshot._id.$oid,
-      createdAt: new Date(screenshot.createdAt.$date),
-      isApproved: screenshot.isApproved,
-      isReported: screenshot.isReported,
-      reportedById: screenshot.reportedById,
-      favoritesCount: screenshot.favoritesCount,
-      favoritingPercentage: screenshot.favoritingPercentage,
-      uniqueViewsCount: screenshot.uniqueViewsCount,
-      viewsCount: screenshot.viewsCount,
-      hwid: screenshot.hwid,
-      ip: screenshot.ip,
-      creatorId: screenshot.creatorId.$oid,
-      cityName: screenshot.cityName,
-      cityNameLocale: screenshot.cityNameLocale,
-      cityNameLatinized: screenshot.cityNameLatinized,
-      cityNameTranslated: screenshot.cityNameTranslated,
-      needsTranslation: screenshot.needsTranslation,
-      cityMilestone: screenshot.cityMilestone,
-      cityPopulation: screenshot.cityPopulation,
-      mapName: screenshot.mapName,
-      imageUrlThumbnail: screenshot.imageUrlThumbnail,
-      imageUrlFHD: screenshot.imageUrlFHD,
-      imageUrl4K: screenshot.imageUrl4K,
-      showcasedModId: screenshot.showcasedModId,
-      description: screenshot.description,
-      shareParadoxModIds: screenshot.shareParadoxModIds,
-      paradoxModIds: screenshot.paradoxModIds,
-      shareRenderSettings: screenshot.shareRenderSettings,
-      renderSettings: screenshot.renderSettings,
-      metadata: screenshot.metadata
+      id: (screenshot._id as JsonObject).$oid as string,
+      createdAt: new Date((screenshot.createdAt as JsonObject).$date as string),
+      isApproved: screenshot.isApproved as Screenshot['isApproved'],
+      isReported: screenshot.isReported as Screenshot['isReported'],
+      reportedById: screenshot.reportedById as Screenshot['reportedById'],
+      favoritesCount: screenshot.favoritesCount as Screenshot['favoritesCount'],
+      favoritingPercentage: screenshot.favoritingPercentage as Screenshot['favoritingPercentage'],
+      uniqueViewsCount: screenshot.uniqueViewsCount as Screenshot['uniqueViewsCount'],
+      viewsCount: screenshot.viewsCount as Screenshot['viewsCount'],
+      hwid: screenshot.hwid as Screenshot['hwid'],
+      ip: screenshot.ip as Screenshot['ip'],
+      creatorId: (screenshot.creatorId as JsonObject).$oid as Screenshot['creatorId'],
+      cityName: screenshot.cityName as Screenshot['cityName'],
+      cityNameLocale: screenshot.cityNameLocale as Screenshot['cityNameLocale'],
+      cityNameLatinized: screenshot.cityNameLatinized as Screenshot['cityNameLatinized'],
+      cityNameTranslated: screenshot.cityNameTranslated as Screenshot['cityNameTranslated'],
+      needsTranslation: screenshot.needsTranslation as Screenshot['needsTranslation'],
+      cityMilestone: screenshot.cityMilestone as Screenshot['cityMilestone'],
+      cityPopulation: screenshot.cityPopulation as Screenshot['cityPopulation'],
+      mapName: screenshot.mapName as Screenshot['mapName'],
+      imageUrlThumbnail: screenshot.imageUrlThumbnail as Screenshot['imageUrlThumbnail'],
+      imageUrlFHD: screenshot.imageUrlFHD as Screenshot['imageUrlFHD'],
+      imageUrl4K: screenshot.imageUrl4K as Screenshot['imageUrl4K'],
+      showcasedModId: screenshot.showcasedModId as Screenshot['showcasedModId'],
+      description: screenshot.description as Screenshot['description'],
+      shareParadoxModIds: screenshot.shareParadoxModIds as Screenshot['shareParadoxModIds'],
+      paradoxModIds: screenshot.paradoxModIds as Screenshot['paradoxModIds'],
+      shareRenderSettings: screenshot.shareRenderSettings as Screenshot['shareRenderSettings'],
+      renderSettings: screenshot.renderSettings as Screenshot['renderSettings'],
+      metadata: screenshot.metadata as Screenshot['metadata']
     };
   }
 }

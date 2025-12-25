@@ -1,5 +1,26 @@
 /**
  * @public
+ * This function represents a code path that should never be reached.
+ * It is typically used to handle impossible cases in TypeScript's exhaustiveness checks.
+ *
+ * @param value The value that triggered this supposedly unreachable code path.
+ * @return This function does not return; it always throws an error.
+ */
+export function unreachable(value?: never): never {
+  let stringifiable: unknown | undefined;
+
+  try {
+    stringifiable = !value || typeof value != 'object' ? value : JSON.stringify(value, null, 2);
+  } catch {
+    // If JSON.stringify() fails (ex. due to circular references), it will fall back to the default
+    // stringification.
+  }
+
+  throw new Error(`Supposedly unreachable code was reached with value: ${stringifiable}`);
+}
+
+/**
+ * @public
  * Checks that a given value is not strictly null OR strictly undefined (nn = non-null).
  *
  * @throws Error if the value is `null` or `undefined`.

@@ -6,8 +6,9 @@ import * as dateFns from 'date-fns';
 import { catchError, EMPTY, from, lastValueFrom, mergeMap, retry, toArray } from 'rxjs';
 import { z } from 'zod';
 import type { Mod, Prisma } from '#prisma-lib/client';
-import { nn } from '../../shared/utils';
-import type { JsonObject, JsonValue, ParadoxModId } from '../common';
+import type { ParadoxModId } from '../../shared/utils/branded-types';
+import type { JsonObject, JsonValue } from '../../shared/utils/json';
+import { nn } from '../../shared/utils/type-assertion';
 import { PrismaService } from './prisma.service';
 
 @Injectable()
@@ -282,7 +283,7 @@ export class ModService {
     let responseData: JsonValue = null;
     try {
       responseText = await response.text();
-      responseData = JSON.parse(responseText) as JsonValue;
+      responseData = JSON.parse(responseText);
     } catch {
       // Assert below will take care.
     }

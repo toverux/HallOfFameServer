@@ -5,7 +5,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { type ASTNode, GraphQLError, print } from 'graphql';
 import * as yoga from 'graphql-yoga';
 import * as textCase from 'text-case';
-import { StandardError } from '../common';
+import { StandardError } from '../common/standard-error';
 import { config } from '../config';
 import type { AppSchemaBuilder } from './schema-builder';
 import {

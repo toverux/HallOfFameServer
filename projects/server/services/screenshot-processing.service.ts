@@ -3,7 +3,8 @@ import { Injectable } from '@nestjs/common';
 import Bun from 'bun';
 import * as dateFns from 'date-fns';
 import sharp from 'sharp';
-import { allFulfilled, type Maybe } from '../common';
+import { allFulfilled } from '../../shared/utils/all-fulfilled';
+import type { Maybe } from '../../shared/utils/utility-types';
 import { config } from '../config';
 
 @Injectable()
@@ -35,11 +36,11 @@ export class ScreenshotProcessingService {
           DateTime: dateFns.format(new Date(), 'yyyy:MM:dd hh:mm:ss')
         }
       })
-      // We want to minimize the size of the image as much as possible while keeping the
-      // quality as high as possible.
+      // We want to minimize the size of the image as much as possible while keeping the quality as
+      // high as possible.
       // The mozjpeg preset already does a very great job, and a quality of 85 seemed to be an
-      // acceptable tradeoff between quality and size (even 70 was fine on small display but
-      // on large displays, artifacts were too prominent).
+      // acceptable tradeoff between quality and size (even 70 was fine on small display, but on
+      // large displays, artifacts were too prominent).
       // Mozjpeg also produces progressive JPEGs.
       .jpeg({
         force: true,
@@ -70,8 +71,7 @@ export class ScreenshotProcessingService {
     if (config.env == 'development') {
       await allFulfilled(
         Object.entries({
-          // Also save a non-resized version of the image, useful to test compression
-          // settings.
+          // Also save a non-resized version of the image, useful to test compression settings.
           'noresize': await image.toBuffer(),
           'thumbnail': imageThumbnailBuffer,
           'fhd': imageFhdBuffer,

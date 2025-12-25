@@ -3,6 +3,7 @@ type UnwrapPromisesTuple<Tuple extends readonly unknown[]> = {
 };
 
 /**
+ * @public
  * It's `Promise.allSettled()`, but instead of returning an array of {@link PromiseSettledResult},
  * it checks for any rejected promises and throws the first one it finds, unless if
  * {@link aggregate} is `true`, in which case it throws an {@link AggregateError} containing all the

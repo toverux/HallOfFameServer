@@ -1,6 +1,7 @@
 import { Controller, Get, HttpStatus, Inject, Param, Res } from '@nestjs/common';
 import type { FastifyReply } from 'fastify';
-import { NotFoundByIdError, type ParadoxModId } from '../../common';
+import type { ParadoxModId } from '../../../shared/utils/branded-types';
+import { NotFoundByIdError } from '../../common/standard-error';
 import { PrismaService } from '../../services';
 
 @Controller('mods')

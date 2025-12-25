@@ -6,7 +6,7 @@ import { type ClientSession, type Db, MongoClient } from 'mongodb';
 import { Command, CommandRunner } from 'nest-commander';
 import type { Migration } from '../../../../prisma/migrations/types';
 import { iconsole } from '../../../shared/iconsole';
-import { nn } from '../../../shared/utils';
+import { nn } from '../../../shared/utils/type-assertion';
 import { config } from '../../config';
 
 @Command({

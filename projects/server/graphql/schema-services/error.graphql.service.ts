@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import SchemaBuilder from '@pothos/core';
-import { StandardError } from '../../common';
+import { StandardError } from '../../common/standard-error';
 import type { AppSchemaBuilder } from '../schema-builder';
 
 @Injectable()

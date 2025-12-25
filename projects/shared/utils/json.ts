@@ -1,18 +1,23 @@
 import type { Branded } from './branded-types';
 
+/** @public */
 export type JsonPrimitive = string | number | boolean | null;
 
+/** @public */
 export type JsonList = JsonValue[];
 
+/** @public */
 export interface JsonObject {
   [key: string]: JsonValue | JsonNonSerialized;
 }
 
+/** @public */
 export type JsonValue = JsonPrimitive | JsonObject | JsonList;
 
 type JsonNonSerialized = Branded<undefined, 'Unserialized Field'>;
 
 /**
+ * @public
  * To preserve type safety of {@link JsonObject} regarding undefined values, which are not
  * translatable to JSON but can be used to dynamically *avoid* serialization of a field.
  *

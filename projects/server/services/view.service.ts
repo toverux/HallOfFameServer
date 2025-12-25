@@ -2,8 +2,8 @@ import { Inject, Injectable } from '@nestjs/common';
 import * as dateFns from 'date-fns';
 import { LRUCache } from 'lru-cache';
 import type { Creator, Screenshot, View } from '#prisma-lib/client';
-import { nn } from '../../shared/utils';
-import { type JsonObject, optionallySerialized } from '../common';
+import { type JsonObject, optionallySerialized } from '../../shared/utils/json';
+import { nn } from '../../shared/utils/type-assertion';
 import { CreatorService } from './creator.service';
 import { PrismaService } from './prisma.service';
 import { ScreenshotStatsService } from './screenshot-stats.service';
@@ -38,8 +38,8 @@ export class ViewService {
    *
    * @param creatorId    Creator ID to filter by.
    * @param maxAgeInDays Max age of the views to consider, in days, so we can repropose
-   *                     screenshots the user hasn't seen in a while. A max age of `0` or
-   *                     `undefined` means no limit (i.e. all past known views count).
+   *                     screenshots the user hasn't seen in a while. A max-age of `0` or
+   *                     `undefined` means no limit (i.e., all past known views count).
    */
   public async getViewedScreenshotIds(
     creatorId: Creator['id'],

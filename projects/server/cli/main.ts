@@ -3,7 +3,7 @@ import * as util from 'node:util';
 import chalk, { type ChalkInstance } from 'chalk';
 import { CommandFactory } from 'nest-commander';
 import { iconsole } from '../../shared/iconsole';
-import { StandardError } from '../common';
+import { StandardError } from '../common/standard-error';
 import { config, setRuntimeType } from '../config';
 import { CliModule } from './cli.module';
 

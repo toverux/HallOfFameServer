@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import type { CanActivate, ExecutionContext } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
-import { UnauthorizedError } from '../common';
+import { UnauthorizedError } from '../common/standard-error';
 import { config } from '../config';
 
 export class SystemAuthorizationGuard implements CanActivate {

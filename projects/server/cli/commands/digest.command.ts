@@ -17,7 +17,7 @@ import puppeteer, { type Browser, type Page } from 'puppeteer';
 import logoSkyscraperSrc from '../../../shared/assets/logo-skyscraper.svg';
 import loveChirperSrc from '../../../shared/assets/love-chirper.png';
 import { iconsole } from '../../../shared/iconsole';
-import { nn } from '../../../shared/utils';
+import { nn } from '../../../shared/utils/type-assertion';
 import { config } from '../../config';
 import { PrismaService, ScreenshotStorageService } from '../../services';
 
@@ -46,7 +46,7 @@ export class DigestCommand extends CommandRunner {
     required: false
   })
   public parseDebugPuppeteer(val: string): boolean {
-    return JSON.parse(val);
+    return val == 'true';
   }
 
   @Option({
@@ -55,7 +55,7 @@ export class DigestCommand extends CommandRunner {
     required: false
   })
   public parseOpen(val: string): boolean {
-    return JSON.parse(val);
+    return val == 'true';
   }
 
   private static configuration = {

@@ -2,7 +2,8 @@ import { ForbiddenException, Inject, Injectable, Logger } from '@nestjs/common';
 import { oneLine } from 'common-tags';
 import { LRUCache } from 'lru-cache';
 import type { Ban, Creator } from '#prisma-lib/client';
-import { type HardwareId, type IpAddress, StandardError } from '../common';
+import type { HardwareId, IpAddress } from '../../shared/utils/branded-types';
+import { StandardError } from '../common/standard-error';
 import { config } from '../config';
 import { PrismaService } from './prisma.service';
 

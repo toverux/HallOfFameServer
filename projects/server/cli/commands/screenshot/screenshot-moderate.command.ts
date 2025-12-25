@@ -15,7 +15,7 @@ import {
 import open from 'open';
 import type { Creator, Screenshot } from '#prisma-lib/client';
 import { iconsole } from '../../../../shared/iconsole';
-import { assertUnreachable } from '../../../common';
+import { unreachable } from '../../../../shared/utils/type-assertion';
 import {
   BanService,
   PrismaService,
@@ -64,7 +64,7 @@ export class ScreenshotModerateCommand extends CommandRunner {
       for review.`
   })
   public parseBoolean(val: string): boolean {
-    return JSON.parse(val);
+    return val == 'true';
   }
 
   public override async run(_args: never, options: { readonly download: boolean }): Promise<void> {
@@ -130,7 +130,7 @@ export class ScreenshotModerateCommand extends CommandRunner {
           break;
         }
         default:
-          assertUnreachable(action);
+          unreachable(action);
       }
     }
 

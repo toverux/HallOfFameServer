@@ -3,7 +3,7 @@ import { oneLine } from 'common-tags';
 import OpenAi from 'openai';
 import { z } from 'zod';
 import type { Creator } from '#prisma-lib/client';
-import type { JsonObject } from '../common';
+import type { JsonObject, JsonValue } from '../../shared/utils/json';
 import { config } from '../config';
 
 export interface TranslationResponse {
@@ -130,9 +130,9 @@ export class AiTranslatorService {
     }
 
     // Parse the JSON response from the model.
-    let translation: string;
+    let responseJson: JsonValue;
     try {
-      translation = JSON.parse(response.output_text);
+      responseJson = JSON.parse(response.output_text);
     } catch (error) {
       throw new Error(`Invalid JSON response from OpenAI: ${response.output_text}`, {
         cause: error
@@ -140,7 +140,7 @@ export class AiTranslatorService {
     }
 
     // Make sure the JSON from the model is valid.
-    const result = AiTranslatorService.openAiResponseZodSchema.parse(translation);
+    const result = AiTranslatorService.openAiResponseZodSchema.parse(responseJson);
 
     this.logger.log(
       oneLine`

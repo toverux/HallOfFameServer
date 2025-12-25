@@ -27,9 +27,6 @@
     },
     "rules": {
       "correctness": {
-        // We would like to use it, but it doesn't take a list of exclusions in options.
-        // This causes issues with generated code (ex. Prisma) that doesn't add @public JSDoc tags.
-        "noPrivateImports": "off",
         // Buggy, as of the current version of Biome, marks all static private members as unused.
         // And TS already got us covered for that.
         "noUnusedPrivateClassMembers": "off",

@@ -3,7 +3,8 @@ import { Inject, Injectable } from '@nestjs/common';
 import * as sentry from '@sentry/bun';
 import type { FastifyRequest } from 'fastify';
 import type { Creator } from '#prisma-lib/client';
-import { type CreatorId, type HardwareId, type IpAddress, UnauthorizedError } from '../common';
+import type { CreatorId, HardwareId, IpAddress } from '../../shared/utils/branded-types';
+import { UnauthorizedError } from '../common/standard-error';
 import {
   BanService,
   type CreatorAuthorization,

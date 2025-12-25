@@ -32,7 +32,7 @@ export class ScreenshotInferFeatureEmbeddingsCommand extends CommandRunner {
     required: true
   })
   public parseBoolean(val: string): boolean {
-    return JSON.parse(val);
+    return val == 'true';
   }
 
   @Option({

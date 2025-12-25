@@ -7,7 +7,8 @@ import { DateTimeResolver, JSONObjectResolver } from 'graphql-scalars';
 import type { PrismaClient } from '#prisma-lib/client';
 import type PrismaTypes from '#prisma-lib/pothos-prisma-types';
 import { getDatamodel } from '#prisma-lib/pothos-prisma-types';
-import { ForbiddenError, type JsonObject, StandardError } from '../common';
+import type { JsonObject } from '../../shared/utils/json';
+import { ForbiddenError, StandardError } from '../common/standard-error';
 import { config } from '../config';
 import type { AppGraphQLContext } from './services';
 

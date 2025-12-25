@@ -2,7 +2,7 @@ import { type ArgumentsHost, Catch, HttpException, Logger } from '@nestjs/common
 import { BaseExceptionFilter } from '@nestjs/core';
 import * as sentry from '@sentry/bun';
 import type { FastifyRequest } from 'fastify';
-import { StandardError } from '../common';
+import { StandardError } from '../common/standard-error';
 import { config } from '../config';
 
 /**

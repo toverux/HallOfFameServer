@@ -8,6 +8,7 @@ import {
 import type { HttpExceptionOptions } from '@nestjs/common/exceptions/http.exception';
 
 /**
+ * @public
  * Base application-layer error class.
  * "Standard errors" are user or operation errors that are known and can be handled.
  *
@@ -26,8 +27,10 @@ export abstract class StandardError extends Error {
   ) => HttpException;
 }
 
+/** @public */
 export abstract class AuthError extends StandardError {}
 
+/** @public */
 export class UnauthorizedError extends AuthError {
   public override httpErrorType = UnauthorizedException;
 
@@ -36,6 +39,7 @@ export class UnauthorizedError extends AuthError {
   }
 }
 
+/** @public */
 export class ForbiddenError extends AuthError {
   public override httpErrorType = ForbiddenException;
 
@@ -44,6 +48,7 @@ export class ForbiddenError extends AuthError {
   }
 }
 
+/** @public */
 export class NotFoundByIdError extends StandardError {
   public override httpErrorType = NotFoundException;
 

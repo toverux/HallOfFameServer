@@ -8,7 +8,7 @@ import { Command, CommandRunner, Option } from 'nest-commander';
 import open from 'open';
 import type { Creator, Screenshot } from '#prisma-lib/client';
 import { iconsole } from '../../../shared/iconsole';
-import { nn } from '../../../shared/utils';
+import { nn } from '../../../shared/utils/type-assertion';
 import { PrismaService, ScreenshotStorageService } from '../../services';
 
 @Command({
@@ -33,7 +33,7 @@ export class AnniversaryCommand extends CommandRunner {
     required: false
   })
   public parseOpen(val: string): boolean {
-    return JSON.parse(val);
+    return val == 'true';
   }
 
   private static readonly outputPath = path.join(

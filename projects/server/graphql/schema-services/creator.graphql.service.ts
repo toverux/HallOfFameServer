@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import SchemaBuilder from '@pothos/core';
-import { nn } from '../../../shared/utils';
+import { nn } from '../../../shared/utils/type-assertion';
 import { PrismaService } from '../../services';
 import type { AppSchemaBuilder } from '../schema-builder';
 

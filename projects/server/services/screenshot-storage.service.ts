@@ -3,7 +3,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import * as dateFns from 'date-fns';
 import slug from 'slug';
 import type { Creator, Screenshot } from '#prisma-lib/client';
-import { allFulfilled } from '../common';
+import { allFulfilled } from '../../shared/utils/all-fulfilled';
 import { config } from '../config';
 import { AzureService } from './azure.service';
 

@@ -20,6 +20,11 @@ import { PrismaService } from './prisma.service';
 
 export type CreatorAuthorization = SimpleCreatorAuthorization | ModCreatorAuthorization;
 
+// noinspection TypeScriptDuplicateUnionOrIntersectionType
+export type CreatorIdentifier = NonNullable<
+  Creator['id'] | Creator['creatorName'] | Creator['creatorNameSlug'] | 'me'
+>;
+
 /**
  * The simpler authorization scheme.
  * Allows logging in to an existing account with just a Creator ID, much like an API key.

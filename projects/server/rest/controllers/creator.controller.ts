@@ -20,9 +20,7 @@ import type { JsonObject } from '../../../shared/utils/json';
 import { NotFoundByIdError } from '../../common/standard-error';
 import { CreatorAuthorizationGuard } from '../../guards';
 import { ZodParsePipe } from '../../pipes';
-import { CreatorService, PrismaService } from '../../services';
-
-type CreatorIdentifier = NonNullable<Creator['id'] | Creator['creatorName'] | 'me'>;
+import { type CreatorIdentifier, CreatorService, PrismaService } from '../../services';
 
 @Controller('creators')
 @UseGuards(CreatorAuthorizationGuard)
@@ -162,7 +160,7 @@ export class CreatorController {
         id == 'me' || ObjectId.isValid(id)
           ? { id: id == 'me' ? CreatorAuthorizationGuard.getAuthenticatedCreator(req).id : id }
           : // biome-ignore lint/style/useNamingConvention: prisma
-            { OR: [{ creatorName: id, creatorNameSlug: id }] }
+            { OR: [{ creatorName: { equals: id, mode: 'insensitive' } }, { creatorNameSlug: id }] }
     });
 
     if (!creator) {

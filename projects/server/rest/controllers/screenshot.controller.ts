@@ -21,7 +21,7 @@ import { oneLine } from 'common-tags';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { ObjectId } from 'mongodb';
 import { z } from 'zod';
-import { type Creator, Prisma, type Screenshot } from '#prisma-lib/client';
+import { Prisma, type Screenshot } from '#prisma-lib/client';
 import type { ParadoxModId } from '../../../shared/utils/branded-types';
 import type { JsonObject } from '../../../shared/utils/json';
 import { nn } from '../../../shared/utils/type-assertion';
@@ -31,6 +31,7 @@ import { config } from '../../config';
 import { CreatorAuthorizationGuard } from '../../guards';
 import { ZodParsePipe } from '../../pipes';
 import {
+  type CreatorIdentifier,
   FavoriteService,
   ModService,
   PrismaService,
@@ -85,7 +86,7 @@ export class ScreenshotController {
   @Get()
   public async getAll(
     @Req() req: FastifyRequest,
-    @Query('creatorId') creatorId: Creator['id'] | Creator['creatorName'] | 'me' | undefined,
+    @Query('creatorId') creatorId: CreatorIdentifier | undefined,
     @Query('favorites', new ParseBoolPipe({ optional: true })) includeFavorites = false,
     @Query('views', new ParseBoolPipe({ optional: true })) includeViews = false,
     @Query('showcasedMod', new ParseBoolPipe({ optional: true })) includeShowcasedMod = false
@@ -103,11 +104,14 @@ export class ScreenshotController {
     // If the creatorId filter is not an ObjectId or 'me', try to find by Creator name.
     if (typeof creatorId == 'string' && creatorId != 'me' && !ObjectId.isValid(creatorId)) {
       const creator = await this.prisma.creator.findFirst({
+        select: { id: true },
         where: {
           // biome-ignore lint/style/useNamingConvention: prisma
-          OR: [{ creatorName: creatorId, creatorNameSlug: creatorId }]
-        },
-        select: { id: true }
+          OR: [
+            { creatorName: { equals: creatorId, mode: 'insensitive' } },
+            { creatorNameSlug: creatorId }
+          ]
+        }
       });
 
       if (!creator) {

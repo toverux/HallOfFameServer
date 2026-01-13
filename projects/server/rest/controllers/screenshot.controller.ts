@@ -20,7 +20,7 @@ import {
 import { oneLine } from 'common-tags';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { type Creator, Prisma } from '#prisma-lib/client';
+import { type Creator, Prisma, type Screenshot } from '#prisma-lib/client';
 import type { ParadoxModId } from '../../../shared/utils/branded-types';
 import type { JsonObject } from '../../../shared/utils/json';
 import { nn } from '../../../shared/utils/type-assertion';
@@ -84,7 +84,7 @@ export class ScreenshotController {
   @Get()
   public async getAll(
     @Req() req: FastifyRequest,
-    @Query('creatorId') creatorId: string | undefined,
+    @Query('creatorId') creatorId: Creator['id'] | 'me' | undefined,
     @Query('favorites', new ParseBoolPipe({ optional: true })) includeFavorites = false,
     @Query('views', new ParseBoolPipe({ optional: true })) includeViews = false,
     @Query('showcasedMod', new ParseBoolPipe({ optional: true })) includeShowcasedMod = false
@@ -101,7 +101,7 @@ export class ScreenshotController {
 
     // If the creatorId filter is 'me', replace it with the logged-in creator ID.
     if (creatorId == 'me') {
-      // biome-ignore lint/style/noParameterAssign: legitimate case
+      // biome-ignore lint/style/noParameterAssign: legitimate use case
       creatorId = CreatorAuthorizationGuard.getAuthenticatedCreator(req).id;
     }
 
@@ -151,7 +151,7 @@ export class ScreenshotController {
   @Get(':id')
   public async getOne(
     @Req() req: FastifyRequest,
-    @Param('id') id: string,
+    @Param('id') id: Screenshot['id'],
     @Query('favorites', new ParseBoolPipe({ optional: true })) includeFavorites = false,
     @Query('views', new ParseBoolPipe({ optional: true })) includeViews = false
   ): Promise<JsonObject> {
@@ -193,7 +193,7 @@ export class ScreenshotController {
   @Get(':id/:type')
   public async redirectToScreenshot(
     @Res() res: FastifyReply,
-    @Param('id') id: string,
+    @Param('id') id: Screenshot['id'],
     @Param('type') type: string
   ): Promise<void> {
     const screenshot = await this.prisma.screenshot.findUnique({ where: { id } });
@@ -303,7 +303,10 @@ export class ScreenshotController {
    *                           screenshot.
    */
   @Delete(':id')
-  public async deleteOne(@Req() req: FastifyRequest, @Param('id') id: string): Promise<JsonObject> {
+  public async deleteOne(
+    @Req() req: FastifyRequest,
+    @Param('id') id: Screenshot['id']
+  ): Promise<JsonObject> {
     const creator = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
 
     const screenshot = await this.prisma.screenshot.findUnique({
@@ -340,7 +343,7 @@ export class ScreenshotController {
   @Put(':id')
   public async updateOne(
     @Req() req: FastifyRequest,
-    @Param('id') screenshotId: Creator['id'],
+    @Param('id') screenshotId: Screenshot['id'],
     @Body(new ZodParsePipe(ScreenshotController.updateScreenshotBodySchema))
     body: z.infer<typeof ScreenshotController.updateScreenshotBodySchema>
   ): Promise<JsonObject> {
@@ -381,7 +384,7 @@ export class ScreenshotController {
   @Post(':id/favorites')
   public async addToFavorites(
     @Req() req: FastifyRequest,
-    @Param('id') screenshotId: string
+    @Param('id') screenshotId: Screenshot['id']
   ): Promise<JsonObject> {
     const creator = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
 
@@ -396,7 +399,7 @@ export class ScreenshotController {
   @Delete(':id/favorites/mine')
   public async removeFromFavorites(
     @Req() req: FastifyRequest,
-    @Param('id') screenshotId: string
+    @Param('id') screenshotId: Screenshot['id']
   ): Promise<JsonObject> {
     const creator = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
 
@@ -411,7 +414,7 @@ export class ScreenshotController {
   @Post(':id/views')
   public async markViewed(
     @Req() req: FastifyRequest,
-    @Param('id') screenshotId: string
+    @Param('id') screenshotId: Screenshot['id']
   ): Promise<JsonObject> {
     const creator = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
 
@@ -429,7 +432,7 @@ export class ScreenshotController {
   @Post(':id/reports')
   public async report(
     @Req() req: FastifyRequest,
-    @Param('id') screenshotId: string
+    @Param('id') screenshotId: Screenshot['id']
   ): Promise<JsonObject> {
     try {
       const creator = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
@@ -450,11 +453,19 @@ export class ScreenshotController {
    * Receives a screenshot and its metadata and processes it to add it to the Hall of Fame.
    *
    * Expects a multipart request with the following fields:
-   * - `creatorId`: The Creator ID.
-   * - `cityName`: The name of the city.
-   * - `cityMilestone`: The milestone reached by the city.
-   * - `cityPopulation`: The population of the city.
-   * - `screenshot`: The screenshot file, a JPEG.
+   * - `cityName` (required): The name of the city.
+   * - `cityMilestone` (required): The milestone reached by the city.
+   * - `cityPopulation` (required): The population of the city.
+   * - `mapName`: Name of the omap that was used to create this game.
+   * - `showcasedModId`: The ID of a mod that is showcased in the screenshot.
+   * - `description`: A short description for the screenshot.
+   * - `shareParadoxModIds`: Whether to share the mods used in the screenshot.
+   * - `modIds`: A comma-separated list of Paradox Mod IDs.
+   * - `shareRenderSettings`: Whether to share the photo mode settings for the screenshots.
+   * - `renderSettings`: A JSON string containing the render settings for the screenshot.
+   * - `metadata`: A JSON string containing additional metadata about the screenshot that is not
+   *   exploited by the application.
+   * - `screenshot` (required): The screenshot file, a JPEG.
    *
    * Response will be 201 with a serialized Screenshot.
    */
@@ -563,7 +574,7 @@ export class ScreenshotController {
 
     if (!(field && 'value' in field)) {
       if (!strict) {
-        return;
+        return undefined;
       }
 
       throw new InvalidPayloadError(`Expected a multipart field named '${fieldName}'.`);
@@ -572,7 +583,7 @@ export class ScreenshotController {
     const value = String(field.value).trim();
 
     if (!value) {
-      throw new InvalidPayloadError(`Expected a non-empty string for the field '${fieldName}'.`);
+      return undefined;
     }
 
     return value;

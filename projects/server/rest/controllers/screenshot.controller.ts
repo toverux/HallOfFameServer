@@ -19,6 +19,7 @@ import {
 } from '@nestjs/common';
 import { oneLine } from 'common-tags';
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import { ObjectId } from 'mongodb';
 import { z } from 'zod';
 import { type Creator, Prisma, type Screenshot } from '#prisma-lib/client';
 import type { ParadoxModId } from '../../../shared/utils/branded-types';
@@ -84,7 +85,7 @@ export class ScreenshotController {
   @Get()
   public async getAll(
     @Req() req: FastifyRequest,
-    @Query('creatorId') creatorId: Creator['id'] | 'me' | undefined,
+    @Query('creatorId') creatorId: Creator['id'] | Creator['creatorName'] | 'me' | undefined,
     @Query('favorites', new ParseBoolPipe({ optional: true })) includeFavorites = false,
     @Query('views', new ParseBoolPipe({ optional: true })) includeViews = false,
     @Query('showcasedMod', new ParseBoolPipe({ optional: true })) includeShowcasedMod = false
@@ -99,8 +100,25 @@ export class ScreenshotController {
 
     const creator = req[CreatorAuthorizationGuard.authenticatedCreatorKey];
 
+    // If the creatorId filter is not an ObjectId or 'me', try to find by Creator name.
+    if (typeof creatorId == 'string' && creatorId != 'me' && !ObjectId.isValid(creatorId)) {
+      const creator = await this.prisma.creator.findFirst({
+        where: {
+          // biome-ignore lint/style/useNamingConvention: prisma
+          OR: [{ creatorName: creatorId, creatorNameSlug: creatorId }]
+        },
+        select: { id: true }
+      });
+
+      if (!creator) {
+        throw new NotFoundByIdError(creatorId);
+      }
+
+      // biome-ignore lint/style/noParameterAssign: legitimate use case
+      creatorId = creator?.id;
+    }
     // If the creatorId filter is 'me', replace it with the logged-in creator ID.
-    if (creatorId == 'me') {
+    else if (creatorId == 'me') {
       // biome-ignore lint/style/noParameterAssign: legitimate use case
       creatorId = CreatorAuthorizationGuard.getAuthenticatedCreator(req).id;
     }

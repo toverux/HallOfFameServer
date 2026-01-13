@@ -13,6 +13,14 @@ Accept-Language: {{locale}}
 X-Timezone-Offset: {{utcOffset}}
 X-Forwarded-For: {{ip}}
 
+### List my screenshots (by creator name)
+
+GET {{url}}/api/v1/screenshots?creatorId=toverux
+Authorization: CreatorID {{creatorId}}
+Accept-Language: {{locale}}
+X-Timezone-Offset: {{utcOffset}}
+X-Forwarded-For: {{ip}}
+
 ### Get a screenshot by ID
 
 GET {{url}}/api/v1/screenshots/{{screenshot.id}}

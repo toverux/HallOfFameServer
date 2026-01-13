@@ -12,6 +12,7 @@ import {
   UseGuards
 } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import { ObjectId } from 'mongodb';
 import { z } from 'zod';
 import type { Creator, Prisma } from '#prisma-lib/client';
 import { allFulfilled } from '../../../shared/utils/all-fulfilled';
@@ -20,6 +21,8 @@ import { NotFoundByIdError } from '../../common/standard-error';
 import { CreatorAuthorizationGuard } from '../../guards';
 import { ZodParsePipe } from '../../pipes';
 import { CreatorService, PrismaService } from '../../services';
+
+type CreatorIdentifier = NonNullable<Creator['id'] | Creator['creatorName'] | 'me'>;
 
 @Controller('creators')
 @UseGuards(CreatorAuthorizationGuard)
@@ -42,7 +45,7 @@ export class CreatorController {
   @Get(':id')
   public async getCreator(
     @Req() req: FastifyRequest,
-    @Param('id') creatorId: Creator['id']
+    @Param('id') creatorId: CreatorIdentifier
   ): Promise<JsonObject> {
     const creator = await this.fetchCreatorById(creatorId, req);
 
@@ -76,7 +79,7 @@ export class CreatorController {
   @Get(':id/stats')
   public async getCreatorStats(
     @Req() req: FastifyRequest,
-    @Param('id') creatorId: Creator['id']
+    @Param('id') creatorId: CreatorIdentifier
   ): Promise<JsonObject> {
     const creator = await this.fetchCreatorById(creatorId, req);
 
@@ -128,7 +131,7 @@ export class CreatorController {
   public async redirectCreatorSocial(
     @Req() req: FastifyRequest,
     @Res() res: FastifyReply,
-    @Param('id') creatorId: Creator['id'],
+    @Param('id') creatorId: CreatorIdentifier,
     @Param('platform') platformName: string
   ): Promise<void> {
     const creator = await this.fetchCreatorById(creatorId, req);
@@ -153,11 +156,13 @@ export class CreatorController {
     });
   }
 
-  private async fetchCreatorById(id: Creator['id'] | 'me', req: FastifyRequest): Promise<Creator> {
-    const creator = await this.prisma.creator.findUnique({
-      where: {
-        id: id == 'me' ? CreatorAuthorizationGuard.getAuthenticatedCreator(req).id : id
-      }
+  private async fetchCreatorById(id: CreatorIdentifier, req: FastifyRequest): Promise<Creator> {
+    const creator = await this.prisma.creator.findFirst({
+      where:
+        id == 'me' || ObjectId.isValid(id)
+          ? { id: id == 'me' ? CreatorAuthorizationGuard.getAuthenticatedCreator(req).id : id }
+          : // biome-ignore lint/style/useNamingConvention: prisma
+            { OR: [{ creatorName: id, creatorNameSlug: id }] }
     });
 
     if (!creator) {

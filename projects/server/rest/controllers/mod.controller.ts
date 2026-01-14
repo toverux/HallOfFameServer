@@ -1,4 +1,12 @@
-import { Controller, Get, HttpStatus, Inject, Param, Res } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Get,
+  HttpStatus,
+  Inject,
+  Param,
+  Res
+} from '@nestjs/common';
 import type { FastifyReply } from 'fastify';
 import type { ParadoxModId } from '../../../shared/utils/branded-types';
 import { NotFoundByIdError } from '../../common/standard-error';
@@ -15,8 +23,14 @@ export class ModController {
   @Get(':paradoxModId')
   public async redirectToModPage(
     @Res() res: FastifyReply,
-    @Param('paradoxModId') paradoxModId: ParadoxModId
+    @Param('paradoxModId') paradoxModIdStr: string
   ): Promise<void> {
+    const paradoxModId = Number.parseInt(paradoxModIdStr, 10) as ParadoxModId;
+
+    if (Number.isNaN(paradoxModId)) {
+      throw new BadRequestException(`Mod ID "${paradoxModIdStr}" is not valid, expected an int.`);
+    }
+
     const mod = await this.prisma.mod.findUnique({ where: { paradoxModId } });
 
     if (!mod) {

@@ -254,6 +254,8 @@ export class ScreenshotController {
    * @param req           The request object.
    * @param random        Weight for the "random" algorithm, see
    *                      {@link ScreenshotService.getScreenshotRandom}.
+   * @param popular       Weight for the "popular" algorithm, see
+   *                      {@link ScreenshotService.getScreenshotPopular}.
    * @param trending      Weight for the "trending" algorithm, see
    *                      {@link ScreenshotService.getScreenshotTrending}.
    * @param recent        Weight for the "recent" algorithm, see
@@ -271,6 +273,8 @@ export class ScreenshotController {
     req: FastifyRequest,
     @Query('random', new ParseIntPipe({ optional: true }))
     random = 0,
+    @Query('popular', new ParseIntPipe({ optional: true }))
+    popular = 0,
     @Query('trending', new ParseIntPipe({ optional: true }))
     trending = 0,
     @Query('recent', new ParseIntPipe({ optional: true }))
@@ -284,7 +288,7 @@ export class ScreenshotController {
   ) {
     const creator = req[CreatorAuthorizationGuard.authenticatedCreatorKey];
 
-    const weights = { random, trending, recent, archeologist, supporter };
+    const weights = { random, popular, trending, recent, archeologist, supporter };
 
     const screenshot = await this.screenshotService.getWeightedRandomScreenshot(
       weights,

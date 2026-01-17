@@ -32,7 +32,13 @@ import { ScreenshotSimilarityDetectorService } from './screenshot-similarity-det
 import { ScreenshotStorageService } from './screenshot-storage.service';
 import { ViewService } from './view.service';
 
-type RandomScreenshotAlgorithm = 'random' | 'trending' | 'recent' | 'archeologist' | 'supporter';
+type RandomScreenshotAlgorithm =
+  | 'random'
+  | 'popular'
+  | 'trending'
+  | 'recent'
+  | 'archeologist'
+  | 'supporter';
 
 type RandomScreenshotWeights = Readonly<Record<RandomScreenshotAlgorithm, number>>;
 
@@ -91,6 +97,7 @@ export class ScreenshotService {
 
   private readonly randomScreenshotFunctions: RandomScreenshotFunctions = {
     random: this.getScreenshotRandom.bind(this),
+    popular: this.getScreenshotPopular.bind(this),
     trending: this.getScreenshotTrending.bind(this),
     recent: this.getScreenshotRecent.bind(this),
     archeologist: this.getScreenshotArcheologist.bind(this),
@@ -754,7 +761,7 @@ export class ScreenshotService {
   }
 
   /**
-   * Retrieves a non-reported completely random screenshot.
+   * Retrieves a completely random screenshot.
    */
   private getScreenshotRandom(nin: readonly JsonOid[]): Promise<Screenshot | null> {
     return this.runAggregateForSingleScreenshot([
@@ -769,7 +776,33 @@ export class ScreenshotService {
   }
 
   /**
-   * Retrieves a non-reported screenshot that has a high number of "likes" (favorites) *per day*.
+   * Retrieves a screenshot that has a high favoriting percentage:
+   *  - ≥ 10 favorites
+   *  - ≥ 10% favoriting percentage (this is empirically a threshold that separates bad and 'okay'
+   *    screenshots from good/very good screenshots).
+   */
+  private getScreenshotPopular(nin: readonly JsonOid[]): Promise<Screenshot | null> {
+    // Uses [isReported, favoritesCount, favoritingPercentage] compound index for matching, test
+    // changes to ensure index usage.
+    return this.runAggregateForSingleScreenshot([
+      {
+        $match: {
+          _id: { $nin: nin },
+          isReported: false,
+          favoritesCount: { $gte: 10 },
+          favoritingPercentage: { $gte: 10 }
+        }
+      },
+      { $sample: { size: 1 } }
+    ]);
+  }
+
+  /**
+   * Retrieves a screenshot that has one of the highest favoriting percentage:
+   *  - ≥ 1% favoriting percentage (this is mostly an optimization pass to reduce the set).
+   *  - Sorts by favoriting percentage descending.
+   *  - Limits to the X best.
+   *  - Takes one random screenshot in that pool.
    */
   private getScreenshotTrending(nin: readonly JsonOid[]): Promise<Screenshot | null> {
     // Uses [isReported, favoritingPercentage] compound index for sorting with limiting and
@@ -778,8 +811,8 @@ export class ScreenshotService {
       {
         $match: {
           _id: { $nin: nin },
-          favoritingPercentage: { $gt: 1 },
-          isReported: false
+          isReported: false,
+          favoritingPercentage: { $gt: 1 }
         }
       },
       { $sort: { favoritingPercentage: -1 } },
@@ -789,8 +822,11 @@ export class ScreenshotService {
   }
 
   /**
-   * Retrieves a non-reported random screenshot uploaded within the last X days (configurable as an
-   * environment variable).
+   * Retrieves a screenshot uploaded between X days ago (configurable in env) and now:
+   *  - Matches screenshots posted within the time window.
+   *  - Sorts by views count ascending so that the least viewed screenshots are prioritized.
+   *  - Limits to the X most recent, least viewed.
+   *  - Takes one random screenshot in that pool.
    */
   private getScreenshotRecent(nin: readonly JsonOid[]): Promise<Screenshot | null> {
     const $date = dfns.subDays(new Date(), config.screenshots.recencyThresholdDays);
@@ -813,8 +849,11 @@ export class ScreenshotService {
   }
 
   /**
-   * Retrieves a non-reported screenshot uploaded more than X days ago (configurable in env), has
-   * the lowest number of views, and then prioritizes the oldest screenshots.
+   * Retrieves a screenshot among the ones that have the fewest views:
+   *  - Omits recent screenshots (see {@link getScreenshotRecent}) because they also have few views.
+   *  - Sorts by views count ascending so that the least viewed screenshots are prioritized.
+   *  - Limits to the X most ancient, least viewed.
+   *  - Takes one random screenshot in that pool.
    */
   private getScreenshotArcheologist(nin: readonly JsonOid[]): Promise<Screenshot | null> {
     const $date = dfns.subDays(new Date(), config.screenshots.recencyThresholdDays);
@@ -836,8 +875,12 @@ export class ScreenshotService {
   }
 
   /**
-   * Retrieves a non-reported random screenshot from a random supporter.
-   * Prioritizes the oldest screenshots with the fewest views for the randomly selected supporter.
+   * Retrieves a screenshot made by a supporter:
+   *  - Finds a random supporter.
+   *  - Matches screenshots posted by that supporter.
+   *  - Sorts by views count ascending so that the least viewed screenshots are prioritized.
+   *  - Sorts by upload date ascending so that the oldest screenshots are prioritized.
+   *  - Takes one random screenshot in that pool.
    */
   private async getScreenshotSupporter(nin: readonly JsonOid[]): Promise<Screenshot | null> {
     const supporters = await this.prisma.creator.aggregateRaw({

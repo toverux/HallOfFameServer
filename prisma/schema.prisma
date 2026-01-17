@@ -200,6 +200,7 @@ model Screenshot {
   @@index([ip])
   @@index([creatorId]) // for "supporter" aggregation & simple filtering
   @@index([isReported, createdAt]) // for "recent" aggregation when <limit results
+  @@index([isReported, favoritesCount, favoritingPercentage]) // for "popular" aggregation
   @@index([isReported, favoritingPercentage]) // for "trending" aggregation
   @@index([isReported, viewsCount, createdAt]) // for "archeologist" aggregation and recent aggregation when >limit results
   @@map("screenshots")

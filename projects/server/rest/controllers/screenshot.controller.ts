@@ -539,12 +539,12 @@ export class ScreenshotController {
       this.getMultipartString(multipart, 'description', false)
     );
 
-    const shareParadoxModIds = this.getMultipartString(multipart, 'shareModIds', false) == 'true';
+    const shareParadoxModIds = this.getMultipartString(multipart, 'shareModIds', false) != 'false';
 
     const paradoxModIds = this.validateModIds(this.getMultipartString(multipart, 'modIds', false));
 
     const shareRenderSettings =
-      this.getMultipartString(multipart, 'shareRenderSettings', false) == 'true';
+      this.getMultipartString(multipart, 'shareRenderSettings', false) != 'false';
 
     const renderSettings = this.validateRenderSettings(
       this.getMultipartString(multipart, 'renderSettings', false)

@@ -14,7 +14,7 @@ import {
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { ObjectId } from 'mongodb';
 import { z } from 'zod';
-import type { Creator, Prisma } from '#prisma-lib/client';
+import { type Creator, Prisma } from '#prisma-lib/client';
 import { allFulfilled } from '../../../shared/utils/all-fulfilled';
 import type { JsonObject } from '../../../shared/utils/json';
 import { NotFoundByIdError } from '../../common/standard-error';
@@ -27,6 +27,14 @@ import { type CreatorIdentifier, CreatorService, PrismaService } from '../../ser
 export class CreatorController {
   /** @see updateMyself */
   private static readonly updateMyselfBodySchema = z.strictObject({
+    /**
+     * The locale used in the game.
+     */
+    locale: z.string().optional(),
+
+    /**
+     * A raw JSON object with arbitrary keys and values of the current mod settings.
+     */
     modSettings: z.looseObject({}).optional()
   });
 
@@ -52,9 +60,7 @@ export class CreatorController {
 
   /**
    * Update the authenticated Creator.
-   * Allowed fields:
-   *  - `modSettings`: a raw JSON object with arbitrary keys and values of the current mod
-   *    settings.
+   * See {@link CreatorController.updateMyselfBodySchema} for the shape of the request body.
    */
   @Put('me')
   public async updateMyself(
@@ -67,7 +73,8 @@ export class CreatorController {
     const updated = await this.prisma.creator.update({
       where: { id: creator.id },
       data: {
-        modSettings: body.modSettings as Prisma.InputJsonObject
+        locale: body.locale ?? Prisma.skip,
+        modSettings: (body.modSettings as Prisma.InputJsonObject | undefined) ?? Prisma.skip
       }
     });
 

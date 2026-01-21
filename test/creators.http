@@ -44,6 +44,7 @@ X-Timezone-Offset: {{utcOffset}}
 X-Forwarded-For: {{ip}}
 
 {
+  "locale": "en-US",
   "modSettings": {
     "UsingJetBrainsHttpClient": true
   }

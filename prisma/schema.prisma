@@ -68,6 +68,9 @@ model Creator {
   ips                   String[]
   /// Array of social accounts of the Creator.
   socials               CreatorSocial[]
+  /// Locale used in the game by the Creator when they last launched the game with the mod.
+  /// Used to better understand the mod's usage.
+  locale                String?
   /// JSON object containing the latest known mod settings this user used.
   /// Used to better understand the mod's usage.
   modSettings           Json?

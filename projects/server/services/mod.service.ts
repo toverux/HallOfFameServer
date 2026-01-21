@@ -20,8 +20,16 @@ export class ModService {
   private static readonly paradoxModDetailsSchema = z.looseObject({
     modId: z.string().pipe(z.coerce.number()),
     author: z.string(),
-    displayName: z.string(),
-    shortDescription: z.string().trim(),
+    // Paradox Mods don't trim displayName and shortDescription, they can contain spaces or \r\n's.
+    // We also replace inner \r\n's with \n's.
+    displayName: z
+      .string()
+      .trim()
+      .transform(val => val.replace(/\r\n/g, '\n')),
+    shortDescription: z
+      .string()
+      .trim()
+      .transform(val => val.replace(/\r\n/g, '\n')),
     displayImagePath: z.string(),
     tags: z.array(z.string()),
     subscriptions: z.int(),

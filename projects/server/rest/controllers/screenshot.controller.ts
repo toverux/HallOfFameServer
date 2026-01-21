@@ -4,6 +4,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   HttpStatus,
   Inject,
@@ -242,6 +243,26 @@ export class ScreenshotController {
       url,
       config.env == 'development' ? HttpStatus.FOUND : HttpStatus.MOVED_PERMANENTLY
     );
+  }
+
+  /**
+   * Returns the list of mods used in that screenshot.
+   */
+  @Get(':id/playset')
+  public async getPlayset(@Param('id') id: Screenshot['id']): Promise<JsonObject[]> {
+    const screenshot = await this.prisma.screenshot.findUnique({ where: { id } });
+
+    if (!screenshot) {
+      throw new NotFoundByIdError(id);
+    }
+
+    if (!screenshot.shareParadoxModIds) {
+      throw new PlaysetNotSharedError();
+    }
+
+    const mods = await this.modService.getMods(new Set(screenshot.paradoxModIds as ParadoxModId[]));
+
+    return mods.map(mod => this.modService.serialize(mod));
   }
 
   /**
@@ -729,6 +750,14 @@ export class ScreenshotController {
         cause: error
       });
     }
+  }
+}
+
+class PlaysetNotSharedError extends StandardError {
+  public override httpErrorType = ForbiddenException;
+
+  public constructor() {
+    super(`The creator has decided not to share their playset for this screenshot.`);
   }
 }
 

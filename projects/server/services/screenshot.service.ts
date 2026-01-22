@@ -1,5 +1,11 @@
 import assert from 'node:assert/strict';
-import { ForbiddenException, Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Inject,
+  Injectable,
+  Logger,
+  type OnApplicationBootstrap
+} from '@nestjs/common';
 import * as sentry from '@sentry/bun';
 import { oneLine } from 'common-tags';
 import * as dfns from 'date-fns';
@@ -55,7 +61,7 @@ interface JsonOid extends Prisma.InputJsonObject {
 }
 
 @Injectable()
-export class ScreenshotService {
+export class ScreenshotService implements OnApplicationBootstrap {
   private static readonly sampleSizeForDeterministicAlgorithms = 100;
 
   /**
@@ -103,6 +109,21 @@ export class ScreenshotService {
     archeologist: this.getScreenshotArcheologist.bind(this),
     supporter: this.getScreenshotSupporter.bind(this)
   };
+
+  private popularScreenshotsFavoritingPercentageThreshold = 0;
+
+  public async onApplicationBootstrap(): Promise<void> {
+    this.popularScreenshotsFavoritingPercentageThreshold =
+      await this.getPopularFavoritingPercentageThreshold();
+
+    this.logger.log(
+      oneLine`
+      Popular screenshots favoriting percentage threshold:
+      ${this.popularScreenshotsFavoritingPercentageThreshold}%
+      (percentile=${config.screenshots.popularScreenshotsPercentile},
+      min favorites=${config.screenshots.popularScreenshotsMinFavorites}).`
+    );
+  }
 
   /**
    * Ingests a screenshot and its metadata into the Hall of Fame.
@@ -649,6 +670,39 @@ export class ScreenshotService {
   }
 
   /**
+   * Calculates the favoriting percentage threshold for determining popular screenshots
+   * based on a specified percentile ({@link config.screenshots.popularScreenshotsPercentile}) and
+   * a minimum favorites count ({@link config.screenshots.popularScreenshotsMinFavorites}).
+   */
+  private async getPopularFavoritingPercentageThreshold(): Promise<number> {
+    const [result] = (await this.prisma.screenshot.aggregateRaw({
+      pipeline: [
+        {
+          $match: {
+            favoritesCount: { $gte: config.screenshots.popularScreenshotsMinFavorites }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            p: {
+              $percentile: {
+                input: '$favoritingPercentage',
+                p: [config.screenshots.popularScreenshotsPercentile],
+                method: 'approximate'
+              }
+            }
+          }
+        },
+        { $project: { median: { $arrayElemAt: ['$p', 0] } } }
+      ]
+    })) as unknown as ReadonlyArray<{ median: number }>;
+
+    // No result if there is no match (empty or new database).
+    return result?.median ?? 0;
+  }
+
+  /**
    * Used by {@link getWeightedRandomScreenshot}.
    *
    * Given a set of weights for each algorithm:
@@ -789,8 +843,8 @@ export class ScreenshotService {
         $match: {
           _id: { $nin: nin },
           isReported: false,
-          favoritesCount: { $gte: 10 },
-          favoritingPercentage: { $gte: 10 }
+          favoritesCount: { $gte: config.screenshots.popularScreenshotsMinFavorites },
+          favoritingPercentage: { $gte: this.popularScreenshotsFavoritingPercentageThreshold }
         }
       },
       { $sample: { size: 1 } }

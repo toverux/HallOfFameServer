@@ -52,6 +52,8 @@ export const config = {
   screenshots: {
     maxFileSizeBytes: getNumber('HOF_SCREENSHOTS_MAX_FILE_SIZE_MB') * 1000 * 1000,
     jpegQuality: getNumber('HOF_SCREENSHOTS_JPEG_QUALITY'),
+    popularScreenshotsMinFavorites: getNumber('HOF_SCREENSHOTS_POPULAR_MIN_FAVORITES'),
+    popularScreenshotsPercentile: getNumber('HOF_SCREENSHOTS_POPULAR_PERCENTILE'),
     recencyThresholdDays: getNumber('HOF_SCREENSHOTS_RECENCY_THRESHOLD_DAYS'),
     limitPer24h: getNumber('HOF_SCREENSHOTS_LIMIT_PER_24H')
   },

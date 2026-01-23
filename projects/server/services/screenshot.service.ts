@@ -645,7 +645,7 @@ export class ScreenshotService implements OnApplicationBootstrap {
       createdAtFormatted: dfns.format(createdAtAdjusted, 'Pp', {
         locale: dfnsLocale
       }),
-      createdAtFormattedDistance: dfns.formatDistanceToNowStrict(
+      createdAtFormattedDistance: dfns.formatDistanceToNow(
         // Not a mistake, do not use createdAtAdjusted here, we calculate the difference
         // between two UTC dates.
         screenshot.createdAt,

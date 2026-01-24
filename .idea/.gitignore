@@ -9,5 +9,7 @@
 /biome.xml
 # Bun preferences (contains machine-specific config)
 /bun.xml
+# Typescript preferences (can contain machine-specific config like Node's path)
+/compiler.xml
 # Developer Tools plugin preferences
 /developer-tools.xml

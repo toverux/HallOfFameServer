@@ -9,6 +9,7 @@ import { FavoriteService } from './favorite.service';
 import { ModService } from './mod.service';
 import { PrismaService } from './prisma.service';
 import { ScreenshotService } from './screenshot.service';
+import { ScreenshotMergingService } from './screenshot-merging.service';
 import { ScreenshotProcessingService } from './screenshot-processing.service';
 import { ScreenshotSimilarityDetectorService } from './screenshot-similarity-detector.service';
 import { ScreenshotStatsService } from './screenshot-stats.service';
@@ -25,6 +26,7 @@ export * from './favorite.service';
 export * from './mod.service';
 export * from './prisma.service';
 export * from './screenshot.service';
+export * from './screenshot-merging.service';
 export * from './screenshot-processing.service';
 export * from './screenshot-similarity-detector.service';
 export * from './screenshot-stats.service';
@@ -42,6 +44,7 @@ export const services: Provider[] = [
   ModService,
   PrismaService,
   ScreenshotService,
+  ScreenshotMergingService,
   ScreenshotProcessingService,
   ScreenshotSimilarityDetectorService,
   ScreenshotStatsService,

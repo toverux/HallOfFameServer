@@ -1,3 +1,5 @@
+import os from 'node:os';
+import path from 'node:path';
 import process from 'node:process';
 import { oneLine } from 'common-tags';
 
@@ -56,6 +58,18 @@ export const config = {
     popularScreenshotsPercentile: getNumber('HOF_SCREENSHOTS_POPULAR_PERCENTILE'),
     recencyThresholdDays: getNumber('HOF_SCREENSHOTS_RECENCY_THRESHOLD_DAYS'),
     limitPer24h: getNumber('HOF_SCREENSHOTS_LIMIT_PER_24H')
+  },
+
+  puppeteer: {
+    // Mostly so that Chromium can store cache, but it will also remember devtools preferences etc.,
+    // which is nice.
+    userDataDir: path.join(os.tmpdir(), 'halloffame/chromium-user-data'),
+    args: [
+      // Not needed and makes installation more complex
+      '--no-sandbox',
+      // Needed for image caching to work when we setContent() on a about:blank page.
+      '--disable-features=SplitCacheByNetworkIsolationKey'
+    ]
   },
 
   supportContact: getString('HOF_SUPPORT_CONTACT')

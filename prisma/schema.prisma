@@ -217,10 +217,19 @@ model ScreenshotFeatureEmbedding {
   /// for 8 bytes (64 bits) (random).
   /// This is because we use IDs as USearch index keys and those must be 64 bits uints, so when
   /// USearch returns the results, we can map back to a database document.
-  id           String     @id @map("_id")
-  screenshotId String     @unique @db.ObjectId
-  screenshot   Screenshot @relation(fields: [screenshotId], references: [id], onDelete: Cascade)
-  embedding    Float[]
+  id                       String     @id @map("_id")
+  /// To which screenshot this embedding belongs.
+  screenshotId             String     @unique @db.ObjectId
+  screenshot               Screenshot @relation(fields: [screenshotId], references: [id], onDelete: Cascade)
+  /// Embedding from EfficientNet V2.
+  embedding                Float[]
+  /// List of embeddings that are allowed to have a similarity with this embedding, and should not
+  /// be reported as potential duplicates.
+  /// Both sides SHOULD have a link to the other, ex. Screenshot A references B and B references A.
+  /// It is not a standard Prisma relation as it would be quite overkill to set up with many fields,
+  /// since this feature is not mission-critical we will just be careful about handling it well
+  /// manually where it's needed.
+  allowedSimilarityWithIds String[]
 
   @@map("screenshot_feature_embeddings")
 }

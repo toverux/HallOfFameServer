@@ -2,9 +2,9 @@ import type { Provider } from '@nestjs/common';
 import { Command, CommandRunner } from 'nest-commander';
 import { iconsole } from '../../../../shared/iconsole';
 import { ScreenshotDeleteCommand } from './screenshot-delete.command';
-import { ScreenshotFindSimilarCommand } from './screenshot-find-similar.command';
 import { ScreenshotInferFeatureEmbeddingsCommand } from './screenshot-infer-feature-embeddings.command';
 import { ScreenshotMergeCommand } from './screenshot-merge.command';
+import { ScreenshotMergeSimilarCommand } from './screenshot-merge-similar.command';
 import { ScreenshotModerateCommand } from './screenshot-moderate.command';
 import { ScreenshotResyncStatsCommand } from './screenshot-resync-stats.command';
 import { ScreenshotTranslateCommand } from './screenshot-translate.command';
@@ -15,9 +15,9 @@ import { ScreenshotTranslateCommand } from './screenshot-translate.command';
   description: `Commands related to screenshots.`,
   subCommands: [
     ScreenshotDeleteCommand,
-    ScreenshotFindSimilarCommand,
     ScreenshotInferFeatureEmbeddingsCommand,
     ScreenshotMergeCommand,
+    ScreenshotMergeSimilarCommand,
     ScreenshotModerateCommand,
     ScreenshotResyncStatsCommand,
     ScreenshotTranslateCommand
@@ -27,9 +27,9 @@ export class ScreenshotCommand extends CommandRunner {
   public static readonly providers: () => Provider[] = () => [
     ScreenshotCommand,
     ...ScreenshotDeleteCommand.providers(),
-    ...ScreenshotFindSimilarCommand.providers(),
     ...ScreenshotInferFeatureEmbeddingsCommand.providers(),
     ...ScreenshotMergeCommand.providers(),
+    ...ScreenshotMergeSimilarCommand.providers(),
     ...ScreenshotModerateCommand.providers(),
     ...ScreenshotResyncStatsCommand.providers(),
     ...ScreenshotTranslateCommand.providers()

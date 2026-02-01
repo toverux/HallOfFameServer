@@ -127,15 +127,8 @@ export class DigestCommand extends CommandRunner {
           browser ??= await puppeteer.launch({
             // This will both launch in headful mode and enable devtools.
             devtools: options.debugPuppeteer,
-            // Mostly so that Chromium can store cache, but it will also remember devtools
-            // preferences etc., which is nice.
-            userDataDir: path.join(os.tmpdir(), 'halloffame/digest/chromium-user-data'),
-            args: [
-              // Not needed and makes installation more complex
-              '--no-sandbox',
-              // Needed for image caching to work when we setContent() on a about:blank page.
-              '--disable-features=SplitCacheByNetworkIsolationKey'
-            ]
+            userDataDir: config.puppeteer.userDataDir,
+            args: [...config.puppeteer.args]
           });
 
           const page = await browser.newPage();

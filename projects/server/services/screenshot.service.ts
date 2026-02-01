@@ -132,6 +132,9 @@ export class ScreenshotService implements OnApplicationBootstrap {
    * - Resizing the screenshot to two sizes.
    * - Uploading the screenshots to Azure Blob Storage.
    * - Creating a {@link Screenshot} record in the database.
+   * - Asynchronously requesting a translation for the city name (if required).
+   * - Asynchronously inferring similarity embeddings for the screenshot.
+   * - Asynchronously warming up the mods cache from the used playset.
    */
   // biome-ignore lint/complexity/noExcessiveLinesPerFunction: easier to follow that way, intricate code.
   public async ingestScreenshot({
@@ -295,6 +298,18 @@ export class ScreenshotService implements OnApplicationBootstrap {
     }
   }
 
+  /**
+   * Updates a screenshot with the specified data.
+   * - If the name of the city changes, the translation is updated asynchronously if needed.
+   * - If a showcased mod is added, the mod cache is warmed up synchronously.
+   *
+   * @param screenshotId The unique identifier of the screenshot to update.
+   * @param data         The data to update the screenshot with.
+   * @param prisma       An optional Prisma transaction client, if the operation is executed within
+   *                     an existing transaction.
+   *
+   * @return A promise that resolves to the updated screenshot object.
+   */
   public updateScreenshot(
     screenshotId: Screenshot['id'],
     data: Pick<
@@ -362,6 +377,15 @@ export class ScreenshotService implements OnApplicationBootstrap {
     }
   }
 
+  /**
+   * Deletes a screenshot and its associated resources, including embeddings and stored images.
+   *
+   * @param screenshotId The unique identifier of the screenshot to be deleted.
+   * @param prisma       An optional Prisma transaction client, if the operation is executed within
+   *                     an existing transaction.
+   *
+   * @return A promise that resolves to the deleted screenshot record.
+   */
   public deleteScreenshot(
     screenshotId: Screenshot['id'],
     prisma?: Prisma.TransactionClient
@@ -372,15 +396,18 @@ export class ScreenshotService implements OnApplicationBootstrap {
 
     async function transaction(
       this: ScreenshotService,
-      tx: Prisma.TransactionClient
+      prisma: Prisma.TransactionClient
     ): Promise<Screenshot> {
       try {
-        await this.screenshotSimilarityDetector.deleteEmbedding(screenshotId, tx);
+        // Embeddings require special cleanup (ex. index removal), so we do not rely on the Prisma
+        // relation.
+        await this.screenshotSimilarityDetector.deleteEmbedding(screenshotId, prisma);
 
-        const screenshot = await tx.screenshot.delete({
+        const screenshot = await prisma.screenshot.delete({
           where: { id: screenshotId }
         });
 
+        // Remove images.
         await this.screenshotStorage.deleteScreenshots(screenshot);
 
         this.logger.log(`Deleted screenshot #${screenshot.id} "${screenshot.cityName}".`);

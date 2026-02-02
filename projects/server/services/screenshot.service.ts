@@ -339,10 +339,14 @@ export class ScreenshotService implements OnApplicationBootstrap {
           where: { id: screenshotId },
           data: {
             ...data,
+            needsTranslation,
             cityNameLocale: needsTranslation ? null : Prisma.skip,
             cityNameLatinized: needsTranslation ? null : Prisma.skip,
             cityNameTranslated: needsTranslation ? null : Prisma.skip,
-            needsTranslation
+            isShowcasedModValidated:
+              data.showcasedModId == Prisma.skip
+                ? Prisma.skip
+                : data.showcasedModId != originalScreenshot.showcasedModId
           }
         });
 
@@ -1036,6 +1040,8 @@ export class ScreenshotService implements OnApplicationBootstrap {
       imageUrlFHD: screenshot.imageUrlFHD as Screenshot['imageUrlFHD'],
       imageUrl4K: screenshot.imageUrl4K as Screenshot['imageUrl4K'],
       showcasedModId: screenshot.showcasedModId as Screenshot['showcasedModId'],
+      isShowcasedModValidated:
+        screenshot.isShowcasedModValidated as Screenshot['isShowcasedModValidated'],
       description: screenshot.description as Screenshot['description'],
       shareParadoxModIds: screenshot.shareParadoxModIds as Screenshot['shareParadoxModIds'],
       paradoxModIds: screenshot.paradoxModIds as Screenshot['paradoxModIds'],

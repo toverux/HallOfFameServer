@@ -109,93 +109,97 @@ type CreatorSocial {
 
 /// A screenshot uploaded by a Creator.
 model Screenshot {
-  id                   String                      @id @default(auto()) @map("_id") @db.ObjectId
-  createdAt            DateTime                    @default(now())
+  id                      String                      @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt               DateTime                    @default(now())
   /// Whether that screenshot was manually approved by an admin.
   /// If true, users won't be able to signal that screenshot again.
-  isApproved           Boolean                     @default(false)
+  isApproved              Boolean                     @default(false)
   /// Whether an user has reported the Screenshot as inappropriate.
   /// If true, the Screenshot is hidden from the public until an admin reviews it and decides to
   /// reset the flag or take action.
-  isReported           Boolean                     @default(false)
+  isReported              Boolean                     @default(false)
   /// Creator who reported the Screenshot.
   /// Useful to track users who abuse the report feature and eventually reset a bunch of reports if
   /// they aren't justified.
-  reportedById         String?                     @db.ObjectId
-  reportedBy           Creator?                    @relation("reports", fields: [reportedById], references: [id], onDelete: SetNull)
+  reportedById            String?                     @db.ObjectId
+  reportedBy              Creator?                    @relation("reports", fields: [reportedById], references: [id], onDelete: SetNull)
   /// Number of favorites the Screenshot has received.
-  favoritesCount       Int                         @default(0)
+  favoritesCount          Int                         @default(0)
   /// Percentage of users who favorited the Screenshot when they saw it.
   /// Math.round(favoritesCount / uniqueViewsCount * 100)
-  favoritingPercentage Float                       @default(0)
+  favoritingPercentage    Float                       @default(0)
   /// Number of views the Screenshot has received, deduplicated by Creator ID (a same person viewing
   /// the same screenshot multiple times counts once).
-  uniqueViewsCount     Int                         @default(0)
+  uniqueViewsCount        Int                         @default(0)
   /// Number of views the Screenshot has received in total, not deduplicated by Creator ID.
-  viewsCount           Int                         @default(0)
+  viewsCount              Int                         @default(0)
   /// Hardware ID of the user who uploaded the Screenshot.
   /// Used in case a user is multi-accounting (which is allowed), to keep track of all the
   /// screenshots uploaded by a same person to apply quota even across multiple accounts.
   /// Null if the screenshot was created programmatically by an admin (like CLI-imported
   /// screenshots).
-  hwid                 String?
+  hwid                    String?
   /// Same purpose as `Screenshot.hwid`, but for the IP address.
-  ip                   String?
-  creatorId            String                      @db.ObjectId
-  creator              Creator                     @relation("screenshots", fields: [creatorId], references: [id], onDelete: Cascade)
+  ip                      String?
+  creatorId               String                      @db.ObjectId
+  creator                 Creator                     @relation("screenshots", fields: [creatorId], references: [id], onDelete: Cascade)
   /// Name of the city.
   /// Can contain only unicode letters, numbers, spaces, hyphens, apostrophes, commas, and be
   /// between 1 and 20 characters long.
-  cityName             String
+  cityName                String
   /// Iif the city name uses non-Latin characters and was automatically translated, this will be set
   /// to the guessed two-letter locale code.
-  cityNameLocale       String?
+  cityNameLocale          String?
   /// Latinized version of the city name if the original uses non-Latin characters.
   /// Null if not applicable or there was an error calling translation APIs.
-  cityNameLatinized    String?
+  cityNameLatinized       String?
   /// English-translated city name if the original uses non-Latin characters.
   /// Null if not applicable or there was an error calling translation APIs.
-  cityNameTranslated   String?
+  cityNameTranslated      String?
   /// Whether `cityNameLatinized` or `cityNameTranslated` need to be (re)generated.
-  needsTranslation     Boolean                     @default(true)
+  needsTranslation        Boolean                     @default(true)
   /// City milestone. Goes from 0 (Founding) to 20 (Megalopolis).
   /// https://cs2.paradoxwikis.com/Progression#Milestones
-  cityMilestone        Int
+  cityMilestone           Int
   /// City population
-  cityPopulation       Int
+  cityPopulation          Int
   /// Name of the map that was used for this city.
   /// Nullable: it is not always known, and isn't set either for pictures taken before the fied was
   /// implemented.
-  mapName              String?
+  mapName                 String?
   /// Highest quality version of the image.
-  imageUrl4K           String
+  imageUrl4K              String
   /// URL to the Full HD version of the image.
-  imageUrlFHD          String
+  imageUrlFHD             String
   /// URL to the thumbnail-size version of the image.
-  imageUrlThumbnail    String
+  imageUrlThumbnail       String
   /// User-provided ID of the Paradox Mods asset or map that is showcased in this screenshot, if any.
-  showcasedModId       Int?
+  showcasedModId          Int?
+  /// Whether `showcasedModId` was explicitly validated by a moderator.
+  /// It does not prevent the showcased mod to be shown when the screenshots is posted, but it
+  /// to clean 'abusive' use of the showcasing feature from time to time.
+  isShowcasedModValidated Boolean                     @default(false)
   /// Image description provided by the user.
-  description          String?
+  description             String?
   /// Whether `paradoxModIds` is made available to other users.
-  shareParadoxModIds   Boolean
+  shareParadoxModIds      Boolean
   /// Paradox Mods IDs of the active mods when the screenshot was taken.
-  paradoxModIds        Int[]
+  paradoxModIds           Int[]
   /// Whether `renderSettings` is made available to other users.
-  shareRenderSettings  Boolean
+  shareRenderSettings     Boolean
   /// Rendering settings used to take a screenshot.
   /// Each setting that has a non-default value is recorded here, otherwise it is simply not present.
   /// It is a map of "setting code => float value" and validated by application code.
-  renderSettings       Json
+  renderSettings          Json
   /// Schema-less JSON object of metadata sent by the client.
   /// Used for analytical/debugging purposes; not used by business logic.
-  metadata             Json
+  metadata                Json
   /// One to many relationship with Favorites.
-  favorites            Favorite[]
+  favorites               Favorite[]
   /// One to many relationship with Views.
-  views                View[]
+  views                   View[]
   /// One to one relationship with ScreenshotSimilarityEmbeddings.
-  similarityEmbedding  ScreenshotFeatureEmbedding?
+  similarityEmbedding     ScreenshotFeatureEmbedding?
 
   @@index([createdAt])
   @@index([isReported]) // for "random" aggregation & simple filtering

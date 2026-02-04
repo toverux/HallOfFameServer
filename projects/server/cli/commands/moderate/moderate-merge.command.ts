@@ -26,11 +26,11 @@ interface HofWindow extends Window {
 }
 
 @SubCommand({
-  name: 'merge-similar',
-  description: `Find screenshots that are semantically close to each other and proposes to merge them.`
+  name: 'merge',
+  description: `Find screenshots that are semantically close to each other and merge or whitelist them.`
 })
-export class ScreenshotMergeSimilarCommand extends CommandRunner {
-  public static readonly providers: () => Provider[] = () => [ScreenshotMergeSimilarCommand];
+export class ModerateMergeCommand extends CommandRunner {
+  public static readonly providers: () => Provider[] = () => [ModerateMergeCommand];
 
   @Inject(PrismaService)
   private readonly prisma!: PrismaService;
@@ -82,6 +82,8 @@ export class ScreenshotMergeSimilarCommand extends CommandRunner {
 
       throw error;
     }
+
+    await browser.close();
   }
 
   private async loopOverScreenshots(page: Page): Promise<void> {

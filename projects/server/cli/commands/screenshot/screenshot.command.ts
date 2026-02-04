@@ -4,8 +4,6 @@ import { iconsole } from '../../../../shared/iconsole';
 import { ScreenshotDeleteCommand } from './screenshot-delete.command';
 import { ScreenshotInferFeatureEmbeddingsCommand } from './screenshot-infer-feature-embeddings.command';
 import { ScreenshotMergeCommand } from './screenshot-merge.command';
-import { ScreenshotMergeSimilarCommand } from './screenshot-merge-similar.command';
-import { ScreenshotModerateCommand } from './screenshot-moderate.command';
 import { ScreenshotResyncStatsCommand } from './screenshot-resync-stats.command';
 import { ScreenshotTranslateCommand } from './screenshot-translate.command';
 
@@ -17,8 +15,6 @@ import { ScreenshotTranslateCommand } from './screenshot-translate.command';
     ScreenshotDeleteCommand,
     ScreenshotInferFeatureEmbeddingsCommand,
     ScreenshotMergeCommand,
-    ScreenshotMergeSimilarCommand,
-    ScreenshotModerateCommand,
     ScreenshotResyncStatsCommand,
     ScreenshotTranslateCommand
   ]
@@ -29,8 +25,6 @@ export class ScreenshotCommand extends CommandRunner {
     ...ScreenshotDeleteCommand.providers(),
     ...ScreenshotInferFeatureEmbeddingsCommand.providers(),
     ...ScreenshotMergeCommand.providers(),
-    ...ScreenshotMergeSimilarCommand.providers(),
-    ...ScreenshotModerateCommand.providers(),
     ...ScreenshotResyncStatsCommand.providers(),
     ...ScreenshotTranslateCommand.providers()
   ];

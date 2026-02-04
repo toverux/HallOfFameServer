@@ -32,12 +32,12 @@ const moderationActions = {
 type ModerationAction = keyof typeof moderationActions;
 
 @SubCommand({
-  name: 'moderate',
+  name: 'reports',
   description: `Interactive command to moderate screenshots that have been reported by users.`
 })
-export class ScreenshotModerateCommand extends CommandRunner {
+export class ModerateReportsCommand extends CommandRunner {
   public static readonly providers: () => Provider[] = () => [
-    ScreenshotModerateCommand,
+    ModerateReportsCommand,
     ModerationActionQuestions
   ];
 

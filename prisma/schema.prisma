@@ -71,9 +71,9 @@ model Creator {
   /// Locale used in the game by the Creator when they last launched the game with the mod.
   /// Used to better understand the mod's usage.
   locale                String?
-  /// JSON object containing the latest known mod settings this user used.
-  /// Used to better understand the mod's usage.
-  modSettings           Json?
+  /// JSON object containing miscellaneous information we want to attach to users, mostly for
+  /// debugging/analytics purposes.
+  metadata              Json
   /// One to many relationship with posted Screenshots.
   screenshots           Screenshot[]      @relation("screenshots")
   /// One to many relationship with reported Screenshots.

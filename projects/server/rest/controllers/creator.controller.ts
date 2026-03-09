@@ -25,17 +25,13 @@ import { type CreatorIdentifier, CreatorService, PrismaService } from '../../ser
 @Controller('creators')
 @UseGuards(CreatorAuthorizationGuard)
 export class CreatorController {
-  /** @see updateMyself */
+  /**
+   * Fields match {@link Creator} fields, see their docs.
+   * @see updateMyself
+   */
   private static readonly updateMyselfBodySchema = z.strictObject({
-    /**
-     * The locale used in the game.
-     */
-    locale: z.string().optional(),
-
-    /**
-     * A raw JSON object with arbitrary keys and values of the current mod settings.
-     */
-    modSettings: z.looseObject({}).optional()
+    locale: z.string().trim().optional(),
+    metadata: z.looseObject({}).optional()
   });
 
   @Inject(PrismaService)
@@ -74,7 +70,12 @@ export class CreatorController {
       where: { id: creator.id },
       data: {
         locale: body.locale ?? Prisma.skip,
-        modSettings: (body.modSettings as Prisma.InputJsonObject | undefined) ?? Prisma.skip
+        metadata: body.metadata
+          ? {
+              ...(creator.metadata as JsonObject),
+              ...(body.metadata as JsonObject | undefined)
+            }
+          : Prisma.skip
       }
     });
 

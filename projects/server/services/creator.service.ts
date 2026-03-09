@@ -213,7 +213,8 @@ export class CreatorService {
           creatorNameSlug,
           hwids: [hwid],
           ips: [ip],
-          socials: []
+          socials: [],
+          metadata: {}
         }
       });
 

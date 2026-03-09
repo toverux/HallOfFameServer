@@ -45,8 +45,25 @@ X-Forwarded-For: {{ip}}
 
 {
   "locale": "en-US",
-  "modSettings": {
-    "UsingJetBrainsHttpClient": true
+  "metadata": {
+    "modVersion": "2026.0.0",
+    "enableMainMenuSlideshow": true,
+    "enableLoadingScreenBackground": true,
+    "showFeaturedAsset": true,
+    "showCreatorSocials": true,
+    "showViewCount": true,
+    "namesTranslationMode": "translate",
+    "popularScreenshotWeight": 10,
+    "trendingScreenshotWeight": 10,
+    "recentScreenshotWeight": 10,
+    "archeologistScreenshotWeight": 10,
+    "randomScreenshotWeight": 10,
+    "supporterScreenshotWeight": 10,
+    "viewMaxAge": 60,
+    "screenshotResolution": "4k",
+    "createLocalScreenshot": true,
+    "disableGlobalIllumination": true,
+    "paradoxModsBrowsingPreference": "in-game"
   }
 }
 

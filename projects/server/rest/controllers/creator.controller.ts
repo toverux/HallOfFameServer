@@ -27,9 +27,10 @@ import { type CreatorIdentifier, CreatorService, PrismaService } from '../../ser
 export class CreatorController {
   /**
    * Fields match {@link Creator} fields, see their docs.
+   * We use looseObject to avoid errors while changing schema here while the mod isn't up to date.
    * @see updateMyself
    */
-  private static readonly updateMyselfBodySchema = z.strictObject({
+  private static readonly updateMyselfBodySchema = z.looseObject({
     locale: z.string().trim().optional(),
     metadata: z.looseObject({}).optional()
   });

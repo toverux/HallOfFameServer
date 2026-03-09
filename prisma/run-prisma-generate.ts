@@ -14,8 +14,10 @@ import Bun from 'bun';
 import chalk from 'chalk';
 import { iconsole } from '../projects/shared/iconsole';
 
+const prismaPath = path.join(import.meta.dir, '../node_modules/.bin/prisma');
+
 const exitCode = await Bun.spawn({
-  cmd: ['bunx', 'prisma', 'generate', '--no-hints'],
+  cmd: ['bun', prismaPath, 'generate', '--no-hints'],
   stdio: ['inherit', 'inherit', 'inherit']
 }).exited;
 

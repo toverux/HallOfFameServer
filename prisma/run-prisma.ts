@@ -5,11 +5,14 @@
  * Otherwise, Prisma only loads the .env file.
  */
 
+import path from 'node:path';
 import process from 'node:process';
 import Bun from 'bun';
 
+const prismaPath = path.join(import.meta.dir, '../node_modules/.bin/prisma');
+
 const exitCode = await Bun.spawn({
-  cmd: ['bunx', 'prisma', ...process.argv.slice(2)],
+  cmd: ['bun', prismaPath, ...process.argv.slice(2)],
   stdio: ['inherit', 'inherit', 'inherit']
 }).exited;
 

@@ -863,8 +863,8 @@ export class ScreenshotService implements OnApplicationBootstrap {
   /**
    * Retrieves a screenshot that has a high favoriting percentage:
    *  - ≥ 10 favorites
-   *  - ≥ 10% favoriting percentage (this is empirically a threshold that separates bad and 'okay'
-   *    screenshots from good/very good screenshots).
+   *  - ≥ X% favoriting percentage (X being dynamically determined, see
+   *      {@link getPopularFavoritingPercentageThreshold})
    */
   private getScreenshotPopular(nin: readonly JsonOid[]): Promise<Screenshot | null> {
     // Uses [isReported, favoritesCount, favoritingPercentage] compound index for matching, test

@@ -13,3 +13,5 @@
 /compiler.xml
 # Developer Tools plugin preferences
 /developer-tools.xml
+# Mise plugin config (contains stateful data)
+/mise.xml

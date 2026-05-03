@@ -1,0 +1,15 @@
+# Use this file by passing `--env remote` to mise.
+# Contents will be merged with the base file, mise.toml.
+# https://mise.jdx.dev/configuration/environments.html
+
+[env]
+_.file = '.env.remote'
+
+[tasks."import-database"]
+run = [
+  "mongodump --uri \"{{env.HOF_DATABASE_URL}}\" --gzip --archive=halloffame.mongoarchive",
+  "mongorestore --gzip --archive=halloffame.mongoarchive --uri \"mongodb://localhost/halloffame?replicaSet=rs0\" --nsInclude='default.*' --nsFrom='default.*' --nsTo='halloffame.*' --drop",
+  "rm -rf halloffame.mongoarchive",
+  "mise exec bun -- bun prisma db push",
+  "mise exec bun -- bun run:cli migrate"
+]

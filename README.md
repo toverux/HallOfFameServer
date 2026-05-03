@@ -21,7 +21,8 @@ Find our user feedback, feature request and roadmap board here:
 ### Installation
 
 1. (Recommended) Install [mise-en-place](https://mise.jdx.dev) for per-project Bun & Node.js
-   version management. Without mise, just match the required versions specified in `mise.toml`.
+   version management, it is also used as a task runner and in the git hooks.
+   Without mise, just match the required versions specified in `mise.toml`.
    For now, Node is still and only needed alongside Bun to run Angular CLI, which hangs on
    "Building..." on Bun.
 2. Run `mise i` to install the required version of Bun and Node.js,
@@ -41,7 +42,7 @@ Find our user feedback, feature request and roadmap board here:
    "MongoDB Server", right-click it and choose Restart).
 8. Connecting to the database using `mongosh`, run `rs.initiate()` to create a default rs0 replica
    set, check there's no error.
-9. Run `bun prisma db push` to create the database, collections, and indexes.
+9. Run `bun prisma db push` to create the database, collections and indexes.
 10. Done! Test that the server is working with `bun run:server:watch`.
 
 To set up a replica set, you can also follow
@@ -61,23 +62,16 @@ If it does differ, as `.env` is a defaults files that is versioned, do not chang
 override locally in `.env.local`.
 
 - Update database schema from Prisma schema: `bun prisma db push`.<br>
-  As the database is MongoDB which is schema-less, this essentially just creates the collections
+  As the database is MongoDB, which is schema-less, this essentially just creates the collections
   (and the database if it does not exist), and indexes.
 - Update Prisma Client definitions after schema change: `bun prisma generate`.<br>
   Note that this is also done by `bun prisma db push`.
 
 ### Dump & Restore Database
 
-Example for production to a local database:
-
-```shell
-mongodump --uri "mongodb://user:pass@server:port/halloffame?replicaSet=rs0&directConnection=true" --gzip --archive=halloffame.mongoarchive
-
-mongorestore --uri "mongodb://localhost/halloffame?replicaSet=rs0" --gzip --archive=halloffame.mongoarchive --nsInclude='default.*' --nsFrom='default.*' --nsTo='halloffame.*' --drop
-
-# Migrate database if needed
-bun prisma db push && bun run:cli migrate
-```
+1. Create the `.env.remote` file.
+2. Add `HOF_DATABASE_URL=XXX` which is the connection string to the remote database.
+3. Run `mise --env remote import-database`
 
 ### Updating Dependencies & Toolchain
 
@@ -90,7 +84,7 @@ update for npm dependencies.
 
 TypeScript code is formatted and linted by [Biome](https://biomejs.dev).
 
-Run `bun check` to typecheck the database, linting errors, format files, and autofix simple issues.
+Run `bun check` to typecheck the database, linting errors, format files and autofix simple issues.
 You can also use Biome directly with `bun biome`.
 
 The formatter and linter should run as a pre-commit hook if you have it installed, which should be

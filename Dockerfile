@@ -5,7 +5,7 @@
 #      recent version of glibc.
 #    - Using a custom distro instead of bun's one, we can install tools via mise and have one souce
 #      of truth for tools' versions.
-FROM ubuntu:24.04 AS base
+FROM ubuntu:26.04 AS base
 WORKDIR /usr/src/app
 
 # Fail fast!

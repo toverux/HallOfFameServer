@@ -1,11 +1,8 @@
 /**
- * This is a wrapper script to:
- *  - Run Prisma CLI within Bun context, i.e., with Bun's logic to load environment variables from
- *    `.env` and `.env.local` files, so we can use Prisma CLI without having to manually set the
- *    environment (otherwise, Prisma only loads the .env file).
- *  - Extend the codegen logic to perform additional changes on the generated files.
- *    We are adding the `@public` JSDoc tag to exports of the generated files so we can use Biome's
- *    `noPrivateImports` rule.
+ * This is a wrapper script to extend the codegen logic to perform additional changes on the
+ * generated files.
+ * We are adding the `@public` JSDoc tag to exports of the generated files so we can use Biome's
+ * `noPrivateImports` rule.
  */
 
 import * as path from 'node:path';

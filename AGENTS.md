@@ -29,9 +29,9 @@ and web interface.
 
 ## Commands
 
-- `bun run build`: Build the application to check building the app works.
-- `bun run:server`: Run the server to check app works (use timeout command to stop it after 5s).
-- `bun check`: Run type checking and linting.
+- `mise build`: Build the application to check building the app works.
+- `mise run:server`: Run the server to check app works (use timeout command to stop it after 5s).
+- `mise check`: Run type checking and linting.
 - `docker build -t halloffameserver . --progress=plain`: Check that the Docker build works.
 
 ## Boundaries

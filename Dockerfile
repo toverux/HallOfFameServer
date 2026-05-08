@@ -71,7 +71,7 @@ RUN rm mise.toml
 
 # => Build
 ENV NODE_ENV=production
-RUN bun run build
+RUN mise build
 
 # => Copy production dependencies and source code into final image.
 FROM base AS release
@@ -100,9 +100,9 @@ FROM release AS run
 
 # => Sync database schema & migrate
 RUN bun prisma db push --skip-generate
-RUN bun run:cli migrate
+RUN mise run:cli migrate
 
 # => Run the app
 USER bun
 EXPOSE 4000/tcp
-ENTRYPOINT [ "bun", "run:server" ]
+ENTRYPOINT [ "mise", "run:server" ]

@@ -6,7 +6,7 @@ generator client {
 }
 
 generator pothos {
-  provider     = "prisma-pothos-types"
+  provider     = "node_modules/.bin/prisma-pothos-types"
   prismaUtils  = true
   clientOutput = "./client" // relative path from pothos output to prisma client
   output       = "./lib/pothos-prisma-types.ts"

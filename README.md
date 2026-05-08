@@ -20,11 +20,11 @@ Find our user feedback, feature request and roadmap board here:
 
 ### Installation
 
-1. (Recommended) Install [mise-en-place](https://mise.jdx.dev) for per-project Bun & Node.js
-   version management, it is also used as a task runner and in the git hooks.
-   Without mise, just match the required versions specified in `mise.toml`.
-   For now, Node is still and only needed alongside Bun to run Angular CLI, which hangs on
-   "Building..." on Bun.
+1. Install [mise-en-place](https://mise.jdx.dev) for:
+   - Per-project Bun & Node.js version management,
+   - Task runner (also used in git hooks),
+   - .env/.env.local/.env.remote file loading.
+   - It is not *required*, but you will have to work around some issues if you don't have it.
 2. Run `mise i` to install the required version of Bun and Node.js,
 3. Run `bun i` to install dependencies.
 4. You may `bun run build` to test that the project builds and everything is in order.
@@ -43,7 +43,7 @@ Find our user feedback, feature request and roadmap board here:
 8. Connecting to the database using `mongosh`, run `rs.initiate()` to create a default rs0 replica
    set, check there's no error.
 9. Run `bun prisma db push` to create the database, collections and indexes.
-10. Done! Test that the server is working with `bun run:server:watch`.
+10. Done! Test that the server is working with `mise dev:server`.
 
 To set up a replica set, you can also follow
 [this guide](https://www.mongodb.com/docs/manual/tutorial/convert-standalone-to-replica-set).
@@ -75,7 +75,7 @@ override locally in `.env.local`.
 
 ### Updating Dependencies & Toolchain
 
-`mise deps:upgrade` will update mise, will propose to update Bun, and then show an interactive
+`mise dev:deps-upgrade` will update mise, will propose to update Bun, and then show an interactive
 update for npm dependencies.
 
 ## Code Style
@@ -84,7 +84,7 @@ update for npm dependencies.
 
 TypeScript code is formatted and linted by [Biome](https://biomejs.dev).
 
-Run `bun check` to typecheck the database, linting errors, format files and autofix simple issues.
+Run `mise check` to typecheck the database, linting errors, format files and autofix simple issues.
 You can also use Biome directly with `bun biome`.
 
 The formatter and linter should run as a pre-commit hook if you have it installed, which should be

@@ -1,3 +1,5 @@
+# https://mise.jdx.dev -- One tool to manage languages, env vars, and tasks per project, reproducibly.
+
 redactions = ["*_KEY", "HOF_SYSTEM_PASSWORD", "HOF_DATABASE_URL", "HOF_AZURE_URL", "HOF_SENTRY_DSN"]
 
 [tools]
@@ -5,11 +7,17 @@ bun = "1.3.6"
 node = "25"
 
 [env]
-_.file = '.env'
+_.file = ["env", ".env.local"]
 _.path = ["{{config_root}}/node_modules/.bin"]
 
-[tasks."deps:upgrade"]
+# Use "mise t" to list tasks or "mise run" to select one to run interactively!
+
+# DEVELOPMENT TASKS
+# =================
+
+[tasks."dev:deps-upgrade"]
 description = "Upgrades mise-en-place, proposes upgrades for tools managed by mise, and proposes upgrades for package.json dependencies."
+interactive = true
 run = [
   "mise self-update",
   "mise up --interactive --bump",
@@ -18,3 +26,82 @@ run = [
   # make sure transitive dependencies are updated & deduplicated
   "mise exec bun -- bun update"
 ]
+
+[tasks."dev:server"]
+description = "Run server in watch mode."
+env = { TF_CPP_MIN_LOG_LEVEL = "1" }
+raw = true
+run = "bun --watch --no-clear-screen --inspect projects/server/main.ts"
+
+[tasks."dev:client"]
+description = "Serve frontend application in development mode."
+raw = true
+run = "bun ng serve"
+
+# LINT TASKS
+# ==========
+
+[tasks."check:ro"]
+description = "Run lint checks (typescript and biome), without auto-fixes."
+depends = ["check:tsc", "check:biome:ro"]
+
+[tasks."check:rw"]
+description = "Run lint checks (typescript and biome), with safe auto-fixes."
+alias = "check"
+depends = ["check:tsc", "check:biome:rw"]
+
+[tasks."check:tsc"]
+depends = "build:prisma:generate"
+hide = true
+raw = true
+run = "bun tsc --noEmit"
+
+[tasks."check:biome:ro"]
+hide = true
+raw = true
+run = "bun biome check --error-on-warnings"
+
+[tasks."check:biome:rw"]
+hide = true
+raw = true
+run = "bun biome check --fix --error-on-warnings"
+
+# BUILD TASKS
+# ===========
+
+[tasks.build]
+description = "Build the application for production."
+depends = ["check:ro", "build:client"]
+raw = true
+
+[tasks."build:client"]
+description = "Build the frontend application."
+raw = true
+run = "bun ng build"
+
+[tasks."build:prisma:generate"]
+description = "Generate the Prisma client and types."
+sources = ["prisma/run-prisma-generate.ts", "schema.prisma"]
+raw = true
+run = "bun prisma/run-prisma-generate.ts"
+
+# RUN TASKS
+# =========
+
+[tasks."run:cli"]
+description = "Run the CLI app."
+env = { TF_CPP_MIN_LOG_LEVEL = "1" }
+raw = true
+run = "bun projects/server/cli/main.ts"
+
+[tasks."run:server"]
+description = "Run the server app."
+env = { TF_CPP_MIN_LOG_LEVEL = "1" }
+raw = true
+run = "bun projects/server/main.ts"
+
+[tasks."run:server:light"]
+description = "Run the server app, using a smaller heap -- useful when working on the mod with the editor and game open so the server does not consume too much memory."
+env = { TF_CPP_MIN_LOG_LEVEL = "1" }
+raw = true
+run = "bun --smol projects/server/main.ts"

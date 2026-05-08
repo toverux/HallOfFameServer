@@ -2,21 +2,7 @@
   "name": "@toverux/halloffame-server",
   "private": true,
   "scripts": {
-    "prisma": "bun prisma/run-prisma.ts",
-    "prisma:generate": "bun prisma/run-prisma-generate.ts",
-    "check:rw": "tsc --noEmit; biome check --fix --error-on-warnings",
-    "check:ro": "tsc --noEmit; biome check --error-on-warnings",
-    "check": "bun check:rw",
-    "build:client:watch": "ng build --watch --configuration development",
-    "run:cli": "TF_CPP_MIN_LOG_LEVEL=1 bun projects/server/cli/main.ts",
-    "run:cli:remote": "bun --env-file=.env.remote run:cli",
-    "run:server": "TF_CPP_MIN_LOG_LEVEL=1 bun projects/server/main.ts",
-    "run:server:watch": "TF_CPP_MIN_LOG_LEVEL=1 bun --watch --no-clear-screen --inspect projects/server/main.ts",
-    "// Useful when working on the mod with the editor and game open so the server does not consume too much memory": "",
-    "run:server:light": "TF_CPP_MIN_LOG_LEVEL=1 bun --smol projects/server/main.ts",
-    "serve:client": "ng serve",
-    "build": "bun prisma:generate && bun check:ro && ng build",
-    "start": "bun run:server"
+    "// We use mise-en-place to manage tasks. See mise.toml for more info.": ""
   },
   "packageManager": "bun@1.3.2",
   "engines": {

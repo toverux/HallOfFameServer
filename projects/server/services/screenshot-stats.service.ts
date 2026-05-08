@@ -138,7 +138,7 @@ export class ScreenshotStatsService {
 
   /**
    * Resync stats every five minutes with the screenshots that have been marked as liked or viewed.
-   * Updating averages can also be done from the CLI with `bun run:cli screenshot resync-stats`.
+   * Updating averages can also be done from the CLI with `mise run:cli screenshot resync-stats`.
    */
   @Cron('*/5 * * * *')
   public resyncRequestsCron(): Promise<void> {

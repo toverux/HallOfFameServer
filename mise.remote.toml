@@ -3,9 +3,10 @@
 # https://mise.jdx.dev/configuration/environments.html
 
 [env]
-_.file = '.env.remote'
+_.file = ['.env', '.env.remote', '.env.local']
 
 [tasks."import-database"]
+description = "Dumps the remote database and restores it locally, then syncs Prisma schema and runs migrations."
 run = [
   "mongodump --uri \"{{env.HOF_DATABASE_URL}}\" --gzip --archive=halloffame.mongoarchive",
   "mongorestore --gzip --archive=halloffame.mongoarchive --uri \"mongodb://localhost/halloffame?replicaSet=rs0\" --nsInclude='default.*' --nsFrom='default.*' --nsTo='halloffame.*' --drop",

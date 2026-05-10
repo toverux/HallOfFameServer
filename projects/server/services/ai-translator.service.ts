@@ -72,10 +72,11 @@ export class AiTranslatorService {
 
   public static isEligibleForTranslation(text: string): boolean {
     return (
+      text.trim() != '' &&
       // Match any text with non-Latin characters.
       AiTranslatorService.nonLatinTextRegex.test(text) &&
       // Ignore mixed-script text, for example, some people put the translation themselves or do
-      // fancy things with their username, we won't touch those strings.
+      // fancy things with their username; we won't touch those strings.
       !AiTranslatorService.latinTextRegex.test(text)
     );
   }

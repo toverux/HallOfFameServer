@@ -1,6 +1,6 @@
 import { YogaDriver } from '@graphql-yoga/nestjs';
 import { type DynamicModule, Logger, Module } from '@nestjs/common';
-import { GraphQLModule as NestGraphQLModule } from '@nestjs/graphql/dist/graphql.module';
+import { GraphQLModule as NestGraphQLModule } from '@nestjs/graphql';
 import SchemaBuilder from '@pothos/core';
 import { PrismaService } from '../services';
 import { type AppSchemaBuilder, createBuilder } from './schema-builder';

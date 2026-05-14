@@ -57,11 +57,13 @@ raw = true
 run = "bun tsc --noEmit"
 
 [tasks."check:biome:ro"]
+depends = "build:prisma:generate"
 hide = true
 raw = true
 run = "bun biome check --error-on-warnings"
 
 [tasks."check:biome:rw"]
+depends = "build:prisma:generate"
 hide = true
 raw = true
 run = "bun biome check --fix --error-on-warnings"

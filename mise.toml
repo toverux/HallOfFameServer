@@ -10,7 +10,7 @@ node = "26"
 _.file = ["env", ".env.local"]
 _.path = ["{{config_root}}/node_modules/.bin"]
 
-# Use "mise t" to list tasks or "mise run" to select one to run interactively!
+# Use "mise t" to list tasks or "mise r" to interactively select one to run!
 
 # DEVELOPMENT TASKS
 # =================

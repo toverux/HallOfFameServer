@@ -5,26 +5,58 @@ import type { FastifyRequest } from 'fastify';
 import type { Creator } from '#prisma-lib/client';
 import type { CreatorId, HardwareId, IpAddress } from '../../shared/utils/branded-types';
 import { UnauthorizedError } from '../common/standard-error';
+import { BanService } from './ban.service';
 import {
-  BanService,
   type CreatorAuthorization,
   CreatorService,
   type ModCreatorAuthorization,
   type SimpleCreatorAuthorization
-} from '../services';
+} from './creator.service';
+
+declare module 'fastify' {
+  interface FastifyRequest {
+    [CreatorAuthenticationService.authenticatedCreatorKey]?: Creator | undefined;
+  }
+}
 
 @Injectable()
 export class CreatorAuthenticationService {
+  public static readonly authenticatedCreatorKey = Symbol(
+    `${CreatorAuthenticationService.name}#authenticatedCreator`
+  );
+
   @Inject(BanService)
   private readonly ban!: BanService;
 
   @Inject(CreatorService)
   private readonly creatorService!: CreatorService;
 
+  /**
+   * Returns the authenticated Creator from the request.
+   *
+   * @throws UnauthorizedError If the request is not authenticated.
+   */
+  public static getAuthenticatedCreator(request: FastifyRequest): Creator {
+    const creator = request[CreatorAuthenticationService.authenticatedCreatorKey];
+
+    if (!creator) {
+      throw new UnauthorizedError(`Request not authenticated.`);
+    }
+
+    return creator;
+  }
+
+  /**
+   * Authorizes the request and returns the authenticated Creator.
+   * Finally, attaches the authenticated Creator to the request object
+   * (see {@link CreatorAuthenticationService.getAuthenticatedCreator}).
+   *
+   * Throws errors if the IP creator is banned or other edge conditions.
+   */
   public async authorize(request: FastifyRequest): Promise<Creator | undefined> {
     const authorization = this.getAuthorizationFromRequest(request);
     if (!authorization) {
-      return undefined;
+      return;
     }
 
     sentry.getCurrentScope().setUser({
@@ -53,6 +85,8 @@ export class CreatorAuthenticationService {
     });
 
     await this.ban.ensureCreatorNotBanned(creator);
+
+    request[CreatorAuthenticationService.authenticatedCreatorKey] = creator;
 
     return creator;
   }

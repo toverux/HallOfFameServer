@@ -7,7 +7,7 @@ import { setTimeout } from 'node:timers/promises';
 import firaCodeSrc from '@fontsource/ibm-plex-mono';
 import overpassSrc from '@fontsource-variable/overpass';
 import { Inject, type Provider } from '@nestjs/common';
-import Bun from 'bun';
+import * as Bun from 'bun';
 import chalk from 'chalk';
 import { commaLists, oneLine, stripIndent } from 'common-tags';
 import * as dateFns from 'date-fns';

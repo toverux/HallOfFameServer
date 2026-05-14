@@ -1,5 +1,5 @@
 import { Controller, Get, Req, ServiceUnavailableException, UseGuards } from '@nestjs/common';
-import Bun from 'bun';
+import * as Bun from 'bun';
 import type { FastifyRequest } from 'fastify';
 import type { JsonObject } from '../../../shared/utils/json';
 import { SystemAuthorizationGuard } from '../../guards';

@@ -1,3 +1,4 @@
+// biome-ignore lint/correctness/noUnresolvedImports: false positive
 import type { Multipart } from '@fastify/multipart';
 import {
   BadRequestException,
@@ -32,6 +33,7 @@ import { config } from '../../config';
 import { CreatorAuthorizationGuard } from '../../guards';
 import { ZodParsePipe } from '../../pipes';
 import {
+  CreatorAuthenticationService,
   type CreatorIdentifier,
   FavoriteService,
   ModService,
@@ -85,6 +87,7 @@ export class ScreenshotController {
    * Provides additional metadata such as favorited status if the user is authenticated.
    */
   @Get()
+  // biome-ignore lint/complexity/useMaxParams: query handler with decorators.
   public async getAll(
     @Req() req: FastifyRequest,
     @Query('creatorId') creatorId: CreatorIdentifier | undefined,
@@ -100,7 +103,7 @@ export class ScreenshotController {
       );
     }
 
-    const creator = req[CreatorAuthorizationGuard.authenticatedCreatorKey];
+    const creator = req[CreatorAuthenticationService.authenticatedCreatorKey];
 
     // If the creatorId filter is not an ObjectId or 'me', try to find by Creator name.
     if (typeof creatorId == 'string' && creatorId != 'me' && !ObjectId.isValid(creatorId)) {
@@ -125,7 +128,7 @@ export class ScreenshotController {
     // If the creatorId filter is 'me', replace it with the logged-in creator ID.
     else if (creatorId == 'me') {
       // biome-ignore lint/style/noParameterAssign: legitimate use case
-      creatorId = CreatorAuthorizationGuard.getAuthenticatedCreator(req).id;
+      creatorId = CreatorAuthenticationService.getAuthenticatedCreator(req).id;
     }
 
     const screenshots = await this.prisma.screenshot.findMany({
@@ -178,7 +181,7 @@ export class ScreenshotController {
     @Query('favorites', new ParseBoolPipe({ optional: true })) includeFavorites = false,
     @Query('views', new ParseBoolPipe({ optional: true })) includeViews = false
   ): Promise<JsonObject> {
-    const creator = req[CreatorAuthorizationGuard.authenticatedCreatorKey];
+    const creator = req[CreatorAuthenticationService.authenticatedCreatorKey];
 
     const screenshot = await this.prisma.screenshot.findUnique({
       where: { id },
@@ -289,6 +292,7 @@ export class ScreenshotController {
    *                      Default is 60, 0 is no limit.
    */
   @Get('weighted')
+  // biome-ignore lint/complexity/useMaxParams: query handler with decorators.
   public async getRandomWeighted(
     @Req()
     req: FastifyRequest,
@@ -307,7 +311,7 @@ export class ScreenshotController {
     @Query('viewMaxAge', new ParseIntPipe({ optional: true }))
     viewMaxAge = 60
   ) {
-    const creator = req[CreatorAuthorizationGuard.authenticatedCreatorKey];
+    const creator = req[CreatorAuthenticationService.authenticatedCreatorKey];
 
     const weights = { random, popular, trending, recent, archeologist, supporter };
 
@@ -354,7 +358,7 @@ export class ScreenshotController {
     @Req() req: FastifyRequest,
     @Param('id') id: Screenshot['id']
   ): Promise<JsonObject> {
-    const creator = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
+    const creator = CreatorAuthenticationService.getAuthenticatedCreator(req);
 
     const screenshot = await this.prisma.screenshot.findUnique({
       where: { id },
@@ -394,7 +398,7 @@ export class ScreenshotController {
     @Body(new ZodParsePipe(ScreenshotController.updateScreenshotBodySchema))
     body: z.infer<typeof ScreenshotController.updateScreenshotBodySchema>
   ): Promise<JsonObject> {
-    const authenticatedCreator = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
+    const authenticatedCreator = CreatorAuthenticationService.getAuthenticatedCreator(req);
 
     const screenshot = await this.prisma.screenshot.findUnique({
       where: { id: screenshotId },
@@ -433,7 +437,7 @@ export class ScreenshotController {
     @Req() req: FastifyRequest,
     @Param('id') screenshotId: Screenshot['id']
   ): Promise<JsonObject> {
-    const creator = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
+    const creator = CreatorAuthenticationService.getAuthenticatedCreator(req);
 
     const favorite = await this.favoriteService.addFavorite(screenshotId, creator);
 
@@ -448,7 +452,7 @@ export class ScreenshotController {
     @Req() req: FastifyRequest,
     @Param('id') screenshotId: Screenshot['id']
   ): Promise<JsonObject> {
-    const creator = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
+    const creator = CreatorAuthenticationService.getAuthenticatedCreator(req);
 
     const favorite = await this.favoriteService.removeFavorite(screenshotId, creator);
 
@@ -463,7 +467,7 @@ export class ScreenshotController {
     @Req() req: FastifyRequest,
     @Param('id') screenshotId: Screenshot['id']
   ): Promise<JsonObject> {
-    const creator = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
+    const creator = CreatorAuthenticationService.getAuthenticatedCreator(req);
 
     const view = await this.viewService.markViewed(screenshotId, creator.id);
 
@@ -482,7 +486,7 @@ export class ScreenshotController {
     @Param('id') screenshotId: Screenshot['id']
   ): Promise<JsonObject> {
     try {
-      const creator = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
+      const creator = CreatorAuthenticationService.getAuthenticatedCreator(req);
 
       const screenshot = await this.screenshotService.markReported(screenshotId, creator.id);
 
@@ -523,7 +527,7 @@ export class ScreenshotController {
     @Query('healthcheck', new ParseBoolPipe({ optional: true }))
     healthcheck = false
   ): Promise<JsonObject> {
-    const creator = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
+    const creator = CreatorAuthenticationService.getAuthenticatedCreator(req);
 
     // noinspection JSUnusedGlobalSymbols False positive.
     const multipart = await req.file({
@@ -621,7 +625,7 @@ export class ScreenshotController {
 
     if (!(field && 'value' in field)) {
       if (!strict) {
-        return undefined;
+        return;
       }
 
       throw new InvalidPayloadError(`Expected a multipart field named '${fieldName}'.`);
@@ -630,7 +634,7 @@ export class ScreenshotController {
     const value = String(field.value).trim();
 
     if (!value) {
-      return undefined;
+      return;
     }
 
     return value;
@@ -668,7 +672,7 @@ export class ScreenshotController {
 
   private validateDescription(description: string | undefined): string | undefined {
     if (!description) {
-      return undefined;
+      return;
     }
 
     if (description.length > 4000) {

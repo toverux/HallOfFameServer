@@ -3,7 +3,17 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import * as sentry from '@sentry/bun';
 import * as dateFns from 'date-fns';
-import { catchError, EMPTY, from, lastValueFrom, mergeMap, retry, toArray } from 'rxjs';
+import {
+  catchError,
+  EMPTY,
+  // biome-ignore lint/suspicious/noDeprecatedImports: not using the deprecated signature.
+  from,
+  lastValueFrom,
+  // biome-ignore lint/suspicious/noDeprecatedImports: not using the deprecated signature.
+  mergeMap,
+  retry,
+  toArray
+} from 'rxjs';
 import { z } from 'zod';
 import type { Mod, Prisma } from '#prisma-lib/client';
 import type { ParadoxModId } from '../../shared/utils/branded-types';

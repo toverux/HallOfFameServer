@@ -1,6 +1,6 @@
 import * as path from 'node:path';
 import { Injectable } from '@nestjs/common';
-import Bun from 'bun';
+import * as Bun from 'bun';
 import * as dateFns from 'date-fns';
 import sharp from 'sharp';
 import { allFulfilled } from '../../shared/utils/all-fulfilled';

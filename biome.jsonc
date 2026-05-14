@@ -23,6 +23,7 @@
       "react": "none",
       "solid": "none",
       "test": "none",
+      "turborepo": "none",
       "vue": "none"
     },
     "rules": {

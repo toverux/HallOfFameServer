@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import * as sentry from '@sentry/bun';
 import { oneLine } from 'common-tags';
+// biome-ignore lint/correctness/noUnresolvedImports: false positive
 import * as uuid from 'uuid';
 import type { Creator } from '#prisma-lib/client';
 import type { CreatorId, HardwareId, IpAddress } from '../../shared/utils/branded-types';

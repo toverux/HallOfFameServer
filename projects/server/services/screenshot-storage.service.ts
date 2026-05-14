@@ -29,21 +29,21 @@ export class ScreenshotStorageService {
     await this.containerClient.getBlobClient(blobName).downloadToFile(filePath);
   }
 
-  public async uploadScreenshots(
-    creator: Pick<Creator, 'id' | 'creatorNameSlug'>,
-    screenshot: Pick<Screenshot, 'id' | 'cityName'>,
-    bufferThumbnail: Buffer,
-    bufferFhd: Buffer,
-    buffer4K: Buffer
-  ): Promise<{ blobThumbnail: string; blobFhd: string; blob4k: string }> {
+  public async uploadScreenshots(data: {
+    creator: Pick<Creator, 'id' | 'creatorNameSlug'>;
+    screenshot: Pick<Screenshot, 'id' | 'cityName'>;
+    bufferThumbnail: Buffer;
+    bufferFhd: Buffer;
+    buffer4K: Buffer;
+  }): Promise<{ blobThumbnail: string; blobFhd: string; blob4k: string }> {
     const containerClient = this.containerClient;
 
     const date = dateFns.format(new Date(), 'yyyy-MM-dd-HH-mm-ss');
 
-    const cityNameSlug = slug(screenshot.cityName, { fallback: false });
+    const cityNameSlug = slug(data.screenshot.cityName, { fallback: false });
 
     const creatorNameSlug =
-      creator.creatorNameSlug && slug(creator.creatorNameSlug, { fallback: false });
+      data.creator.creatorNameSlug && slug(data.creator.creatorNameSlug, { fallback: false });
 
     // slug will return an empty string if the input only has characters that it cannot slugify
     // or transliterate, ex. Chinese, so we need to handle fallbacks.
@@ -52,12 +52,12 @@ export class ScreenshotStorageService {
         ? `${cityNameSlug}-by-${creatorNameSlug}`
         : cityNameSlug || creatorNameSlug || 'screenshot';
 
-    const blobNameBase = `${creator.id}/${screenshot.id}/${contextSlug}-${date}`;
+    const blobNameBase = `${data.creator.id}/${data.screenshot.id}/${contextSlug}-${date}`;
 
     const [blobNameThumbnail, blobNameFhd, blobName4K] = await allFulfilled([
-      upload(`${blobNameBase}-thumbnail.jpg`, bufferThumbnail),
-      upload(`${blobNameBase}-fhd.jpg`, bufferFhd),
-      upload(`${blobNameBase}-4k.jpg`, buffer4K)
+      upload(`${blobNameBase}-thumbnail.jpg`, data.bufferThumbnail),
+      upload(`${blobNameBase}-fhd.jpg`, data.bufferFhd),
+      upload(`${blobNameBase}-4k.jpg`, data.buffer4K)
     ]);
 
     return {
@@ -73,8 +73,8 @@ export class ScreenshotStorageService {
         buffer.length,
         {
           tags: {
-            creatorId: creator.id,
-            screenshotId: screenshot.id
+            creatorId: data.creator.id,
+            screenshotId: data.screenshot.id
           },
           blobHTTPHeaders: {
             blobContentType: 'image/jpeg'

@@ -4,7 +4,15 @@ import chalk from 'chalk';
 import { oneLine } from 'common-tags';
 import { filesize } from 'filesize';
 import { CommandRunner, Option, SubCommand } from 'nest-commander';
-import { bufferCount, from, lastValueFrom, mergeMap, retry } from 'rxjs';
+import {
+  bufferCount,
+  // biome-ignore lint/suspicious/noDeprecatedImports: not using the deprecated signature.
+  from,
+  lastValueFrom,
+  // biome-ignore lint/suspicious/noDeprecatedImports: not using the deprecated signature.
+  mergeMap,
+  retry
+} from 'rxjs';
 import { iconsole } from '../../../../shared/iconsole';
 import { PrismaService, ScreenshotSimilarityDetectorService } from '../../../services';
 

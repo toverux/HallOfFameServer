@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import process from 'node:process';
 import { Inject, type Provider } from '@nestjs/common';
-import Bun from 'bun';
+import * as Bun from 'bun';
 import { oneLine } from 'common-tags';
 import * as dateFns from 'date-fns';
 import { Command, CommandRunner, InquirerService, Question, QuestionSet } from 'nest-commander';
@@ -153,9 +153,11 @@ export class ImportCityCommand extends CommandRunner {
   ): Promise<boolean> {
     iconsole.info(`\nPlease review this carefully:`);
 
-    existingCity
-      ? iconsole.info(` - Add to EXISTING City "${existingCity.cityName}" #${existingCity.id}.`)
-      : iconsole.info(` - Create screenshot(s) for a NEW City "${cityInfo.cityName}".`);
+    if (existingCity) {
+      iconsole.info(` - Add to EXISTING City "${existingCity.cityName}" #${existingCity.id}.`);
+    } else {
+      iconsole.info(` - Create screenshot(s) for a NEW City "${cityInfo.cityName}".`);
+    }
 
     iconsole.info(
       ` - Create Screenshot record(s) for each of those ${filePaths.length} files:`,

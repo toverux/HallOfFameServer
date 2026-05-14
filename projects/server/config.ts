@@ -116,6 +116,7 @@ function getString(envVar: string): string {
 }
 
 function getValue(envVar: string): string {
+  // biome-ignore lint/style/noProcessEnv: this is the only place we are allowed to use it.
   const value = process.env[envVar];
   if (!value) {
     throw new Error(`Missing environment variable: ${envVar}`);

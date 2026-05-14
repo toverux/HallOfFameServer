@@ -7,7 +7,7 @@
 
 import * as path from 'node:path';
 import * as process from 'node:process';
-import Bun from 'bun';
+import * as Bun from 'bun';
 import chalk from 'chalk';
 import { iconsole } from '../projects/shared/iconsole';
 

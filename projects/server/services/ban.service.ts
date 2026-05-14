@@ -74,14 +74,20 @@ export class BanService {
       const error = new BannedError(ip, hwid, ban, config.supportContact);
 
       this.cacheBanError(ip, error);
-      hwid && this.cacheBanError(hwid, error);
+
+      if (hwid) {
+        this.cacheBanError(hwid, error);
+      }
 
       throw error;
     }
 
     // If there is no ban, cache it too.
     this.banCache.set(ip, false);
-    hwid && this.banCache.set(hwid, false);
+
+    if (hwid) {
+      this.banCache.set(hwid, false);
+    }
   }
 
   /**

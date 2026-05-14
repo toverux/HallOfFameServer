@@ -3,8 +3,8 @@
 redactions = ["*_KEY", "HOF_SYSTEM_PASSWORD", "HOF_DATABASE_URL", "HOF_AZURE_URL", "HOF_SENTRY_DSN"]
 
 [tools]
-bun = "1.3.6"
-node = "25"
+bun = "1.3.14"
+node = "26"
 
 [env]
 _.file = ["env", ".env.local"]
@@ -80,7 +80,7 @@ raw = true
 run = "bun ng build"
 
 [tasks."build:prisma:generate"]
-description = "Generate the Prisma client and types."
+description = "generate the prisma client and types."
 sources = ["prisma/run-prisma-generate.ts", "schema.prisma"]
 raw = true
 run = "bun prisma/run-prisma-generate.ts"

@@ -20,7 +20,12 @@ import type { JsonObject } from '../../../shared/utils/json';
 import { NotFoundByIdError } from '../../common/standard-error';
 import { CreatorAuthorizationGuard } from '../../guards';
 import { ZodParsePipe } from '../../pipes';
-import { type CreatorIdentifier, CreatorService, PrismaService } from '../../services';
+import {
+  CreatorAuthenticationService,
+  type CreatorIdentifier,
+  CreatorService,
+  PrismaService
+} from '../../services';
 
 @Controller('creators')
 @UseGuards(CreatorAuthorizationGuard)
@@ -65,7 +70,7 @@ export class CreatorController {
     @Body(new ZodParsePipe(CreatorController.updateMyselfBodySchema))
     body: z.infer<typeof CreatorController.updateMyselfBodySchema>
   ): Promise<JsonObject> {
-    const creator = CreatorAuthorizationGuard.getAuthenticatedCreator(req);
+    const creator = CreatorAuthenticationService.getAuthenticatedCreator(req);
 
     const updated = await this.prisma.creator.update({
       where: { id: creator.id },
@@ -167,7 +172,7 @@ export class CreatorController {
     const creator = await this.prisma.creator.findFirst({
       where:
         id == 'me' || ObjectId.isValid(id)
-          ? { id: id == 'me' ? CreatorAuthorizationGuard.getAuthenticatedCreator(req).id : id }
+          ? { id: id == 'me' ? CreatorAuthenticationService.getAuthenticatedCreator(req).id : id }
           : // biome-ignore lint/style/useNamingConvention: prisma
             { OR: [{ creatorName: { equals: id, mode: 'insensitive' } }, { creatorNameSlug: id }] }
     });

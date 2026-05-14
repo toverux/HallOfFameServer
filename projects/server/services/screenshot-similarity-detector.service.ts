@@ -70,7 +70,6 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
    * Whether {@link usearchIndex} was accessed, if not, operations that should update the index may
    * skip it to avoid an unnecessary index instantiation. Useful in CLI/server dev mode.
    */
-  // biome-ignore lint/style/useReadonlyClassProperties: false positive
   private wasUsearchIndexRequired = false;
 
   @Inject(PrismaService)
@@ -88,7 +87,6 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
     return this.maybeInferenceWorker;
   });
 
-  // biome-ignore lint/style/useReadonlyClassProperties: false positive
   private maybeInferenceWorker?: Worker;
 
   private readonly workerResponses = new Subject<WorkerResponse>();
@@ -151,9 +149,8 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
    * @return An iterable that yields pairs of similar screenshots and their similarity distance.
    */
   // biome-ignore lint/complexity/noExcessiveLinesPerFunction: very simple and sequential.
-  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: necessary, but still easy to follow.
   public async *findPotentialDuplicates(): AsyncIterable<
-    { screenshots: [Screenshot, Screenshot]; distance: number },
+    { screenshots: readonly [Screenshot, Screenshot]; distance: number },
     void,
     undefined
   > {
@@ -244,12 +241,6 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
       // - if on the previous match images were not merged, only matchingEmbedding has an up-to-date
       //   list of allowedSimilarityWithIds.
       if (matchingEmbedding.allowedSimilarityWithIds.includes(embedding.id)) {
-        continue;
-      }
-
-      // Different authors; consider them unrelated (they often are, they're just semantically close
-      // for EfficientNet due to various common features).
-      if (screenshot.creatorId != matchingEmbedding.screenshot.creatorId) {
         continue;
       }
 

@@ -26,9 +26,9 @@ import type { Maybe } from '../../shared/utils/utility-types';
 import { isPrismaError } from '../common/prisma-errors';
 import { NotFoundByIdError, StandardError } from '../common/standard-error';
 import { config } from '../config';
-import { CreatorAuthorizationGuard } from '../guards';
 import { AiTranslatorService } from './ai-translator.service';
 import { CreatorService } from './creator.service';
+import { CreatorAuthenticationService } from './creator-authentication.service';
 import { DateFnsLocalizationService } from './date-fns-localization.service';
 import { FavoriteService } from './favorite.service';
 import { ModService } from './mod.service';
@@ -134,7 +134,7 @@ export class ScreenshotService implements OnApplicationBootstrap {
    * - Creating a {@link Screenshot} record in the database.
    * - Asynchronously requesting a translation for the city name (if required).
    * - Asynchronously inferring similarity embeddings for the screenshot.
-   * - Asynchronously warming up the mods cache from the used playset.
+   * - Asynchronously warming up the mods' cache from the used playset.
    */
   // biome-ignore lint/complexity/noExcessiveLinesPerFunction: easier to follow that way, intricate code.
   public async ingestScreenshot({
@@ -272,13 +272,13 @@ export class ScreenshotService implements OnApplicationBootstrap {
       });
 
       // Upload the screenshots.
-      const blobUrls = await this.screenshotStorage.uploadScreenshots(
-        data.creator,
-        screenshotWithoutBlobs,
-        imageThumbnailBuffer,
-        imageFhdBuffer,
-        image4kBuffer
-      );
+      const blobUrls = await this.screenshotStorage.uploadScreenshots({
+        creator: data.creator,
+        screenshot: screenshotWithoutBlobs,
+        bufferThumbnail: imageThumbnailBuffer,
+        bufferFhd: imageFhdBuffer,
+        buffer4K: image4kBuffer
+      });
 
       // Update the screenshot with the blob URLs.
       const updatedScreenshot = await prisma.screenshot.update({
@@ -634,7 +634,7 @@ export class ScreenshotService implements OnApplicationBootstrap {
     },
     req: FastifyRequest
   ): JsonObject {
-    const viewer = req[CreatorAuthorizationGuard.authenticatedCreatorKey];
+    const viewer = req[CreatorAuthenticationService.authenticatedCreatorKey];
 
     const dfnsLocale = this.dateFnsLocalization.getLocaleForRequest(req);
 

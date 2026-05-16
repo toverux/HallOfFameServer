@@ -149,12 +149,20 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
    * @return An iterable that yields pairs of similar screenshots and their similarity distance.
    */
   // biome-ignore lint/complexity/noExcessiveLinesPerFunction: very simple and sequential.
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: very sequential in nature.
   public async *findPotentialDuplicates(): AsyncIterable<
     { screenshots: readonly [Screenshot, Screenshot]; distance: number },
     void,
     undefined
   > {
-    const { index, embeddings } = await this.buildUsearchIndex();
+    this.logger.log(`Building index and retrieving screenshots metadata...`);
+
+    const [{ index, embeddings }, screenshots] = await allFulfilled([
+      this.buildUsearchIndex(),
+      this.prisma.screenshot.findMany({
+        select: { id: true, creatorId: true }
+      })
+    ]);
 
     this.logger.log(`Batch-matching all embeddings against the index...`);
 
@@ -213,7 +221,26 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
         continue;
       }
 
-      // Retrieve screenshot document.
+      // Check whether the two compared embeddings' screenshot authors are the same.
+      const cachedMatchingEmbedding = nn(
+        embeddings.find(embedding => embedding.id == matchingEmbeddingId)
+      );
+
+      const cachedScreenshot = nn(
+        screenshots.find(screenshot => screenshot.id == embedding.screenshotId)
+      );
+
+      const cachedMatchingScreenshot = nn(
+        screenshots.find(screenshot => screenshot.id == cachedMatchingEmbedding.screenshotId)
+      );
+
+      // If they're different authors; consider the embeddings unrelated (they're just semantically
+      // close for EfficientNet due to various common features).
+      if (cachedScreenshot.creatorId != cachedMatchingScreenshot.creatorId) {
+        continue;
+      }
+
+      // Retrieve up-to-date screenshot document.
       // biome-ignore lint/performance/noAwaitInLoops: this is desired as part of the generator's logic.
       const screenshot = await this.prisma.screenshot.findUnique({
         where: { id: embedding.screenshotId }

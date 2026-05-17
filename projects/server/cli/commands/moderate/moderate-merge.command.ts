@@ -192,7 +192,7 @@ export class ModerateMergeCommand extends CommandRunner {
       .info {
         position: absolute;
         inset: 16px 16px auto auto;
-        width: 20%;
+        width: 25%;
         display: flex;
         flex-direction: column;
         gap: 8px;
@@ -235,9 +235,9 @@ export class ModerateMergeCommand extends CommandRunner {
       <span id="favorites"></span>
 
       <div class="info--buttons">
-        <button id="keep-first">Keep A</button>
-        <button id="keep-both">Keep Both</button>
-        <button id="keep-second">Keep B</button>
+        <button id="keep-first">Keep A (A)</button>
+        <button id="keep-both">Keep Both (I)</button>
+        <button id="keep-second">Keep B (B)</button>
       </div>
     </div>
 
@@ -282,11 +282,25 @@ export class ModerateMergeCommand extends CommandRunner {
       });
 
       imgEl.addEventListener('click', () => {
-        if (data) {
-          curScreenshot =
-            curScreenshot == data.firstScreenshot ? data.secondScreenshot : data.firstScreenshot;
+        toggleCurrentScreenshot();
+      });
 
-          refreshCurrentScreenshot();
+      document.addEventListener('keydown', event => {
+        const key = event.key.toLowerCase();
+
+        switch (key) {
+          case 'a':
+            return resolve('first');
+          case 'b':
+            return resolve('second');
+          case 'i':
+            return resolve('both');
+          default: // noop
+        }
+
+        if (event.code == 'Space') {
+          event.preventDefault();
+          toggleCurrentScreenshot();
         }
       });
 
@@ -342,6 +356,15 @@ export class ModerateMergeCommand extends CommandRunner {
         dateEl.textContent = new Date(curScreenshot.createdAt).toLocaleString();
 
         favoritesEl.textContent = `${curScreenshot.favoritesCount} favorites, ${curScreenshot.favoritingPercentage}%`;
+      }
+
+      function toggleCurrentScreenshot(): void {
+        if (data) {
+          curScreenshot =
+            curScreenshot == data.firstScreenshot ? data.secondScreenshot : data.firstScreenshot;
+
+          refreshCurrentScreenshot();
+        }
       }
     }
   }

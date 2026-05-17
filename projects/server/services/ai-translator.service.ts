@@ -4,7 +4,6 @@ import OpenAi from 'openai';
 import { z } from 'zod';
 import type { Creator } from '#prisma-lib/client';
 import type { JsonObject, JsonValue } from '../../shared/utils/json';
-import { config } from '../config';
 
 export interface TranslationResponse {
   readonly twoLetterLocaleCode: string;
@@ -13,7 +12,7 @@ export interface TranslationResponse {
 }
 
 /**
- * Transliterates and translates city names and usernames that are in non-Latin script.
+ * Transliterates and translates city names and usernames that are in a non-Latin script.
  */
 @Injectable()
 export class AiTranslatorService {
@@ -21,14 +20,18 @@ export class AiTranslatorService {
 
   private static readonly cityNamePrompt = oneLine`
     You are an assistant translating and transliterating city/region/location names to English.
-    Avoid literal translation if it is unclear, translate like you would translate a map.
-    For the twoLetterLocaleCode field, put the locale code of the source language.
+    Avoid literal translation if it is unclear, translate like you would translate for a map.
+    If you have trouble finding an appropriate translation, use a phonetic one.
+    DO NOT add any explanation to your translation, just the raw, best-effort answer.
+    For the twoLetterLocaleCode field, put the two-letter locale code of the source language.
     Use tone marks, spaces and proper capitalization for the transliteration field.`;
 
   private static readonly creatorNamePrompt = oneLine`
-    You are an assistant translating and transliterating usernames to English.
+    You are an assistant translating and transliterating usernames from a game to English.
     Avoid literal translation if it is unclear, but you MUST provide an answer.
-    For the twoLetterLocaleCode field, put the locale code of the source language.
+    If you have trouble finding an appropriate translation, use a phonetic one.
+    DO NOT add any explanation to your translation, just the raw, best-effort answer.
+    For the twoLetterLocaleCode field, put the two-letter locale code of the source language.
     Use tone marks, spaces and proper capitalization for the transliteration field.`;
 
   /**
@@ -108,7 +111,7 @@ export class AiTranslatorService {
 
     const response = await this.openAi.responses.create({
       model: 'gpt-5.4',
-      reasoning: { effort: config.env == 'production' ? 'medium' : 'none' },
+      reasoning: { effort: 'medium' },
       // biome-ignore lint/style/useNamingConvention: OpenAI's API.
       safety_identifier: creatorId,
       input: [

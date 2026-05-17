@@ -28,25 +28,9 @@ Find our user feedback, feature request and roadmap board here:
 2. Run `mise i` to install the required version of Bun and Node.js,
 3. Run `bun i` to install dependencies.
 4. You may `bun run build` to test that the project builds and everything is in order.
-5. Install [MongoDB](https://www.mongodb.com/docs/manual/administration/install-community)
-   ([more direct download links here](https://www.mongodb.com/try/download/community-edition)),
-   mongosh, and set up a replica set, here's an example, but it varies according to your setup and
-   preferences:
-6. Set this in your configuration file (Linux: `/etc/mongod.conf`,
-   Windows: `C:\Program Files\MongoDB\Server\7.0\bin\mongod.cfg`):
-   ```yml
-   replication:
-     replSetName: rs0
-   ```
-7. Restart MongoDB (`sudo systemctl restart mongod`, Windows: open "Services" then search for
-   "MongoDB Server", right-click it and choose Restart).
-8. Connecting to the database using `mongosh`, run `rs.initiate()` to create a default rs0 replica
-   set, check there's no error.
-9. Run `bun prisma db push` to create the database, collections and indexes.
-10. Done! Test that the server is working with `mise dev:server`.
-
-To set up a replica set, you can also follow
-[this guide](https://www.mongodb.com/docs/manual/tutorial/convert-standalone-to-replica-set).
+5. Start MongoDB in Docker with `mise dev:db:start` (to stop: `mise dev:db:stop`).
+6. Run `bun prisma db push` to create the database, collections and indexes.
+7. Done! Test that the server is working with `mise dev:server`.
 
 ### Development Workflow
 

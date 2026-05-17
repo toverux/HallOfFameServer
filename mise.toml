@@ -29,6 +29,7 @@ run = [
 
 [tasks."dev:server"]
 description = "Run server in watch mode."
+depends = "dev:db:start"
 env = { TF_CPP_MIN_LOG_LEVEL = "1" }
 raw = true
 run = "bun --watch --no-clear-screen --inspect projects/server/main.ts"
@@ -37,6 +38,14 @@ run = "bun --watch --no-clear-screen --inspect projects/server/main.ts"
 description = "Serve frontend application in development mode."
 raw = true
 run = "bun ng serve"
+
+[tasks."dev:db:start"]
+description = "Start local MongoDB in Docker for development."
+run = "docker compose -f docker-compose.dev.yml up -d mongo"
+
+[tasks."dev:db:stop"]
+description = "Stop local MongoDB Docker container."
+run = "docker compose -f docker-compose.dev.yml down"
 
 # LINT TASKS
 # ==========

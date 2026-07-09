@@ -24,6 +24,10 @@ ENV MISE_DATA_DIR="/mise"
 ENV MISE_CONFIG_DIR="/mise"
 ENV MISE_CACHE_DIR="/mise/cache"
 ENV MISE_INSTALL_PATH="/usr/local/bin/mise"
+# Trust the project's mise.toml so its tasks run with the project directory as their config_root.
+# Without this, mise falls back to the global config copied below, whose config_root is the home
+# directory, breaking every relative path (projects/server/main.ts, node_modules/.bin, etc.).
+ENV MISE_TRUSTED_CONFIG_PATHS="/usr/src/app"
 ENV PATH="/mise/shims:$PATH"
 
 COPY mise.toml $MISE_CONFIG_DIR/config.toml
@@ -66,9 +70,6 @@ FROM base AS prerelease
 COPY --from=install /temp/dev/node_modules node_modules
 COPY . .
 
-# let global file we copied earlier take precedence
-RUN rm mise.toml
-
 # => Build
 ENV NODE_ENV=production
 RUN mise build
@@ -84,6 +85,9 @@ COPY --from=prerelease /usr/src/app/.env .
 COPY --from=prerelease /usr/src/app/tsconfig.json .
 # always useful
 COPY --from=prerelease /usr/src/app/package.json .
+# mise task runner config: defines the run:cli / run:server tasks and tool versions, and provides
+# the project-local config_root at runtime.
+COPY --from=prerelease /usr/src/app/mise.toml .
 # frontend build
 COPY --from=prerelease /usr/src/app/dist dist
 # server source code, ran directly by Bun (no transpilation)

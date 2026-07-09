@@ -15,7 +15,6 @@ import { GraphQLModule } from './graphql';
 import { RestModule } from './rest';
 import { SharedModule } from './shared.module';
 
-/** @public */
 @Module({
   imports: [
     ScheduleModule.forRoot(),

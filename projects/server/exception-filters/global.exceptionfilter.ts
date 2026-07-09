@@ -1,4 +1,4 @@
-import { type ArgumentsHost, Catch, HttpException, Logger } from '@nestjs/common';
+import { type ArgumentsHost, Catch, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { BaseExceptionFilter } from '@nestjs/core';
 import * as sentry from '@sentry/bun';
 import type { FastifyRequest } from 'fastify';
@@ -17,7 +17,8 @@ export class GlobalExceptionFilter extends BaseExceptionFilter {
   public override catch(error: unknown, host: ArgumentsHost): void {
     const responseError =
       error instanceof StandardError
-        ? new error.httpErrorType(error.message, {
+        ? // oxlint-disable-next-line new-cap
+          new error.httpErrorType(error.message, {
             cause: error,
             description: error.constructor.name
           })
@@ -26,7 +27,11 @@ export class GlobalExceptionFilter extends BaseExceptionFilter {
     const reqId = host.switchToHttp().getRequest<FastifyRequest>().id;
 
     // Report unknown errors and 500+ errors to Sentry, log the rest as warnings.
-    if (!(responseError instanceof HttpException) || responseError.getStatus() >= 500) {
+    if (
+      !(responseError instanceof HttpException) ||
+      // oxlint-disable-next-line typescript/no-unsafe-enum-comparison - Nest status number vs enum
+      responseError.getStatus() >= HttpStatus.INTERNAL_SERVER_ERROR
+    ) {
       // We do not need to call this.logger.error() as it's already handled by super.catch().
       sentry.captureException(error, { extra: { reqId } });
     } else {
@@ -39,6 +44,7 @@ export class GlobalExceptionFilter extends BaseExceptionFilter {
       }
     }
 
+    // oxlint-disable-next-line promise/no-promise-in-callback promise/prefer-await-to-then - false positives
     super.catch(responseError, host);
   }
 

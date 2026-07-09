@@ -1,11 +1,9 @@
-/** biome-ignore-all lint/complexity/noExcessiveLinesPerFunction: generators are long and better that way. */
-
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import path from 'node:path';
 import { setTimeout } from 'node:timers/promises';
-import firaCodeSrc from '@fontsource/ibm-plex-mono';
 import overpassSrc from '@fontsource-variable/overpass';
+import firaCodeSrc from '@fontsource/ibm-plex-mono';
 import { Inject, type Provider } from '@nestjs/common';
 import * as Bun from 'bun';
 import chalk from 'chalk';
@@ -58,10 +56,10 @@ export class DigestCommand extends CommandRunner {
     return val == 'true';
   }
 
-  private static configuration = {
+  private static readonly configuration = {
     topSize: 20,
     // Discord has a 10-images limit per message.
-    // We will therefore limit ourselves to top-10s for images.
+    // We will therefore limit ourselves to top-tens for images.
     topSizeForImages: 10,
     // Threshold for considering images in a top-X. Useful to limit noise: for example, an image
     // with 2 views and 1 like has 50% like/view ratio, but it's not significant.
@@ -77,12 +75,14 @@ export class DigestCommand extends CommandRunner {
   private readonly screenshotStorage!: ScreenshotStorageService;
 
   private readonly generators: readonly SectionFunction[] = [
+    // oxlint-disable typescript/unbound-method - we will bind manually
     this.redditExplainer,
     this.thumbnail,
     this.newMostAppreciatedPictures,
     this.overallMostAppreciatedPictures,
     this.topCreators,
     this.topCities
+    // oxlint-enable typescript/unbound-method
   ];
 
   public override async run(
@@ -101,9 +101,9 @@ export class DigestCommand extends CommandRunner {
       generatorNames.length == 0
         ? this.generators
         : generatorNames.map(name => {
-            const generator = this.generators.find(g => g.name == name);
+            const generator = this.generators.find(candidate => candidate.name == name);
             if (!generator) {
-              throw commaLists`Unknown generator: ${name}, available generators: ${this.generators.map(g => g.name)}`;
+              throw commaLists`Unknown generator: ${name}, available generators: ${this.generators.map(candidate => candidate.name)}`;
             }
 
             return generator;
@@ -117,32 +117,36 @@ export class DigestCommand extends CommandRunner {
 
     let browser: Browser | undefined;
 
+    // Declared outside the loop, so the closure doesn't capture the mutated `browser` per iteration
+    // (no-loop-func); `pages` is passed in per iteration to collect pages for cleanup.
+    const getBrowserPage = async (pages: Page[]): Promise<Page> => {
+      // oxlint-disable-next-line import/no-named-as-default-member
+      browser ??= await puppeteer.launch({
+        // This will both launch in headful mode and enable devtools.
+        devtools: options.debugPuppeteer,
+        userDataDir: config.puppeteer.userDataDir,
+        args: [...config.puppeteer.args]
+      });
+
+      const page = await browser.newPage();
+
+      pages.push(page);
+
+      return page;
+    };
+
     try {
       for (const generator of generators) {
+        // oxlint-disable-next-line no-magic-numbers
         iconsole.log(chalk.bold(`\n${'='.repeat(30)}\n`));
 
         const pages: Page[] = [];
-
-        const getBrowserPage = async () => {
-          browser ??= await puppeteer.launch({
-            // This will both launch in headful mode and enable devtools.
-            devtools: options.debugPuppeteer,
-            userDataDir: config.puppeteer.userDataDir,
-            args: [...config.puppeteer.args]
-          });
-
-          const page = await browser.newPage();
-
-          pages.push(page);
-
-          return page;
-        };
 
         try {
           const generatorOptions = {
             startDate,
             endDate,
-            getBrowserPage,
+            getBrowserPage: (): Promise<Page> => getBrowserPage(pages),
             debug: options.debugPuppeteer
           };
 
@@ -166,12 +170,12 @@ export class DigestCommand extends CommandRunner {
     }
   }
 
-  // biome-ignore lint/suspicious/useAwait: todo
+  // oxlint-disable-next-line typescript/require-await - todo
   private async *thumbnail(_options: SectionFunctionOptions): SectionFunctionGenerator {
     yield '// todo';
   }
 
-  // biome-ignore lint/suspicious/useAwait: no need, but contract.
+  // oxlint-disable-next-line typescript/require-await - todo
   private async *redditExplainer(): SectionFunctionGenerator {
     yield para(
       oneLine`
@@ -325,29 +329,33 @@ export class DigestCommand extends CommandRunner {
 
     const rawResults = (await this.prisma.screenshot.aggregateRaw({
       pipeline
-    })) as unknown as readonly Readonly<{
-      favoritesCount: number;
-      favoritingPercentage: number;
-      screenshot: Readonly<{
-        _id: Readonly<{ $oid: string }>;
-        cityName: string;
-        cityNameTranslated: string;
-        imageUrl4K: string;
-      }>;
-      creator: Readonly<{
-        creatorName: string;
-        creatorNameTranslated: string;
-      }>;
-    }>[];
+    })) as unknown as ReadonlyArray<
+      Readonly<{
+        favoritesCount: number;
+        favoritingPercentage: number;
+        screenshot: Readonly<{
+          _id: Readonly<{ $oid: string }>;
+          cityName: string;
+          cityNameTranslated: string;
+          imageUrl4K: string;
+        }>;
+        creator: Readonly<{
+          creatorName: string;
+          creatorNameTranslated: string;
+        }>;
+      }>
+    >;
 
-    const results = rawResults.map(({ creator, screenshot, ...rest }) => ({
-      ...rest,
-      creator,
-      screenshot,
-      cityName: screenshot.cityNameTranslated ?? screenshot.cityName,
-      creatorName: creator.creatorNameTranslated ?? creator.creatorName ?? 'Anonymous',
-      favoritingPercentage: Math.round(rest.favoritingPercentage)
-    }));
+    const results = rawResults.map(
+      ({ creator, screenshot, favoritesCount, favoritingPercentage }) => ({
+        favoritesCount,
+        creator,
+        screenshot,
+        cityName: screenshot.cityNameTranslated ?? screenshot.cityName,
+        creatorName: creator.creatorNameTranslated ?? creator.creatorName ?? 'Anonymous',
+        favoritingPercentage: Math.round(favoritingPercentage)
+      })
+    );
 
     for (let index = 0; index < results.length; index++) {
       const { screenshot, cityName, creatorName, favoritesCount, favoritingPercentage } = nn(
@@ -386,19 +394,19 @@ export class DigestCommand extends CommandRunner {
     }
   }
 
-  // biome-ignore lint/suspicious/useAwait: todo
+  // oxlint-disable-next-line typescript/require-await - todo
   private async *overallMostAppreciatedPictures(
     _options: SectionFunctionOptions
   ): SectionFunctionGenerator {
     yield '// todo';
   }
 
-  // biome-ignore lint/suspicious/useAwait: todo
+  // oxlint-disable-next-line typescript/require-await - todo
   private async *topCreators(_options: SectionFunctionOptions): SectionFunctionGenerator {
     yield '// todo';
   }
 
-  // biome-ignore lint/suspicious/useAwait: todo
+  // oxlint-disable-next-line typescript/require-await - todo
   private async *topCities(_options: SectionFunctionOptions): SectionFunctionGenerator {
     yield '// todo';
   }
@@ -534,10 +542,10 @@ export class DigestCommand extends CommandRunner {
       <img src="${options.imageUrl}">
 
       <section class="layout">
-        <header class="layout_header layout_header-${options.position <= 3 ? 'medal' : 'no-medal'}">
+        <header class="layout_header layout_header-${options.position <= medals.length ? 'medal' : 'no-medal'}">
           <span class="layout_header_position">
             ${
-              options.position <= 3
+              options.position <= medals.length
                 ? getMedalForPosition(options.position)
                 : `<small>#</small>${options.position}`
             }
@@ -577,6 +585,7 @@ export class DigestCommand extends CommandRunner {
     // If headful and devtools are enabled, wait a bit for the devtools to open, or we will miss
     // all or some network requests.
     if (generatorOptions.debug) {
+      // oxlint-disable-next-line no-magic-numbers
       await setTimeout(500);
     }
 
@@ -620,15 +629,14 @@ function para(text: string): string {
   return `${text}\n`;
 }
 
+const medals = ['🥇', '🥈', '🥉'];
+
 function getMedalForPosition(position: number): string {
-  switch (position) {
-    case 1:
-      return '🥇';
-    case 2:
-      return '🥈';
-    case 3:
-      return '🥉';
-    default:
-      throw new Error(`No medal for position #${position}`);
+  const medal = medals[position - 1];
+
+  if (medal == undefined) {
+    throw new Error(`No medal for position #${position}`);
   }
+
+  return medal;
 }

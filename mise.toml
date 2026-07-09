@@ -47,42 +47,57 @@ run = "docker compose -f docker-compose.dev.yml up -d mongo"
 description = "Stop local MongoDB Docker container."
 run = "docker compose -f docker-compose.dev.yml down"
 
-# LINT TASKS
-# ==========
+# CHECK TASKS
+# ===========
 
-[tasks."check:ro"]
-description = "Run lint checks (typescript and biome), without auto-fixes."
-depends = ["check:tsc", "check:biome:ro"]
-
-[tasks."check:rw"]
-description = "Run lint checks (typescript and biome), with safe auto-fixes."
-alias = "check"
-depends = ["check:tsc", "check:biome:rw"]
+[tasks."check"]
+description = "Run lint checks (typescript and oxfmt/oxlint), with safe auto-fixes."
+# Not using `depends` because we want a sequential run with lint then format.
+run = ["mise check:tsc", "mise check:oxlint", "mise check:oxfmt"]
 
 [tasks."check:tsc"]
+description = "Type-checks code with tsc."
 depends = "build:prisma:generate"
-hide = true
 raw = true
-run = "bun tsc --noEmit"
+run = "bun --bun tsc --noEmit"
 
-[tasks."check:biome:ro"]
+[tasks."check:oxfmt"]
+description = "Formats code with oxfmt."
 depends = "build:prisma:generate"
-hide = true
 raw = true
-run = "bun biome check --error-on-warnings"
+run = "bun --bun oxfmt"
 
-[tasks."check:biome:rw"]
+[tasks."check:oxlint"]
+description = "Lints code with oxlint."
 depends = "build:prisma:generate"
-hide = true
 raw = true
-run = "bun biome check --fix --error-on-warnings"
+run = "bun --bun oxlint --fix"
+
+# CHECK TASKS (AGENTS)
+# ====================
+
+[tasks."check:agents"]
+description = "Run lint checks (typescript and oxfmt/oxlint), with safe auto-fixes, output optimized for AI agents."
+# Not using `depends` because we want a sequential run with lint then format.
+run = ["mise check:agents:tsc", "mise check:agents:oxlint", "mise check:oxfmt"]
+
+[tasks."check:agents:tsc"]
+description = "Type-checks code with tsc, output optimized for AI agents."
+depends = "build:prisma:generate"
+raw = true
+run = "bun --bun tsc --noEmit --pretty false"
+
+[tasks."check:agents:oxlint"]
+description = "Lints code with oxlint, output optimized for AI agents."
+depends = "build:prisma:generate"
+run = "bun --bun oxlint --fix --format agent"
 
 # BUILD TASKS
 # ===========
 
 [tasks.build]
 description = "Build the application for production."
-depends = ["check:ro", "build:client"]
+depends = ["check", "build:client"]
 raw = true
 
 [tasks."build:client"]

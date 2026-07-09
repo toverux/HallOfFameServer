@@ -3,4 +3,8 @@ import { iconsole } from '../shared/iconsole';
 import { AppComponent } from './app/app.component';
 import { appConfig } from './app/app.config';
 
-bootstrapApplication(AppComponent, appConfig).catch(err => iconsole.error(err));
+try {
+  await bootstrapApplication(AppComponent, appConfig);
+} catch (error) {
+  iconsole.error(error);
+}

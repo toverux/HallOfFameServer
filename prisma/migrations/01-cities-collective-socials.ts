@@ -14,12 +14,12 @@ export const migration: Migration = {
 
     // URL formatters matching the ones in CreatorService
     const formatSocialLink = {
-      discord: (link: Record<string, unknown>) => `https://discord.gg/${link.code}`,
+      discord: (link: Record<string, unknown>) => `https://discord.gg/${String(link.code)}`,
       paradoxmods: (link: Record<string, unknown>) =>
-        `https://mods.paradoxplaza.com/authors/${link.username}`,
-      reddit: (link: Record<string, unknown>) => `https://reddit.com/user/${link.username}`,
-      twitch: (link: Record<string, unknown>) => `https://twitch.tv/${link.channel}`,
-      youtube: (link: Record<string, unknown>) => `https://youtube.com/@${link.channel}`
+        `https://mods.paradoxplaza.com/authors/${String(link.username)}`,
+      reddit: (link: Record<string, unknown>) => `https://reddit.com/user/${String(link.username)}`,
+      twitch: (link: Record<string, unknown>) => `https://twitch.tv/${String(link.channel)}`,
+      youtube: (link: Record<string, unknown>) => `https://youtube.com/@${String(link.channel)}`
     };
 
     const creators = await db.collection('creators').find({}, { session }).toArray();
@@ -28,9 +28,10 @@ export const migration: Migration = {
     const bulkOps: AnyBulkWriteOperation[] = [];
 
     for (const creator of creators) {
-      const oldSocial = (creator.social ?? {}) as {
-        [oldPlatformCode: string]: { [key: string]: unknown; clicks: number };
-      };
+      const oldSocial = (creator.social ?? {}) as Record<
+        string,
+        { [key: string]: unknown; clicks: number }
+      >;
 
       const newSocials: Array<{ platform: string; link: string; clicks: number }> = [];
 

@@ -30,6 +30,7 @@ export class ScreenshotStatsService {
    * The update will be performed during the next run of {@link resyncRequestsCron}.
    */
   public requestStatsUpdate(screenshotId: Screenshot['id']): void {
+    // oxlint-disable-next-line node/no-sync - screenshotsToSync is a Set field, not an fs sync call
     this.screenshotsToSync.add(screenshotId);
   }
 
@@ -103,12 +104,14 @@ export class ScreenshotStatsService {
 
     const results = (await prisma.screenshot.aggregateRaw({
       pipeline
-    })) as unknown as readonly Readonly<{
-      _id: Readonly<{ $oid: string }>;
-      computedViews: number;
-      computedUniqueViews: number;
-      computedFavorites: number;
-    }>[];
+    })) as unknown as ReadonlyArray<
+      Readonly<{
+        _id: Readonly<{ $oid: string }>;
+        computedViews: number;
+        computedUniqueViews: number;
+        computedFavorites: number;
+      }>
+    >;
 
     this.logger.verbose(`Found ${results.length} screenshot(s) needing to be updated.`);
 
@@ -161,6 +164,7 @@ export class ScreenshotStatsService {
       // Remove synced IDs from the list of IDs to sync.
       if (screenshotIds) {
         for (const id of screenshotIds) {
+          // oxlint-disable-next-line node/no-sync - screenshotsToSync is a Set field, not an fs sync call
           this.screenshotsToSync.delete(id);
         }
       }

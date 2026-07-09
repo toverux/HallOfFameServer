@@ -1,6 +1,6 @@
 import process from 'node:process';
-import * as util from 'node:util';
-import chalk, { type ChalkInstance } from 'chalk';
+import { inspect } from 'bun';
+import chalk from 'chalk';
 import { CommandFactory } from 'nest-commander';
 import { iconsole } from '../../shared/iconsole';
 import { StandardError } from '../common/standard-error';
@@ -26,16 +26,16 @@ void CommandFactory.run(CliModule, {
   serviceErrorHandler: handleError
 });
 
-function log(formatter: ChalkInstance, ...args: unknown[]): void {
+function log(formatter: typeof chalk, ...args: unknown[]): void {
   const context = args.pop();
 
   for (const arg of args) {
     const argStr =
       typeof arg == 'string'
         ? arg
-        : util.inspect(arg, { colors: true, depth: Number.POSITIVE_INFINITY });
+        : inspect(arg, { colors: true, depth: Number.POSITIVE_INFINITY });
 
-    iconsole.log(formatter(argStr), chalk.dim(`[${context}]`));
+    iconsole.log(formatter(argStr), chalk.dim(`[${String(context)}]`));
   }
 }
 

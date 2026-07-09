@@ -3,6 +3,7 @@ import { oneLine } from 'common-tags';
 import { LRUCache } from 'lru-cache';
 import type { Ban, Creator } from '#prisma-lib/client';
 import type { HardwareId, IpAddress } from '../../shared/utils/branded-types';
+import { minutes } from '../../shared/utils/duration';
 import { StandardError } from '../common/standard-error';
 import { config } from '../config';
 import { PrismaService } from './prisma.service';
@@ -18,12 +19,18 @@ export class BanService {
   private readonly logger = new Logger(BanService.name);
 
   /**
+   * Ban statuses are cached for this many minutes before being re-evaluated.
+   */
+  private static readonly banCacheTtlMinutes = 5;
+
+  /**
    * Cache to store the ban status of hardware IDs and creators.
    * Entries expire after 5 minutes.
    *
    * The key is the IP address, Hardware ID, Creator ID, and the value is either:
-   *  - `false` if the IP, hwid, or creator is *not* banned,
-   *  - A {@link BanError} if the IP, hwid, or creator is banned.
+   *
+   * - `false` if the IP, hwid, or creator is _not_ banned,
+   * - A {@link BanError} if the IP, hwid, or creator is banned.
    *
    * @see checkBanCache
    */
@@ -32,13 +39,13 @@ export class BanService {
     BanError | false
   >({
     max: 200,
-    ttl: 5 * 60 * 1000
+    ttl: minutes(BanService.banCacheTtlMinutes)
   });
 
   /**
    * Ensures the given IP and Hardware ID are not banned.
    *
-   * @throws BannedError If the IP or Hardware ID is banned.
+   * @throws {BannedError | BannedCreatorError} If the IP or Hardware ID is banned.
    */
   public async ensureNotBanned(ip: IpAddress, hwid: HardwareId | undefined): Promise<void> {
     if (this.checkBanCache(ip) && (hwid ? this.checkBanCache(hwid) : true)) {
@@ -46,7 +53,6 @@ export class BanService {
     }
 
     const bans = await this.prisma.ban.findMany({
-      // biome-ignore lint/style/useNamingConvention: prisma
       where: hwid ? { OR: [{ ip }, { hwid }] } : { ip }
     });
 
@@ -93,7 +99,7 @@ export class BanService {
   /**
    * Ensures the creator is not banned.
    *
-   * @throws BannedCreatorError If the creator is banned.
+   * @throws {BannedCreatorError} If the creator is banned.
    */
   public async ensureCreatorNotBanned(creator: Pick<Creator, 'id' | 'creatorName'>): Promise<void> {
     if (this.checkBanCache(creator.id)) {
@@ -156,10 +162,10 @@ export class BanService {
    * Checks whether the given hardware ID or creator ID is banned or not, using the ban cache
    * {@link banCache}.
    *
-   * @throws BanError If the IP, hwid, or creator is banned.
+   * @returns `true` if the IP, hwid, or creator is _NOT_ banned,
+   *   `false` if the status must be verified with the database.
    *
-   * @returns `true` if the IP, hwid, or creator is *NOT* banned,
-   *          `false` if the status must be verified with the database.
+   * @throws {BanError} If the IP, hwid, or creator is banned.
    */
   private checkBanCache(cacheKey: IpAddress | HardwareId | Creator['id']): boolean {
     const cachedError = this.banCache.get(cacheKey);
@@ -189,7 +195,7 @@ export class BanService {
    * end with a period.
    */
   private static fmtReason(reason: string): string {
-    const formatted = reason.trim().replace(/\s+/g, ' ').toLowerCase();
+    const formatted = reason.trim().replaceAll(/\s+/gu, ' ').toLowerCase();
 
     return formatted.endsWith('.') ? formatted.slice(0, -1) : formatted;
   }

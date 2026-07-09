@@ -1,4 +1,11 @@
-import { Controller, Get, Req, ServiceUnavailableException, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  HttpStatus,
+  Req,
+  ServiceUnavailableException,
+  UseGuards
+} from '@nestjs/common';
 import * as Bun from 'bun';
 import type { FastifyRequest } from 'fastify';
 import type { JsonObject } from '../../../shared/utils/json';
@@ -31,7 +38,8 @@ export class SystemController {
       body: formData
     });
 
-    if (response.status != 201) {
+    // oxlint-disable-next-line typescript/no-unsafe-enum-comparison - fetch status number vs enum
+    if (response.status != HttpStatus.CREATED) {
       throw new ServiceUnavailableException(
         `Upload request failed (${response.status} ${response.statusText}): ${await response.text()}`
       );

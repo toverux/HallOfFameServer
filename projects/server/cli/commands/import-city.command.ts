@@ -1,4 +1,4 @@
-import * as path from 'node:path';
+import path from 'node:path';
 import process from 'node:process';
 import { Inject, type Provider } from '@nestjs/common';
 import * as Bun from 'bun';
@@ -127,6 +127,7 @@ export class ImportCityCommand extends CommandRunner {
     // If no files are found, log an error and exit.
     if (!filePaths.length) {
       iconsole.error(`No screenshots found in the directory.`);
+      // oxlint-disable-next-line unicorn/no-process-exit - okay usage
       process.exit(1);
     }
 
@@ -136,17 +137,20 @@ export class ImportCityCommand extends CommandRunner {
   }
 
   private async askForCityInfo(): Promise<CityInfoQuestionsResult | undefined> {
+    // oxlint-disable-next-line unicorn/no-useless-undefined - required
     const cityInfo = await this.inquirer.ask<CityInfoQuestionsResult>('city-info', undefined);
 
     // Log the city information for the user to review.
     iconsole.info(`\nPlease review the city information:`, cityInfo);
 
-    return await this.inquirer
-      .ask<ConfirmCityInfoQuestionsResult>('confirm-city-info', undefined)
-      .then(result => (result.confirm ? cityInfo : undefined));
+    const { confirm } = await this.inquirer
+      // oxlint-disable-next-line unicorn/no-useless-undefined - required
+      .ask<ConfirmCityInfoQuestionsResult>('confirm-city-info', undefined);
+
+    return confirm ? cityInfo : undefined;
   }
 
-  private confirmChanges(
+  private async confirmChanges(
     existingCity: Maybe<Screenshot>,
     cityInfo: CityInfoQuestionsResult,
     filePaths: readonly string[]
@@ -164,9 +168,11 @@ export class ImportCityCommand extends CommandRunner {
       filePaths.join(', ')
     );
 
-    return this.inquirer
-      .ask<ConfirmUpdateQuestionsResult>('confirm-update', undefined)
-      .then(result => result.confirm);
+    const { confirm } = await this.inquirer
+      // oxlint-disable-next-line unicorn/no-useless-undefined - required
+      .ask<ConfirmUpdateQuestionsResult>('confirm-update', undefined);
+
+    return confirm;
   }
 
   private async maybeMakeCreatorSupporter(

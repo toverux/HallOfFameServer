@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import * as dateFns from 'date-fns';
 import { LRUCache } from 'lru-cache';
 import type { Creator, Screenshot, View } from '#prisma-lib/client';
+import { hours } from '../../shared/utils/duration';
 import { type JsonObject, optionallySerialized } from '../../shared/utils/json';
 import { nn } from '../../shared/utils/type-assertion';
 import { CreatorService } from './creator.service';
@@ -30,16 +31,16 @@ export class ViewService {
     // Allow a max of 100 creator entries in the cache.
     max: 100,
     // Cache entries for 2 hours (more if key recency is updated).
-    ttl: 1000 * 60 * 60 * 2
+    ttl: hours(2)
   });
 
   /**
    * Returns the IDs of the screenshots viewed by the given Creator.
    *
-   * @param creatorId    Creator ID to filter by.
+   * @param creatorId Creator ID to filter by.
    * @param maxAgeInDays Max age of the views to consider, in days, so we can repropose
-   *                     screenshots the user hasn't seen in a while. A max-age of `0` or
-   *                     `undefined` means no limit (i.e., all past known views count).
+   *   screenshots the user hasn't seen in a while. A max-age of `0` or
+   *   `undefined` means no limit (i.e., all past known views count).
    */
   public async getViewedScreenshotIds(
     creatorId: Creator['id'],
@@ -62,7 +63,6 @@ export class ViewService {
     const screenshots = await this.prisma.view.findMany({
       select: { screenshotId: true },
       where: {
-        // biome-ignore lint/style/useNamingConvention: prisma
         AND: [
           { creatorId },
           maxAgeInDays ? { viewedAt: { gte: dateFns.subDays(new Date(), maxAgeInDays) } } : {}

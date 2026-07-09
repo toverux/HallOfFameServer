@@ -32,7 +32,6 @@ export class FavoriteService {
     const favorite = await this.prisma.favorite.findFirst({
       select: { id: true },
       where: {
-        // biome-ignore lint/style/useNamingConvention: prisma
         OR: [
           { screenshotId, creatorId: creator.id },
           { screenshotId, hwid: { in: creator.hwids } },
@@ -47,20 +46,19 @@ export class FavoriteService {
   /**
    * Determines for each screenshot in a batch if it has been favorited by a unique user.
    *
-   * @return A promise that resolves to an array of booleans, where each element corresponds to
-   *         whether the given screenshot ID is marked as a favorite, ordered 1:1 to the input.
+   * @returns A promise that resolves to an array of booleans, where each element corresponds to
+   *   whether the given screenshot ID is marked as a favorite, ordered 1:1 to the input.
    *
    * @see isFavorite
    */
   public async isFavoriteBatched(
-    screenshotIds: readonly Screenshot['id'][],
+    screenshotIds: ReadonlyArray<Screenshot['id']>,
     creator: Pick<Creator, 'id' | 'hwids' | 'ips'>
   ): Promise<boolean[]> {
     // Same as isFavorite(), see its comments.
     const favorites = await this.prisma.favorite.findMany({
       select: { id: true, screenshotId: true },
       where: {
-        // biome-ignore lint/style/useNamingConvention: prisma
         OR: [
           // `as string[]`: because prisma type unnecessarily takes a mutable array.
           { screenshotId: { in: screenshotIds as string[] }, creatorId: creator.id },
@@ -88,7 +86,6 @@ export class FavoriteService {
     const existingFavorite = await this.prisma.favorite.findFirst({
       select: { id: true },
       where: {
-        // biome-ignore lint/style/useNamingConvention: prisma
         OR: [
           { screenshotId, creatorId: creator.id },
           { screenshotId, hwid: { in: creator.hwids } },
@@ -139,7 +136,6 @@ export class FavoriteService {
     // clause that guarantees uniqueness, but we use an OR clause.
     const existingFavorite = await this.prisma.favorite.findFirst({
       where: {
-        // biome-ignore lint/style/useNamingConvention: prisma
         OR: [
           { screenshotId, creatorId: creator.id },
           { screenshotId, hwid: { in: creator.hwids } },

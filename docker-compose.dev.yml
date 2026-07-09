@@ -4,7 +4,7 @@ services:
     container_name: halloffame-dev
     command: ["mongod", "--bind_ip_all", "--replSet", "rs0"]
     ports:
-      - '27017:27017'
+      - "27017:27017"
     volumes:
       - halloffame-mongo-data:/data/db
       - ./docker/mongo/init-replica-set.js:/docker-entrypoint-initdb.d/init-replica-set.js:ro

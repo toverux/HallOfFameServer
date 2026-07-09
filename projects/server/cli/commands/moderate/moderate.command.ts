@@ -5,7 +5,6 @@ import { ModerateMergeCommand } from './moderate-merge.command';
 import { ModerateReportsCommand } from './moderate-reports.command';
 import { ModerateShowcasedModsCommand } from './moderate-showcased-mods.command';
 
-/** @public */
 @Command({
   name: 'moderate',
   description: `Commands related to moderating screenshots.`,

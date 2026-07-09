@@ -1,7 +1,8 @@
 import fastifyMultipart from '@fastify/multipart';
-import { Injectable, Logger, type NestMiddleware } from '@nestjs/common';
+import { HttpStatus, Injectable, Logger, type NestMiddleware } from '@nestjs/common';
 import { FastifyAdapter } from '@nestjs/platform-fastify';
 import type { FastifyBaseLogger, FastifyReply, FastifyRequest } from 'fastify';
+import { ensureNumber } from '../shared/utils/type-assertion';
 import { config } from './config';
 
 const httpLogger = new Logger('Fastify');
@@ -33,11 +34,11 @@ export class FastifyLoggerMiddleware implements NestMiddleware {
     req: FastifyRequest & FastifyRequest['raw'],
     res: FastifyReply & FastifyReply['raw'],
     next: (error?: unknown) => void
-  ) {
+  ): void {
     const startTime = Date.now();
 
     const { ip, method, originalUrl } = req;
-    const reqContentLength = req.headers['content-length'] || 0;
+    const reqContentLength = req.headers['content-length'] ?? 0;
 
     httpLogger.log(
       `[${req.id}/incoming] ${method} ${originalUrl} len=${reqContentLength} ip=${ip}`
@@ -46,15 +47,16 @@ export class FastifyLoggerMiddleware implements NestMiddleware {
     res.on('finish', () => {
       const elapsedTime = Date.now() - startTime;
 
-      const resContentLength = res.getHeader('content-length') || 0;
+      const resContentLength = ensureNumber(res.getHeader('content-length')) || 0;
 
-      const logFn = (
-        res.statusCode >= 500
-          ? httpLogger.error
-          : res.statusCode >= 400
-            ? httpLogger.warn
-            : httpLogger.log
-      ).bind(httpLogger);
+      // oxlint-disable typescript/no-unsafe-enum-comparison - Fastify status number vs HttpStatus enum
+      const logFn =
+        res.statusCode >= HttpStatus.INTERNAL_SERVER_ERROR
+          ? httpLogger.error.bind(httpLogger)
+          : res.statusCode >= HttpStatus.BAD_REQUEST
+            ? httpLogger.warn.bind(httpLogger)
+            : httpLogger.log.bind(httpLogger);
+      // oxlint-enable typescript/no-unsafe-enum-comparison
 
       logFn(
         `[${req.id}/response] ${method} ${originalUrl} status=${res.statusCode} len=${resContentLength} ip=${ip} elapsed=${elapsedTime}ms`

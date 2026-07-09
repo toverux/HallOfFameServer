@@ -9,7 +9,7 @@ export * from './mod.controller';
 export * from './screenshot.controller';
 export * from './system.controller';
 
-export const controllers: Type<unknown>[] = [
+export const controllers: Array<Type<unknown>> = [
   CreatorController,
   ModController,
   ScreenshotController,

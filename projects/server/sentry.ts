@@ -6,16 +6,16 @@
 import * as Sentry from '@sentry/bun';
 import { config } from './config';
 
+// Sample 5% of traces in production to keep measuring impact on performance reasonable and still
+// capture a significant amount of data.
+const productionTracesSampleRate = 0.05;
+
 Sentry.init({
-  dsn:
-    config.sentry.dsn == 'disabled'
-      ? // The type is wrong, undefined value is permitted.
-        (undefined as unknown as string)
-      : config.sentry.dsn,
+  dsn: config.sentry.dsn == 'disabled' ? undefined : config.sentry.dsn,
   environment: config.env,
   enableLogs: true,
-  sampleRate: 1.0,
+  sampleRate: 1,
   sendDefaultPii: true,
-  tracesSampleRate: config.env == 'development' ? 1.0 : 0.05,
+  tracesSampleRate: config.env == 'development' ? 1 : productionTracesSampleRate,
   integrations: [Sentry.extraErrorDataIntegration(), Sentry.openAIIntegration()]
 });

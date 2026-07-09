@@ -1,5 +1,5 @@
 import * as fs from 'node:fs/promises';
-import * as path from 'node:path';
+import path from 'node:path';
 import type { Provider } from '@nestjs/common';
 import chalk from 'chalk';
 import { type ClientSession, type Db, MongoClient } from 'mongodb';
@@ -79,9 +79,9 @@ export class MigrateCommand extends CommandRunner {
     }
 
     // Get all .ts files in the migrations directory
-    return (await fs.readdir(this.migrationsPath))
-      .filter(file => file != 'types.ts' && file.endsWith('.ts'))
-      .sort();
+    const files = await fs.readdir(this.migrationsPath);
+
+    return files.filter(file => file != 'types.ts' && file.endsWith('.ts')).toSorted();
   }
 
   /**
@@ -111,14 +111,14 @@ export class MigrateCommand extends CommandRunner {
     const migrationFiles = await this.getMigrationFiles();
 
     const executedMigrations = await this.db
-      .collection('migrations')
+      .collection<{ name: string }>('migrations')
       .find({}, { projection: { name: 1 } })
       .sort({ name: 1 })
       .toArray();
 
-    const executedMigrationNames = executedMigrations.map(migration => migration.name);
+    const executedMigrationNames = new Set(executedMigrations.map(migration => migration.name));
 
-    return migrationFiles.filter(file => !executedMigrationNames.includes(file));
+    return migrationFiles.filter(file => !executedMigrationNames.has(file));
   }
 
   /**
@@ -130,10 +130,10 @@ export class MigrateCommand extends CommandRunner {
     const migrationFilePath = path.join(this.migrationsPath, migrationFile);
 
     // Import the migration file.
-    const migrationModule = await import(migrationFilePath);
+    const migrationModule = (await import(migrationFilePath)) as { migration?: Migration };
 
     // Check module format.
-    const migration: Migration | undefined = migrationModule.migration;
+    const { migration } = migrationModule;
 
     if (!migration) {
       throw `Migration ${migrationFile} does not have an exported "migration" object.`;

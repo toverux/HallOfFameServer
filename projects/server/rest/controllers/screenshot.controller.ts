@@ -1,4 +1,3 @@
-// biome-ignore lint/correctness/noUnresolvedImports: false positive
 import type { Multipart } from '@fastify/multipart';
 import {
   BadRequestException,
@@ -19,6 +18,7 @@ import {
   Res,
   UseGuards
 } from '@nestjs/common';
+import { inspect } from 'bun';
 import { oneLine } from 'common-tags';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { ObjectId } from 'mongodb';
@@ -49,13 +49,30 @@ export class ScreenshotController {
   /**
    * Regular expression to validate a city name:
    * - Must contain only letters, numbers, spaces, hyphens, apostrophes and commas (Latin, CJK) and
-   *   Chinese middle dot.
+   * Chinese middle dot.
    * - Must be between 1 and 35 characters long. 1-character-long names are for languages like
-   *   Chinese.
+   * Chinese.
    */
   private static readonly cityNameRegex = /^[\p{L}\p{N}\- '’,、•]{1,35}$/u;
 
-  /** @see updateOne */
+  /**
+   * Maximum accepted milestone value.
+   */
+  private static readonly maxMilestone = 20;
+
+  /**
+   * Maximum accepted city population.
+   */
+  private static readonly maxPopulation = 5_000_000;
+
+  /**
+   * Maximum accepted screenshot description length.
+   */
+  private static readonly maxDescriptionLength = 4000;
+
+  /**
+   * @see updateOne
+   */
   private static readonly updateScreenshotBodySchema = z.strictObject({
     cityName: z.string().optional(),
     showcasedModId: z.string().optional(),
@@ -87,7 +104,7 @@ export class ScreenshotController {
    * Provides additional metadata such as favorited status if the user is authenticated.
    */
   @Get()
-  // biome-ignore lint/complexity/useMaxParams: query handler with decorators.
+  // oxlint-disable-next-line max-params - NestJS handler; params are decorator-bound
   public async getAll(
     @Req() req: FastifyRequest,
     @Query('creatorId') creatorId: CreatorIdentifier | undefined,
@@ -105,34 +122,37 @@ export class ScreenshotController {
 
     const creator = req[CreatorAuthenticationService.authenticatedCreatorKey];
 
+    let resolvedCreatorId = creatorId;
+
     // If the creatorId filter is not an ObjectId or 'me', try to find by Creator name.
-    if (typeof creatorId == 'string' && creatorId != 'me' && !ObjectId.isValid(creatorId)) {
-      const creator = await this.prisma.creator.findFirst({
+    if (
+      typeof resolvedCreatorId == 'string' &&
+      resolvedCreatorId != 'me' &&
+      !ObjectId.isValid(resolvedCreatorId)
+    ) {
+      const creatorByName = await this.prisma.creator.findFirst({
         select: { id: true },
         where: {
-          // biome-ignore lint/style/useNamingConvention: prisma
           OR: [
-            { creatorName: { equals: creatorId, mode: 'insensitive' } },
-            { creatorNameSlug: creatorId }
+            { creatorName: { equals: resolvedCreatorId, mode: 'insensitive' } },
+            { creatorNameSlug: resolvedCreatorId }
           ]
         }
       });
 
-      if (!creator) {
-        throw new NotFoundByIdError(creatorId);
+      if (!creatorByName) {
+        throw new NotFoundByIdError(resolvedCreatorId);
       }
 
-      // biome-ignore lint/style/noParameterAssign: legitimate use case
-      creatorId = creator?.id;
+      resolvedCreatorId = creatorByName.id;
     }
     // If the creatorId filter is 'me', replace it with the logged-in creator ID.
-    else if (creatorId == 'me') {
-      // biome-ignore lint/style/noParameterAssign: legitimate use case
-      creatorId = CreatorAuthenticationService.getAuthenticatedCreator(req).id;
+    else if (resolvedCreatorId == 'me') {
+      resolvedCreatorId = CreatorAuthenticationService.getAuthenticatedCreator(req).id;
     }
 
     const screenshots = await this.prisma.screenshot.findMany({
-      where: { creatorId: creatorId ?? Prisma.skip },
+      where: { creatorId: resolvedCreatorId ?? Prisma.skip },
       include: {
         creator: true,
         favorites: includeFavorites ? { include: { creator: true } } : Prisma.skip,
@@ -144,13 +164,15 @@ export class ScreenshotController {
     const favorited =
       creator &&
       (await this.favoriteService.isFavoriteBatched(
-        screenshots.map(s => s.id),
+        screenshots.map(screenshot => screenshot.id),
         creator
       ));
 
     // Find all showcased mods.
     const showcasedModIds = includeShowcasedMod
-      ? screenshots.map(s => s.showcasedModId as ParadoxModId).filter(id => id != null)
+      ? screenshots
+          .map(screenshot => screenshot.showcasedModId as ParadoxModId)
+          .filter(id => id != null)
       : [];
 
     const showcasedMods = includeShowcasedMod
@@ -164,6 +186,7 @@ export class ScreenshotController {
 
       const payload = this.screenshotService.serialize({ ...screenshot, showcasedMod }, req);
 
+      // oxlint-disable-next-line no-underscore-dangle
       payload.__favorited = favorited?.[index] ?? false;
 
       return payload;
@@ -204,6 +227,7 @@ export class ScreenshotController {
 
     // If the user is authenticated, we check if the screenshot is already in their favorites.
     // Otherwise, set it to false.
+    // oxlint-disable-next-line no-underscore-dangle
     payload.__favorited =
       creator != null && (await this.favoriteService.isFavorite(screenshot.id, creator));
 
@@ -275,24 +299,24 @@ export class ScreenshotController {
    * See {@link ScreenshotService} for the description of the algorithms.
    * By default, all weights are zero and "random" is used.
    *
-   * @param req           The request object.
-   * @param random        Weight for the "random" algorithm, see
-   *                      {@link ScreenshotService.getScreenshotRandom}.
-   * @param popular       Weight for the "popular" algorithm, see
-   *                      {@link ScreenshotService.getScreenshotPopular}.
-   * @param trending      Weight for the "trending" algorithm, see
-   *                      {@link ScreenshotService.getScreenshotTrending}.
-   * @param recent        Weight for the "recent" algorithm, see
-   *                      {@link ScreenshotService.getScreenshotRecent}.
-   * @param archeologist  Weight for the "archeologist" algorithm, see
-   *                      {@link ScreenshotService.getScreenshotArcheologist}.
-   * @param supporter     Weight for the "supporter" algorithm, see
-   *                      {@link ScreenshotService.getScreenshotSupporter}.
-   * @param viewMaxAge    Min time in days before showing a screenshot the user has already seen.
-   *                      Default is 60, 0 is no limit.
+   * @param req The request object.
+   * @param random Weight for the "random" algorithm, see
+   *   {@link ScreenshotService.getScreenshotRandom}.
+   * @param popular Weight for the "popular" algorithm, see
+   *   {@link ScreenshotService.getScreenshotPopular}.
+   * @param trending Weight for the "trending" algorithm, see
+   *   {@link ScreenshotService.getScreenshotTrending}.
+   * @param recent Weight for the "recent" algorithm, see
+   *   {@link ScreenshotService.getScreenshotRecent}.
+   * @param archeologist Weight for the "archeologist" algorithm, see
+   *   {@link ScreenshotService.getScreenshotArcheologist}.
+   * @param supporter Weight for the "supporter" algorithm, see
+   *   {@link ScreenshotService.getScreenshotSupporter}.
+   * @param viewMaxAge Min time in days before showing a screenshot the user has already seen.
+   *   Default is 60, 0 is no limit.
    */
   @Get('weighted')
-  // biome-ignore lint/complexity/useMaxParams: query handler with decorators.
+  // oxlint-disable-next-line max-params - NestJS handler; params are decorator-bound
   public async getRandomWeighted(
     @Req()
     req: FastifyRequest,
@@ -310,7 +334,7 @@ export class ScreenshotController {
     supporter = 0,
     @Query('viewMaxAge', new ParseIntPipe({ optional: true }))
     viewMaxAge = 60
-  ) {
+  ): Promise<JsonObject> {
     const creator = req[CreatorAuthenticationService.authenticatedCreatorKey];
 
     const weights = { random, popular, trending, recent, archeologist, supporter };
@@ -336,10 +360,12 @@ export class ScreenshotController {
       req
     );
 
+    // oxlint-disable-next-line no-underscore-dangle
     payload.__algorithm = screenshot.__algorithm;
 
     // If the user is authenticated, we check if the screenshot is already in their favorites.
     // Otherwise, set it to false.
+    // oxlint-disable-next-line no-underscore-dangle
     payload.__favorited =
       creator != null && (await this.favoriteService.isFavorite(screenshot.id, creator));
 
@@ -349,9 +375,9 @@ export class ScreenshotController {
   /**
    * Delete a screenshot by ID.
    *
-   * @throws NotFoundByIdError If the screenshot cannot be found.
-   * @throws ForbiddenError    If the authenticated creator is not the one who posted the
-   *                           screenshot.
+   * @throws {NotFoundByIdError} If the screenshot cannot be found.
+   * @throws {ForbiddenError} If the authenticated creator is not the one who posted the
+   * screenshot.
    */
   @Delete(':id')
   public async deleteOne(
@@ -387,9 +413,9 @@ export class ScreenshotController {
    * - {@link Screenshot.shareParadoxModIds}
    * - {@link Screenshot.shareRenderSettings}
    *
-   * @throws NotFoundByIdError If the screenshot cannot be found.
-   * @throws ForbiddenError    If the authenticated creator is not the one who posted the
-   *                           screenshot.
+   * @throws {NotFoundByIdError} If the screenshot cannot be found.
+   * @throws {ForbiddenError} If the authenticated creator is not the one who posted the
+   * screenshot.
    */
   @Put(':id')
   public async updateOne(
@@ -515,12 +541,11 @@ export class ScreenshotController {
    * - `shareRenderSettings`: Whether to share the photo mode settings for the screenshots.
    * - `renderSettings`: A JSON string containing the render settings for the screenshot.
    * - `metadata`: A JSON string containing additional metadata about the screenshot that is not
-   *   exploited by the application.
+   * exploited by the application.
    * - `screenshot` (required): The screenshot file, a JPEG.
    *
    * Response will be 201 with a serialized Screenshot.
    */
-  // biome-ignore lint/complexity/noExcessiveLinesPerFunction: inherently sequential, but we will refactor using a proper validator.
   @Post()
   public async upload(
     @Req() req: FastifyRequest,
@@ -625,7 +650,7 @@ export class ScreenshotController {
 
     if (!(field && 'value' in field)) {
       if (!strict) {
-        return;
+        return undefined;
       }
 
       throw new InvalidPayloadError(`Expected a multipart field named '${fieldName}'.`);
@@ -633,15 +658,15 @@ export class ScreenshotController {
 
     const value = String(field.value).trim();
 
-    if (!value) {
-      return;
+    if (value == '') {
+      return undefined;
     }
 
     return value;
   }
 
   private validateCityName(name: string): string {
-    if (!name.match(ScreenshotController.cityNameRegex)) {
+    if (!ScreenshotController.cityNameRegex.test(name)) {
       throw new InvalidCityNameError(name);
     }
 
@@ -649,11 +674,13 @@ export class ScreenshotController {
   }
 
   private validateMilestone(milestone: string): number {
-    const parsed = Number.parseInt(milestone, 10);
+    const parsed = Math.trunc(Number(milestone));
 
-    if (Number.isNaN(parsed) || parsed < 0 || parsed > 20) {
+    if (Number.isNaN(parsed) || parsed < 0 || parsed > ScreenshotController.maxMilestone) {
       throw new InvalidPayloadError(
-        `Invalid milestone, it must be a positive integer between 0 and 20.`
+        oneLine`
+        Invalid milestone, it must be a positive integer between 0 and
+        ${ScreenshotController.maxMilestone}.`
       );
     }
 
@@ -661,9 +688,9 @@ export class ScreenshotController {
   }
 
   private validatePopulation(population: string): number {
-    const parsed = Number.parseInt(population, 10);
+    const parsed = Math.trunc(Number(population));
 
-    if (Number.isNaN(parsed) || parsed < 0 || parsed > 5_000_000) {
+    if (Number.isNaN(parsed) || parsed < 0 || parsed > ScreenshotController.maxPopulation) {
       throw new InvalidPayloadError(`Invalid population number, it must be a positive integer.`);
     }
 
@@ -672,11 +699,13 @@ export class ScreenshotController {
 
   private validateDescription(description: string | undefined): string | undefined {
     if (!description) {
-      return;
+      return undefined;
     }
 
-    if (description.length > 4000) {
-      throw new InvalidPayloadError(`Description must be at most 4000 characters long.`);
+    if (description.length > ScreenshotController.maxDescriptionLength) {
+      throw new InvalidPayloadError(
+        `Description must be at most ${ScreenshotController.maxDescriptionLength} characters long.`
+      );
     }
 
     return description;
@@ -688,7 +717,7 @@ export class ScreenshotController {
     }
 
     const modIds = commaSeparatedModIds.split(',').map(id => {
-      const parsed = Number.parseInt(id.trim(), 10);
+      const parsed = Math.trunc(Number(id.trim()));
 
       if (Number.isNaN(parsed) || parsed < 1) {
         throw new InvalidPayloadError(
@@ -717,7 +746,9 @@ export class ScreenshotController {
 
       return Object.entries(settings).reduce<Record<string, number>>((map, [key, value]) => {
         if (typeof value != 'number') {
-          throw new Error(`expected a number value for the key "${key}", got "${value}"`);
+          throw new TypeError(
+            `expected a number value for the key "${key}", got "${inspect(value)}"`
+          );
         }
 
         map[key] = value;

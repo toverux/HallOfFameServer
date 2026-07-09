@@ -24,7 +24,7 @@ Find our user feedback, feature request and roadmap board here:
    - Per-project Bun & Node.js version management,
    - Task runner (also used in git hooks),
    - .env/.env.local/.env.remote file loading.
-   - It is not *required*, but you will have to work around some issues if you don't have it.
+   - It is not _required_, but you will have to work around some issues if you don't have it.
 2. Run `mise i` to install the required version of Bun and Node.js,
 3. Run `bun i` to install dependencies.
 4. You may `bun run build` to test that the project builds and everything is in order.
@@ -66,18 +66,19 @@ update for npm dependencies.
 
 ### TypeScript
 
-TypeScript code is formatted and linted by [Biome](https://biomejs.dev).
+TypeScript code is formatted and linted by the [Oxc toolchain](https://oxc.rs) (oxfmt and oxlint).
 
-Run `mise check` to typecheck the database, linting errors, format files and autofix simple issues.
-You can also use Biome directly with `bun biome`.
+Run `mise check` to typecheck the database, linting errors, format files and autofix simple issues
+(run `mise tasks` to see more checking options).
 
 The formatter and linter should run as a pre-commit hook if you have it installed, which should be
 done automatically when running `bun i` (otherwise, run `bun lefthook install`).
 
-I'd suggest using a Biome plugin for your editor to ease development.
+I'd suggest using an Oxc plugin for your editor to ease development. Make sure that your plugin is
+set to type-aware mode if it does not inherit this configuration from the project.
 
 If a rule seems out of place for this project, you can either disable/reconfigure it in the
-`biome.json` file or disable it with an annotation comment, but these should be justified and
+`oxlint.config.ts` file or disable it with an annotation comment, but these should be justified and
 concerted.
 
 ### Commit messages

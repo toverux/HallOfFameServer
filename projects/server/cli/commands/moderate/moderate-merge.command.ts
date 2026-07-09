@@ -45,6 +45,7 @@ export class ModerateMergeCommand extends CommandRunner {
   private readonly screenshotStorage!: ScreenshotStorageService;
 
   public override async run(_args: never): Promise<void> {
+    // oxlint-disable-next-line import/no-named-as-default-member
     const browser = await puppeteer.launch({
       headless: false,
       userDataDir: config.puppeteer.userDataDir,
@@ -70,7 +71,7 @@ export class ModerateMergeCommand extends CommandRunner {
         await browser.close();
       }
 
-      // This should just be because the browser was gracefully closed and the user want to stop.
+      // This should just be because the browser was gracefully closed and the user wants to stop.
       if (
         !config.verbose &&
         (error instanceof PuppeteerError ||
@@ -88,7 +89,7 @@ export class ModerateMergeCommand extends CommandRunner {
 
   private async loopOverScreenshots(page: Page): Promise<void> {
     function setPageStatus(text: string): void {
-      page.evaluate(text => (window as unknown as HofWindow).setStatus(text), text);
+      void page.evaluate(value => (globalThis as unknown as HofWindow).setStatus(value), text);
     }
 
     let lastChoice: 'first' | 'second' | 'both' | undefined;
@@ -106,7 +107,7 @@ export class ModerateMergeCommand extends CommandRunner {
       const firstCreator = nn(authors.find(author => author.id == first.creatorId));
       const secondCreator = nn(authors.find(author => author.id == second.creatorId));
 
-      await page.evaluate(data => (window as unknown as HofWindow).setScreenshotsData(data), {
+      await page.evaluate(data => (globalThis as unknown as HofWindow).setScreenshotsData(data), {
         distance,
         firstScreenshot: {
           ...first,
@@ -126,7 +127,7 @@ export class ModerateMergeCommand extends CommandRunner {
       }
 
       lastChoice = await page.evaluate(
-        () => (window as unknown as HofWindow).screenshotSelectedEvent.promise
+        () => (globalThis as unknown as HofWindow).screenshotSelectedEvent.promise
       );
 
       if (lastChoice == 'both') {
@@ -154,8 +155,7 @@ export class ModerateMergeCommand extends CommandRunner {
     }
   }
 
-  // biome-ignore lint/complexity/noExcessiveLinesPerFunction: it is normal
-  private getPageHtml() {
+  private getPageHtml(): string {
     // noinspection HtmlRequiredAltAttribute,RequiredAttributes
     return stripIndent`
     <title>HoF Similar Screenshots Moderation</title>
@@ -251,28 +251,27 @@ export class ModerateMergeCommand extends CommandRunner {
      * This is serialized to a string and injected into the page, so do not use any external symbol,
      * this must be fully standalone.
      */
-    // biome-ignore lint/complexity/noExcessiveLinesPerFunction: it is normal
-    function script() {
-      // biome-ignore-start lint/style/noNonNullAssertion: they are defined
-      const imgEl = document.getElementById('screenshot') as HTMLImageElement;
-      const statusEl = document.getElementById('status')!;
-      const letterEl = document.getElementById('letter')!;
-      const infoEl = document.querySelector('.info') as HTMLElement;
+    function script(): void {
+      // oxlint-disable typescript/no-non-null-assertion
+      const imgEl = document.querySelector<HTMLImageElement>('#screenshot')!;
+      const statusEl = document.querySelector('#status')!;
+      const letterEl = document.querySelector<HTMLElement>('#letter')!;
+      const infoEl = document.querySelector<HTMLElement>('.info')!;
       const cityNameEl = document.querySelector('.info #cityName')!;
       const authorNameEl = document.querySelector('.info #authorName')!;
       const similarityEl = document.querySelector('.info #similarity')!;
       const dateEl = document.querySelector('.info #date')!;
       const favoritesEl = document.querySelector('.info #favorites')!;
-      const keepFirstButton = document.getElementById('keep-first')!;
-      const keepBothButton = document.getElementById('keep-both')!;
-      const keepSecondButton = document.getElementById('keep-second')!;
-      // biome-ignore-end lint/style/noNonNullAssertion: they are defined
+      const keepFirstButton = document.querySelector('#keep-first')!;
+      const keepBothButton = document.querySelector('#keep-both')!;
+      const keepSecondButton = document.querySelector('#keep-second')!;
+      // oxlint-enable typescript/no-non-null-assertion
 
-      let data: ScreenshotsData | undefined;
+      let data: ScreenshotsData | undefined = undefined;
 
       let curScreenshot: ScreenshotsData['firstScreenshot'] | ScreenshotsData['secondScreenshot'];
 
-      const hofWindow = window as unknown as HofWindow;
+      const hofWindow = globalThis as unknown as HofWindow;
 
       hofWindow.setStatus = setStatus;
       hofWindow.setScreenshotsData = setScreenshotsData;
@@ -289,13 +288,16 @@ export class ModerateMergeCommand extends CommandRunner {
         const key = event.key.toLowerCase();
 
         switch (key) {
-          case 'a':
+          case 'a': {
             return resolve('first');
-          case 'b':
+          }
+          case 'b': {
             return resolve('second');
-          case 'i':
+          }
+          case 'i': {
             return resolve('both');
-          default: // noop
+          }
+          default: // Noop
         }
 
         if (event.code == 'Space') {
@@ -304,7 +306,7 @@ export class ModerateMergeCommand extends CommandRunner {
         }
       });
 
-      const resolve = (result: 'first' | 'both' | 'second') => {
+      const resolve = (result: 'first' | 'both' | 'second'): void => {
         hofWindow.screenshotSelectedEvent.resolve(result);
         data = undefined;
         refreshCurrentScreenshot();

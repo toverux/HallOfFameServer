@@ -27,8 +27,8 @@ import { isPrismaError } from '../common/prisma-errors';
 import { NotFoundByIdError, StandardError } from '../common/standard-error';
 import { config } from '../config';
 import { AiTranslatorService } from './ai-translator.service';
-import { CreatorService } from './creator.service';
 import { CreatorAuthenticationService } from './creator-authentication.service';
+import { CreatorService } from './creator.service';
 import { DateFnsLocalizationService } from './date-fns-localization.service';
 import { FavoriteService } from './favorite.service';
 import { ModService } from './mod.service';
@@ -136,7 +136,6 @@ export class ScreenshotService implements OnApplicationBootstrap {
    * - Asynchronously inferring similarity embeddings for the screenshot.
    * - Asynchronously warming up the mods' cache from the used playset.
    */
-  // biome-ignore lint/complexity/noExcessiveLinesPerFunction: easier to follow that way, intricate code.
   public async ingestScreenshot({
     healthcheck,
     ...data
@@ -202,6 +201,7 @@ export class ScreenshotService implements OnApplicationBootstrap {
 
     if (!healthcheck) {
       // Translate city name asynchronously.
+      // oxlint-disable-next-line promise/prefer-await-to-then promise/prefer-await-to-callbacks
       this.updateCityNameTranslation(screenshot).catch(error => {
         this.logger.error(
           `Failed to translate city name "${screenshot.cityName}" (#${screenshot.id}).`,
@@ -216,6 +216,7 @@ export class ScreenshotService implements OnApplicationBootstrap {
         .batchUpdateEmbeddings(screenshot.id, [
           { id: screenshot.id, imageUrlOrBuffer: imageFhdBuffer }
         ])
+        // oxlint-disable-next-line promise/prefer-await-to-then promise/prefer-await-to-callbacks
         .catch(error => {
           this.logger.error(
             `Failed to infer embeddings for screenshot "${screenshot.cityName}" (#${screenshot.id}).`,
@@ -229,6 +230,7 @@ export class ScreenshotService implements OnApplicationBootstrap {
       // Note: no need to include `showcasedModId` as it's necessarily included in `paradoxModIds`.
       const modIds = new Set(screenshot.paradoxModIds as ParadoxModId[]);
 
+      // oxlint-disable-next-line promise/prefer-await-to-then promise/prefer-await-to-callbacks
       this.modService.getMods(modIds).catch(error => {
         this.logger.error(
           `Failed to warmup mods cache for screenshot "${screenshot.cityName}" (#${screenshot.id}).`,
@@ -267,7 +269,7 @@ export class ScreenshotService implements OnApplicationBootstrap {
           shareRenderSettings: data.shareRenderSettings ?? true,
           renderSettings: data.renderSettings,
           metadata: data.metadata,
-          isReported: healthcheck // make sure health check uploads are never shown
+          isReported: healthcheck // Make sure health check uploads are never shown
         }
       });
 
@@ -304,11 +306,11 @@ export class ScreenshotService implements OnApplicationBootstrap {
    * - If a showcased mod is added, the mod cache is warmed up synchronously.
    *
    * @param screenshotId The unique identifier of the screenshot to update.
-   * @param data         The data to update the screenshot with.
-   * @param prisma       An optional Prisma transaction client, if the operation is executed within
-   *                     an existing transaction.
+   * @param data The data to update the screenshot with.
+   * @param prisma An optional Prisma transaction client, if the operation is executed within
+   *   an existing transaction.
    *
-   * @return A promise that resolves to the updated screenshot object.
+   * @returns A promise that resolves to the updated screenshot object.
    */
   public updateScreenshot(
     screenshotId: Screenshot['id'],
@@ -322,7 +324,6 @@ export class ScreenshotService implements OnApplicationBootstrap {
       ? transaction.call(this, prisma)
       : this.prisma.$transaction(transaction.bind(this));
 
-    // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: splitting it would make it harder to follow.
     async function transaction(
       this: ScreenshotService,
       tx: Prisma.TransactionClient
@@ -360,6 +361,7 @@ export class ScreenshotService implements OnApplicationBootstrap {
 
         // Translate city name asynchronously.
         if (needsTranslation) {
+          // oxlint-disable-next-line promise/prefer-await-to-then promise/prefer-await-to-callbacks
           this.updateCityNameTranslation(screenshot).catch(error => {
             this.logger.error(
               `Failed to translate city name "${screenshot.cityName}" (#${screenshot.id}).`,
@@ -385,10 +387,10 @@ export class ScreenshotService implements OnApplicationBootstrap {
    * Deletes a screenshot and its associated resources, including embeddings and stored images.
    *
    * @param screenshotId The unique identifier of the screenshot to be deleted.
-   * @param prisma       An optional Prisma transaction client, if the operation is executed within
-   *                     an existing transaction.
+   * @param prisma An optional Prisma transaction client, if the operation is executed within
+   *   an existing transaction.
    *
-   * @return A promise that resolves to the deleted screenshot record.
+   * @returns A promise that resolves to the deleted screenshot record.
    */
   public deleteScreenshot(
     screenshotId: Screenshot['id'],
@@ -400,14 +402,14 @@ export class ScreenshotService implements OnApplicationBootstrap {
 
     async function transaction(
       this: ScreenshotService,
-      prisma: Prisma.TransactionClient
+      tx: Prisma.TransactionClient
     ): Promise<Screenshot> {
       try {
         // Embeddings require special cleanup (ex. index removal), so we do not rely on the Prisma
         // relation.
-        await this.screenshotSimilarityDetector.deleteEmbedding(screenshotId, prisma);
+        await this.screenshotSimilarityDetector.deleteEmbedding(screenshotId, tx);
 
-        const screenshot = await prisma.screenshot.delete({
+        const screenshot = await tx.screenshot.delete({
           where: { id: screenshotId }
         });
 
@@ -432,7 +434,7 @@ export class ScreenshotService implements OnApplicationBootstrap {
    *
    * @param screenshotId Screenshot to mark as reported.
    * @param reportedById The Creator OID of the user who made the report.
-   *                     Useful to reset a bunch of reports if the report feature is abused.
+   *   Useful to reset a bunch of reports if the report feature is abused.
    */
   public async markReported(
     screenshotId: Screenshot['id'],
@@ -609,9 +611,10 @@ export class ScreenshotService implements OnApplicationBootstrap {
     }
 
     // At this point we have a screenshot or the database is empty.
-    assert(screenshot, `Not a single screenshot found. Empty database?`);
+    assert.ok(screenshot, `Not a single screenshot found. Empty database?`);
 
     this.logger.verbose(
+      // oxlint-disable-next-line no-underscore-dangle
       `We have a screenshot! (id: #${screenshot.id}, algo: ${screenshot.__algorithm})`
     );
 
@@ -689,7 +692,8 @@ export class ScreenshotService implements OnApplicationBootstrap {
       showcasedModId: screenshot.showcasedModId,
       showcasedMod:
         screenshot.showcasedMod === undefined
-          ? optionallySerialized(undefined)
+          ? // oxlint-disable-next-line unicorn/no-useless-undefined - required
+            optionallySerialized(undefined)
           : screenshot.showcasedMod
             ? this.modService.serialize(screenshot.showcasedMod)
             : null,
@@ -716,9 +720,11 @@ export class ScreenshotService implements OnApplicationBootstrap {
         {
           $group: {
             _id: null,
+            // oxlint-disable-next-line id-length
             p: {
               $percentile: {
                 input: '$favoritingPercentage',
+                // oxlint-disable-next-line id-length
                 p: [config.screenshots.popularScreenshotsPercentile],
                 method: 'approximate'
               }
@@ -737,11 +743,11 @@ export class ScreenshotService implements OnApplicationBootstrap {
    * Used by {@link getWeightedRandomScreenshot}.
    *
    * Given a set of weights for each algorithm:
-   *  - Selects an algorithm based on the weights.
-   *  - Tries to get a screenshot using the selected algorithm.
-   *  - If no screenshot is found using the selected algorithm, removes it from the candidate
-   *    algorithms so it is not selected again.
-   *  - Repeats the process until a screenshot is found or all algorithms have been tried.
+   * - Selects an algorithm based on the weights.
+   * - Tries to get a screenshot using the selected algorithm.
+   * - If no screenshot is found using the selected algorithm, removes it from the candidate
+   * algorithms so it is not selected again.
+   * - Repeats the process until a screenshot is found or all algorithms have been tried.
    */
   private async tryGetWeightedRandomScreenshot(
     weights: RandomScreenshotWeights,
@@ -761,7 +767,7 @@ export class ScreenshotService implements OnApplicationBootstrap {
 
       // If the total weight is 0, we have tried all algorithms, bail out.
       if (totalWeight == 0) {
-        return;
+        return undefined;
       }
 
       // Get a random number between 0 and the total weight.
@@ -771,10 +777,9 @@ export class ScreenshotService implements OnApplicationBootstrap {
       let random = Math.random() * totalWeight;
 
       // Algorithm-to-weight pairs to iterate through.
-      const algoWeightsKeyPairs = Object.entries(currentWeights) as [
-        RandomScreenshotAlgorithm,
-        number
-      ][];
+      const algoWeightsKeyPairs = Object.entries(currentWeights) as Array<
+        [RandomScreenshotAlgorithm, number]
+      >;
 
       // Iterate through the algorithms and their weights until we find a winner for the
       // running random number.
@@ -792,7 +797,7 @@ export class ScreenshotService implements OnApplicationBootstrap {
         this.logger.debug(`Try screenshot selection algorithm: ${algorithm}`);
 
         // We found a winner, try to get a screenshot!
-        // biome-ignore lint/performance/noAwaitInLoops: algorithmically needed.
+        // oxlint-disable-next-line no-await-in-loop - sequential by design: one weighted-random algorithm is tried per iteration, only trying another if the previous found nothing
         const screenshot = await this.randomScreenshotFunctions[algorithm](viewedIds);
 
         // If we found a screenshot, return it with the algorithm name.
@@ -800,9 +805,8 @@ export class ScreenshotService implements OnApplicationBootstrap {
           return { ...screenshot, __algorithm: algorithm };
         }
 
-        // If we did not find a screenshot, remove the algorithm from the list of candidates
-        // so it is not selected again, assigning a weight of 0 would work too.
-        delete currentWeights[algorithm];
+        // If we didn't find a screenshot, set the algorithm's weight to 0 so it is not tried again.
+        currentWeights[algorithm] = 0;
 
         // Break the for loop, we tried this algorithm. The outer loop will call us again to
         // try another one if there are any left.
@@ -816,7 +820,7 @@ export class ScreenshotService implements OnApplicationBootstrap {
    * A user is identified by their creator ID or hardware ID, meaning two Creator IDs with the
    * same hardware ID will share the same quota.
    *
-   * @throws ScreenshotRateLimitExceededError If the limit is reached.
+   * @throws {ScreenshotRateLimitExceededError} If the limit is reached.
    */
   private async checkUploadLimit(creator: Pick<Creator, 'id' | 'ips' | 'hwids'>): Promise<void> {
     // Let's find out by retrieving the screenshots uploaded in the last 24 hours, oldest first,
@@ -826,7 +830,6 @@ export class ScreenshotService implements OnApplicationBootstrap {
       select: { createdAt: true },
       orderBy: { createdAt: 'asc' },
       where: {
-        // biome-ignore lint/style/useNamingConvention: prisma
         OR: [
           { creatorId: creator.id },
           { hwid: { in: creator.hwids } },
@@ -862,9 +865,9 @@ export class ScreenshotService implements OnApplicationBootstrap {
 
   /**
    * Retrieves a screenshot that has a high favoriting percentage:
-   *  - ≥ 10 favorites
-   *  - ≥ X% favoriting percentage (X being dynamically determined, see
-   *      {@link getPopularFavoritingPercentageThreshold})
+   * - ≥ 10 favorites
+   * - ≥ X% favoriting percentage (X being dynamically determined, see
+   * {@link getPopularFavoritingPercentageThreshold})
    */
   private getScreenshotPopular(nin: readonly JsonOid[]): Promise<Screenshot | null> {
     // Uses [isReported, favoritesCount, favoritingPercentage] compound index for matching, test
@@ -884,10 +887,10 @@ export class ScreenshotService implements OnApplicationBootstrap {
 
   /**
    * Retrieves a screenshot that has one of the highest favoriting percentage:
-   *  - ≥ 1% favoriting percentage (this is mostly an optimization pass to reduce the set).
-   *  - Sorts by favoriting percentage descending.
-   *  - Limits to the X best.
-   *  - Takes one random screenshot in that pool.
+   * - ≥ 1% favoriting percentage (this is mostly an optimization pass to reduce the set).
+   * - Sorts by favoriting percentage descending.
+   * - Limits to the X best.
+   * - Takes one random screenshot in that pool.
    */
   private getScreenshotTrending(nin: readonly JsonOid[]): Promise<Screenshot | null> {
     // Uses [isReported, favoritingPercentage] compound index for sorting with limiting and
@@ -908,10 +911,10 @@ export class ScreenshotService implements OnApplicationBootstrap {
 
   /**
    * Retrieves a screenshot uploaded between X days ago (configurable in env) and now:
-   *  - Matches screenshots posted within the time window.
-   *  - Sorts by views count ascending so that the least viewed screenshots are prioritized.
-   *  - Limits to the X most recent, least viewed.
-   *  - Takes one random screenshot in that pool.
+   * - Matches screenshots posted within the time window.
+   * - Sorts by views count ascending so that the least viewed screenshots are prioritized.
+   * - Limits to the X most recent, least viewed.
+   * - Takes one random screenshot in that pool.
    */
   private getScreenshotRecent(nin: readonly JsonOid[]): Promise<Screenshot | null> {
     const $date = dfns.subDays(new Date(), config.screenshots.recencyThresholdDays);
@@ -935,10 +938,10 @@ export class ScreenshotService implements OnApplicationBootstrap {
 
   /**
    * Retrieves a screenshot among the ones that have the fewest views:
-   *  - Omits recent screenshots (see {@link getScreenshotRecent}) because they also have few views.
-   *  - Sorts by views count ascending so that the least viewed screenshots are prioritized.
-   *  - Limits to the X most ancient, least viewed.
-   *  - Takes one random screenshot in that pool.
+   * - Omits recent screenshots (see {@link getScreenshotRecent}) because they also have few views.
+   * - Sorts by views count ascending so that the least viewed screenshots are prioritized.
+   * - Limits to the X most ancient, least viewed.
+   * - Takes one random screenshot in that pool.
    */
   private getScreenshotArcheologist(nin: readonly JsonOid[]): Promise<Screenshot | null> {
     const $date = dfns.subDays(new Date(), config.screenshots.recencyThresholdDays);
@@ -961,11 +964,11 @@ export class ScreenshotService implements OnApplicationBootstrap {
 
   /**
    * Retrieves a screenshot made by a supporter:
-   *  - Finds a random supporter.
-   *  - Matches screenshots posted by that supporter.
-   *  - Sorts by views count ascending so that the least viewed screenshots are prioritized.
-   *  - Sorts by upload date ascending so that the oldest screenshots are prioritized.
-   *  - Takes one random screenshot in that pool.
+   * - Finds a random supporter.
+   * - Matches screenshots posted by that supporter.
+   * - Sorts by views count ascending so that the least viewed screenshots are prioritized.
+   * - Sorts by upload date ascending so that the oldest screenshots are prioritized.
+   * - Takes one random screenshot in that pool.
    */
   private async getScreenshotSupporter(nin: readonly JsonOid[]): Promise<Screenshot | null> {
     const supporters = await this.prisma.creator.aggregateRaw({
@@ -976,7 +979,7 @@ export class ScreenshotService implements OnApplicationBootstrap {
       ]
     });
 
-    assert(Array.isArray(supporters), `Expected an array of 0..1 results.`);
+    assert.ok(Array.isArray(supporters), `Expected an array of 0..1 results.`);
 
     const supporter = supporters[0] as JsonObject;
     if (!supporter?._id) {
@@ -1008,7 +1011,7 @@ export class ScreenshotService implements OnApplicationBootstrap {
       pipeline
     });
 
-    assert(Array.isArray(results), `Expected an array of 0..1 results.`);
+    assert.ok(Array.isArray(results), `Expected an array of 0..1 results.`);
 
     const screenshot = results[0] as JsonObject;
     if (!(screenshot?._id as JsonObject | undefined)?.$oid) {

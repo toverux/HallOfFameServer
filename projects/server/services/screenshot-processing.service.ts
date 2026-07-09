@@ -1,4 +1,4 @@
-import * as path from 'node:path';
+import path from 'node:path';
 import { Injectable } from '@nestjs/common';
 import * as Bun from 'bun';
 import * as dateFns from 'date-fns';
@@ -23,16 +23,11 @@ export class ScreenshotProcessingService {
       // Use well-known and standard EXIF fields.
       // https://exiftool.org/TagNames/EXIF.html
       .withExif({
-        // biome-ignore lint/style/useNamingConvention: EXIF Standard
         IFD0: {
-          // biome-ignore lint/style/useNamingConvention: EXIF Standard
           Software: 'Cities: Skylines II, Hall of Fame Mod',
-          // biome-ignore lint/style/useNamingConvention: EXIF Standard
           Artist: metadata.creatorName ?? 'Anonymous',
-          // biome-ignore lint/style/useNamingConvention: EXIF Standard
           ImageDescription: metadata.cityName,
           // Must respect a specific format for EXIF dates.
-          // biome-ignore lint/style/useNamingConvention: EXIF Standard
           DateTime: dateFns.format(new Date(), 'yyyy:MM:dd hh:mm:ss')
         }
       })
@@ -56,9 +51,16 @@ export class ScreenshotProcessingService {
       withoutEnlargement: true
     };
 
-    const imageThumbnail = image.clone().resize(256, 144, options);
-    const imageFhd = image.clone().resize(1920, 1080, options);
-    const image4k = image.clone().resize(3840, 2160, options);
+    // Target minimum resolutions (width x height) for each generated variant.
+    const { thumbnail, fhd, fourK } = {
+      thumbnail: { width: 256, height: 144 },
+      fhd: { width: 1920, height: 1080 },
+      fourK: { width: 3840, height: 2160 }
+    };
+
+    const imageThumbnail = image.clone().resize(thumbnail.width, thumbnail.height, options);
+    const imageFhd = image.clone().resize(fhd.width, fhd.height, options);
+    const image4k = image.clone().resize(fourK.width, fourK.height, options);
 
     // Wait for all images to be processed.
     const [imageThumbnailBuffer, imageFhdBuffer, image4kBuffer] = await allFulfilled([

@@ -10,15 +10,14 @@ export class SystemAuthorizationGuard implements CanActivate {
 
     try {
       const header = request.headers.authorization;
-      assert(header, `Header must not be empty`);
+      assert.ok(header, `Header must not be empty`);
 
       const [scheme, password] = header.split(' ');
-      assert(scheme?.toLowerCase() == 'system', `Scheme must be "System"`);
-      assert(password == config.systemPassword, `Invalid system password`);
+      assert.ok(scheme?.toLowerCase() == 'system', `Scheme must be "System"`);
+      assert.ok(password == config.systemPassword, `Invalid system password`);
 
       return true;
     } catch (error) {
-      // biome-ignore lint/suspicious/noMisplacedAssertion: false positive
       if (error instanceof assert.AssertionError) {
         throw new UnauthorizedError(`Invalid Authorization header (${error.message}).`);
       }

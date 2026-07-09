@@ -13,6 +13,7 @@ import { first, firstValueFrom, Subject, timeout } from 'rxjs';
 import usearch, { type Index, MetricKind } from 'usearch';
 import type { Prisma, Screenshot, ScreenshotFeatureEmbedding } from '#prisma-lib/client';
 import { allFulfilled } from '../../shared/utils/all-fulfilled';
+import { seconds } from '../../shared/utils/duration';
 import { nn } from '../../shared/utils/type-assertion';
 import { isPrismaError } from '../common/prisma-errors';
 import { config } from '../config';
@@ -56,6 +57,7 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
 
   /**
    * USearch index for embeddings.
+   *
    * @see https://unum-cloud.github.io/usearch
    */
   private readonly usearchIndex = LazyPromise.from(async () => {
@@ -97,8 +99,10 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
     // In production (but not in CLI), trigger an immediate warmup of inference worker and USearch
     // index by then-ing the lazy promises.
     if (config.env == 'production' && config.runtimeType != 'cli') {
-      this.inferenceWorker.then();
-      this.usearchIndex.then();
+      // oxlint-disable-next-line promise/prefer-await-to-then
+      void this.inferenceWorker.then();
+      // oxlint-disable-next-line promise/prefer-await-to-then
+      void this.usearchIndex.then();
     }
   }
 
@@ -146,10 +150,8 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
    * Until the human in the loop decides to stop because a certain similarity threshold has been
    * reached and cancels the process.
    *
-   * @return An iterable that yields pairs of similar screenshots and their similarity distance.
+   * @yields Pairs of similar screenshots and their similarity distance.
    */
-  // biome-ignore lint/complexity/noExcessiveLinesPerFunction: very simple and sequential.
-  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: very sequential in nature.
   public async *findPotentialDuplicates(): AsyncIterable<
     { screenshots: readonly [Screenshot, Screenshot]; distance: number },
     void,
@@ -209,7 +211,7 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
       const embedding = nn(embeddings[embeddingIndex]);
 
       // Convert Uint64 index key to database hex ID.
-      const matchingEmbeddingId = nn(matches.keys[distanceIndex]).toString(16).padStart(16, '0');
+      const matchingEmbeddingId = keyToId(nn(matches.keys[distanceIndex]));
 
       // We matched against ourselves, this will happen once for every record (given 100% recall).
       if (matchingEmbeddingId == embedding.id) {
@@ -223,7 +225,7 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
 
       // Check whether the two compared embeddings' screenshot authors are the same.
       const cachedMatchingEmbedding = nn(
-        embeddings.find(embedding => embedding.id == matchingEmbeddingId)
+        embeddings.find(candidate => candidate.id == matchingEmbeddingId)
       );
 
       const cachedScreenshot = nn(
@@ -241,7 +243,7 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
       }
 
       // Retrieve up-to-date screenshot document.
-      // biome-ignore lint/performance/noAwaitInLoops: this is desired as part of the generator's logic.
+      // oxlint-disable-next-line no-await-in-loop - not the bottleneck in this loop
       const screenshot = await this.prisma.screenshot.findUnique({
         where: { id: embedding.screenshotId }
       });
@@ -252,6 +254,7 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
       }
 
       // Retrieve matching screenshot document.
+      // oxlint-disable-next-line no-await-in-loop - not the bottleneck in this loop
       const matchingEmbedding = await this.prisma.screenshotFeatureEmbedding.findUnique({
         where: { id: matchingEmbeddingId },
         select: { allowedSimilarityWithIds: true, screenshot: true }
@@ -279,11 +282,12 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
     }
 
     function findMin(values: Float32Array): { index: number; min: number } {
+      // oxlint-disable-next-line no-shadow
       let index = -1;
       let min = Number.POSITIVE_INFINITY;
 
       for (let i = 0; i < values.length; i++) {
-        // biome-ignore lint/style/noNonNullAssertion: cannot be null
+        // oxlint-disable-next-line typescript/no-non-null-assertion - not using nn(), hot path
         const value = values[i]!;
 
         if (value < min) {
@@ -301,13 +305,13 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
    * specified maximum semantic distance.
    * The returned screenshots are sorted by similarity in descending order.
    *
-   * @param screenshot  Object containing the `id` and `imageUrlFHD` properties of the screenshot to
-   *                    find similarities for.
+   * @param screenshot Object containing the `id` and `imageUrlFHD` properties of the screenshot to
+   *   find similarities for.
    * @param maxDistance The maximum allowable distance between embeddings for screenshots to be
-   *                    considered similar.
+   *   considered similar.
    *
-   * @return An array with all screenshot IDs and distances that match the given screenshot within
-   *         the given maximum distance.
+   * @returns An array with all screenshot IDs and distances that match the given screenshot within
+   *   the given maximum distance.
    */
   public async findSimilarScreenshots(
     screenshot: InputScreenshot,
@@ -335,9 +339,9 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
 
     // Note: keys are already sorted by distance, so keep that order.
     const embeddingIdsAndDistance = Array.from(keys)
-      .map((key, index) => ({
-        id: key.toString(16).padStart(16, '0'),
-        distance: nn(distances[index])
+      .map((key, keyIndex) => ({
+        id: keyToId(key),
+        distance: nn(distances[keyIndex])
       }))
       .filter(
         item =>
@@ -379,12 +383,13 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
     for (const screenshot of screenshots) {
       const embedding = embeddings.shift();
 
-      assert(embedding?.length == ScreenshotSimilarityDetectorService.embeddingDimensions);
+      assert.ok(embedding?.length == ScreenshotSimilarityDetectorService.embeddingDimensions);
 
-      // biome-ignore lint/performance/noAwaitInLoops: no need for this kind of performance in this method.
+      // oxlint-disable-next-line no-await-in-loop - not the bottleneck in this function
       const embeddingDoc = await prisma.screenshotFeatureEmbedding.upsert({
         where: { screenshotId: screenshot.id },
         create: {
+          // oxlint-disable-next-line no-magic-numbers - 8 random bytes render as a 16-char hex ID, matching the index key format (see keyToId).
           id: randomBytes(8).toString('hex'),
           screenshotId: screenshot.id,
           embedding
@@ -395,6 +400,7 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
       embeddingDocs.push(embeddingDoc);
 
       if (this.wasUsearchIndexRequired) {
+        // oxlint-disable-next-line no-await-in-loop - not the bottleneck in this function
         const index = await this.usearchIndex;
         const key = BigInt(`0x${embeddingDoc.id}`);
 
@@ -487,6 +493,7 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
 
     const keys = embeddingsDocs.map(doc => BigInt(`0x${doc.id}`));
 
+    // oxlint-disable-next-line import/no-named-as-default-member
     const index = new usearch.Index(
       ScreenshotSimilarityDetectorService.embeddingDimensions,
       MetricKind.Cos
@@ -527,12 +534,12 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
   /**
    * Generates embeddings (calling the inference worker) for the given set of image blob names.
    *
-   * @param batchName   A name for logging/debugging.
+   * @param batchName A name for logging/debugging.
    * @param screenshots An array of screenshots for which embeddings will be computed.
    *
-   * @return A promise that resolves to a two-dimensional array of embeddings where each subarray
-   *         corresponds to the embedding for a single image, the order mapping 1:1 to the input
-   *         argument.
+   * @returns A promise that resolves to a two-dimensional array of embeddings where each subarray
+   *   corresponds to the embedding for a single image, the order mapping 1:1 to the input
+   *   argument.
    */
   private async inferEmbedding(
     batchName: string,
@@ -569,7 +576,9 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
       imagesData: buffers
     };
 
-    (await this.inferenceWorker).postMessage(
+    const worker = await this.inferenceWorker;
+
+    worker.postMessage(
       request,
       // Transfer ownership of underlying ArrayBuffers to the worker.
       buffers.map(buffer => buffer.buffer)
@@ -578,7 +587,7 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
     const response = await firstValueFrom(
       this.workerResponses.pipe(
         first(message => message.id == requestId),
-        timeout(60_000)
+        timeout(seconds(60))
       )
     );
 
@@ -586,7 +595,7 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
       throw response.payload;
     }
 
-    assert(response.payload.length == screenshots.length);
+    assert.ok(response.payload.length == screenshots.length);
 
     this.logger.log(
       oneLine`
@@ -596,4 +605,12 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
 
     return response.payload.map(buffer => Array.from(buffer));
   }
+}
+
+/**
+ * Converts a USearch Uint64 index key to its zero-padded hexadecimal database ID.
+ */
+function keyToId(key: bigint): string {
+  // oxlint-disable-next-line no-magic-numbers - hex
+  return key.toString(16).padStart(16, '0');
 }

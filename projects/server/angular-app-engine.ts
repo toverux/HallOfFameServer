@@ -3,18 +3,23 @@ import type { AngularAppEngine } from '@angular/ssr';
 import { Logger } from '@nestjs/common';
 import { config } from './config';
 
-export {
-  createWebRequestFromNodeRequest,
-  writeResponseToNodeResponse
-} from '@angular/ssr/node';
+export { createWebRequestFromNodeRequest, writeResponseToNodeResponse } from '@angular/ssr/node';
 
-export let angularAppEngine: AngularAppEngine | undefined;
+export function getAngularAppEngine(): AngularAppEngine {
+  if (!angularAppEngine) {
+    throw new Error(`Angular application was not built.`);
+  }
+
+  return angularAppEngine;
+}
+
+let angularAppEngine: AngularAppEngine | undefined;
 
 try {
-  const { AngularAppEngine: BuiltAppEngine } = await import(
-    // biome-ignore lint/complexity/noUselessStringConcat: workaround so Biome doesn't follow the import and analyzes dist files, despite the force-ignore pattern for dist in Biome's config (this is a bug).
-    '../../dist/server/server' + '.mjs'
-  );
+  const { AngularAppEngine: BuiltAppEngine } = (await import(
+    // @ts-expect-error resolved at runtime in prod builds.
+    '../../dist/server/server.mjs'
+  )) as { AngularAppEngine: new () => AngularAppEngine };
 
   angularAppEngine = new BuiltAppEngine();
 } catch (error) {

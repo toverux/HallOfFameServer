@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { Injectable, Logger, type OnApplicationBootstrap } from '@nestjs/common';
 import { filesize } from 'filesize';
 import { type Prisma, PrismaClient } from '#prisma-lib/client';
+import { ensureString } from '../../shared/utils/type-assertion';
 import { config } from '../config';
 
 // Remap all events to be emitted as events (for custom handling with `$on()`) rather than being
@@ -61,10 +62,12 @@ export class PrismaService
 
     const stats = await this.$runCommandRaw({ dbStats: 1 });
 
-    assert(stats.ok, 'dbStats command returned ok: false.');
+    assert.ok(stats.ok, 'dbStats command returned ok: false.');
 
     const totalSizeStr = filesize(Number(stats.totalSize), { round: 0 });
 
-    this.logger.log(`Connected to MongoDB, database ${stats.db}, size: ${totalSizeStr}.`);
+    this.logger.log(
+      `Connected to MongoDB, database ${ensureString(stats.dbName)}, size: ${totalSizeStr}.`
+    );
   }
 }

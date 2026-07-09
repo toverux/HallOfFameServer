@@ -1,14 +1,15 @@
 // noinspection JSUnusedGlobalSymbols
-// biome-ignore-all lint: stay close to the original source
+// oxlint-disable-next-line unicorn/no-abusive-eslint-disable
+// oxlint-disable - we want to keep it close to the original source so we can update more easily, we just want this to compile, not lint like the rest of the project.
 
 /**
  * This code comes from:
  * https://github.com/hayes/pothos/blob/main/packages/plugin-prisma-utils/tests/examples/crud/generator.ts
- * ISC License: https://github.com/hayes/pothos/blob/main/LICENSE
+ * ISC License: https://github.com/hayes/pothos/blob/main/LICENSE.
  *
  * Minimal modifications were made:
- *  - So it compiles with our TypeScript configuration,
- *  - Biome formatting.
+ * - So it compiles with our TypeScript configuration,
+ * - Oxfmt formatting.
  */
 
 import {

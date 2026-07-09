@@ -1,4 +1,4 @@
-import type { ContainerClient } from '@azure/storage-blob';
+import type { BlobDeleteIfExistsResponse, ContainerClient } from '@azure/storage-blob';
 import { Inject, Injectable } from '@nestjs/common';
 import * as dateFns from 'date-fns';
 import slug from 'slug';
@@ -36,7 +36,7 @@ export class ScreenshotStorageService {
     bufferFhd: Buffer;
     buffer4K: Buffer;
   }): Promise<{ blobThumbnail: string; blobFhd: string; blob4k: string }> {
-    const containerClient = this.containerClient;
+    const { containerClient } = this;
 
     const date = dateFns.format(new Date(), 'yyyy-MM-dd-HH-mm-ss');
 
@@ -45,12 +45,13 @@ export class ScreenshotStorageService {
     const creatorNameSlug =
       data.creator.creatorNameSlug && slug(data.creator.creatorNameSlug, { fallback: false });
 
-    // slug will return an empty string if the input only has characters that it cannot slugify
+    // Slug will return an empty string if the input only has characters that it cannot slugify
     // or transliterate, ex. Chinese, so we need to handle fallbacks.
     const contextSlug =
       cityNameSlug && creatorNameSlug
         ? `${cityNameSlug}-by-${creatorNameSlug}`
-        : cityNameSlug || creatorNameSlug || 'screenshot';
+        : // oxlint-disable-next-line typescript/prefer-nullish-coalescing - empty slug falls through
+          cityNameSlug || creatorNameSlug || 'screenshot';
 
     const blobNameBase = `${data.creator.id}/${data.screenshot.id}/${contextSlug}-${date}`;
 
@@ -66,7 +67,7 @@ export class ScreenshotStorageService {
       blob4k: blobName4K
     };
 
-    async function upload(blobName: string, buffer: Buffer) {
+    async function upload(blobName: string, buffer: Buffer): Promise<string> {
       const { blockBlobClient } = await containerClient.uploadBlockBlob(
         blobName,
         buffer,
@@ -89,7 +90,7 @@ export class ScreenshotStorageService {
   public async deleteScreenshots(
     screenshot: Pick<Screenshot, 'imageUrlThumbnail' | 'imageUrlFHD' | 'imageUrl4K'>
   ): Promise<void> {
-    const containerClient = this.containerClient;
+    const { containerClient } = this;
 
     await allFulfilled([
       deleteBlob(screenshot.imageUrlThumbnail),
@@ -97,7 +98,7 @@ export class ScreenshotStorageService {
       deleteBlob(screenshot.imageUrl4K)
     ]);
 
-    function deleteBlob(blobName: string) {
+    function deleteBlob(blobName: string): Promise<BlobDeleteIfExistsResponse> {
       return containerClient.getBlobClient(blobName).deleteIfExists({ deleteSnapshots: 'include' });
     }
   }

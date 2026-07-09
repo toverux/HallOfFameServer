@@ -33,6 +33,7 @@ export class CreatorController {
   /**
    * Fields match {@link Creator} fields, see their docs.
    * We use looseObject to avoid errors while changing schema here while the mod isn't up to date.
+   *
    * @see updateMyself
    */
   private static readonly updateMyselfBodySchema = z.looseObject({
@@ -118,8 +119,8 @@ export class CreatorController {
           uniqueViewsCount: sum.uniqueViewsCount ?? 0,
           favoritesCount: sum.favoritesCount ?? 0
         }))
-        .catch(err => {
-          throw err;
+        .catch(error => {
+          throw error;
         })
     ]);
 
@@ -173,8 +174,7 @@ export class CreatorController {
       where:
         id == 'me' || ObjectId.isValid(id)
           ? { id: id == 'me' ? CreatorAuthenticationService.getAuthenticatedCreator(req).id : id }
-          : // biome-ignore lint/style/useNamingConvention: prisma
-            { OR: [{ creatorName: { equals: id, mode: 'insensitive' } }, { creatorNameSlug: id }] }
+          : { OR: [{ creatorName: { equals: id, mode: 'insensitive' } }, { creatorNameSlug: id }] }
     });
 
     if (!creator) {

@@ -8,15 +8,16 @@
  * ! DO NOT import other project files as well (keep the process lean).
  */
 
-declare const self: Worker;
-
 import assert from 'node:assert/strict';
 import path from 'node:path';
 import * as tf from '@tensorflow/tfjs-node';
 
+declare const self: Worker;
+
 /**
  * Worker input message, it must support the Structured Clone Algorithm.
  * The ID is a number to match a request with a response.
+ *
  * @see https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm
  */
 export interface WorkerRequest {
@@ -27,6 +28,7 @@ export interface WorkerRequest {
 /**
  * Worker output message, it must support the Structured Clone Algorithm.
  * The ID is a number to match a request with a response.
+ *
  * @see https://developer.mozilla.org/en-US/docs/Web/API/Web_Workers_API/Structured_clone_algorithm
  */
 export interface WorkerResponse {
@@ -42,6 +44,7 @@ export interface WorkerResponse {
  * Variant used is `imagenet21k-ft1k-m-feature-vector`.
  *
  * Converted for TFjs using:
+ *
  * ```sh
  * tensorflowjs_converter \
  *   --input_format=tf_hub \
@@ -52,17 +55,23 @@ export interface WorkerResponse {
  *
  * @see https://www.kaggle.com/models/google/efficientnet-v2/tensorFlow2/imagenet21k-ft1k-m-feature-vector
  */
+
+// EfficientNet V2 expects square RGB inputs with pixel values normalized to the 0..1 range.
+const modelInputSize = 480;
+const rgbChannelCount = 3;
+const maxPixelValue = 255;
+
 const modelInfo = {
   path: path.join(import.meta.dir, '../../../efficientnetv2/model.json'),
   dimension: 1280,
-  inputSize: [480, 480] satisfies [number, number]
+  inputSize: [modelInputSize, modelInputSize] satisfies [number, number]
 };
 
 // Load TensorFlow model.
 const model = await tf.loadGraphModel(`file://${modelInfo.path}`);
 
 // Start listening for requests.
-self.addEventListener('message', event => handleRequest(event.data));
+self.addEventListener('message', (event: MessageEvent<WorkerRequest>) => handleRequest(event.data));
 
 /**
  * Handles a {@link WorkerRequest} received through posted messages, by processing image data into
@@ -96,7 +105,7 @@ function handleRequest(request: WorkerRequest): void {
  *
  * @param buffers Each buffer represents the raw data of an image to process.
  *
- * @return Array of normalized embedding vector for the respective input image, ready to be stored.
+ * @returns Array of normalized embedding vector for the respective input image, ready to be stored.
  */
 function inferEmbeddings(buffers: readonly Uint8Array[]): Float32Array[] {
   // Start a new scope to ensure that the tensors are released when the scope is exited.
@@ -107,26 +116,26 @@ function inferEmbeddings(buffers: readonly Uint8Array[]): Float32Array[] {
     const tensors = buffers.map(buffer =>
       tf.node
         // Decode the image from the buffer.
-        .decodeImage(buffer, /* channels */ 3)
+        .decodeImage(buffer, rgbChannelCount)
         // Resize to model input size.
         .resizeBilinear(modelInfo.inputSize)
         // Convert to floating point to not do integer division and because the model expects that.
         .toFloat()
         // Normalize pixels to the 0..1 range to better play with the model.
-        .div(255)
+        .div(maxPixelValue)
     );
 
     // Batch them: shape [N, H, W, 3].
     const batchTensor = tf.concat(tensors.map(tensor => tensor.expandDims(0)));
 
     // Forward pass.
-    const embeddingTensors = model.predict(batchTensor); // shape [N, D]
+    const embeddingTensors = model.predict(batchTensor); // Shape [N, D]
 
-    assert(embeddingTensors instanceof tf.Tensor); // check it is not an array
+    assert.ok(embeddingTensors instanceof tf.Tensor); // Check it is not an array
 
     // Normalize embeddings.
-    const norms = embeddingTensors.norm('euclidean', -1, true); // shape [N, 1]
-    const normalizedEmbedding = embeddingTensors.div(norms).squeeze(); // shape [N, D]
+    const norms = embeddingTensors.norm('euclidean', -1, true); // Shape [N, 1]
+    const normalizedEmbedding = embeddingTensors.div(norms).squeeze(); // Shape [N, D]
 
     // Get final embeddings as an ArrayBuffer.
     // Note: there is also data() which returns a promise and is supposed to help run TF
@@ -136,14 +145,15 @@ function inferEmbeddings(buffers: readonly Uint8Array[]): Float32Array[] {
     // worker and make it all sync.
     // Moreover, this has the benefit that this function MUST NOT be reentrant as there can only be
     // one active scope at a time, so with a sync function we do not need to add a mutex.
+    // oxlint-disable-next-line node/no-sync - dataSync() is a TensorFlow.js tensor method, not fs
     const flatEmbeddings = normalizedEmbedding.dataSync();
 
     // noinspection SuspiciousTypeOfGuard
-    assert(flatEmbeddings instanceof Float32Array);
+    assert.ok(flatEmbeddings instanceof Float32Array);
 
     const expectedLength = buffers.length * modelInfo.dimension;
 
-    assert(
+    assert.ok(
       flatEmbeddings.length == expectedLength,
       `Embeddings length mismatch, expected ${expectedLength}, got ${flatEmbeddings.length} instead`
     );

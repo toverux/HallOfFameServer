@@ -3,8 +3,8 @@ import { oneLine } from 'common-tags';
 import type { Favorite, Prisma, View } from '#prisma-lib/client';
 import { allFulfilled } from '../../shared/utils/all-fulfilled';
 import { PrismaService } from './prisma.service';
-import { ScreenshotService } from './screenshot.service';
 import { ScreenshotStatsService } from './screenshot-stats.service';
+import { ScreenshotService } from './screenshot.service';
 
 /**
  * Service responsible for merging screenshots and their associated data.

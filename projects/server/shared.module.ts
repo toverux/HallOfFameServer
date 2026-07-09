@@ -4,7 +4,6 @@ import { config } from './config';
 import { services } from './services';
 
 /**
- * @public
  * Module used by both the Server and the CLI.
  */
 @Module({
@@ -17,7 +16,6 @@ import { services } from './services';
   ],
   exports: [...services, OpenAi]
 })
-// biome-ignore lint/complexity/noStaticOnlyClass: classic NestJS pattern.
 export class SharedModule {
   public static forRoot(): DynamicModule {
     return { global: true, module: SharedModule };

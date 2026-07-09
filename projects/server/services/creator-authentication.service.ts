@@ -34,7 +34,7 @@ export class CreatorAuthenticationService {
   /**
    * Returns the authenticated Creator from the request.
    *
-   * @throws UnauthorizedError If the request is not authenticated.
+   * @throws {UnauthorizedError} If the request is not authenticated.
    */
   public static getAuthenticatedCreator(request: FastifyRequest): Creator {
     const creator = request[CreatorAuthenticationService.authenticatedCreatorKey];
@@ -56,7 +56,7 @@ export class CreatorAuthenticationService {
   public async authorize(request: FastifyRequest): Promise<Creator | undefined> {
     const authorization = this.getAuthorizationFromRequest(request);
     if (!authorization) {
-      return;
+      return undefined;
     }
 
     sentry.getCurrentScope().setUser({
@@ -65,7 +65,6 @@ export class CreatorAuthenticationService {
         authorization.kind == 'mod' && authorization.creatorName
           ? `${authorization.creatorName} (unverified)`
           : (undefined as unknown as string),
-      // biome-ignore lint/style/useNamingConvention: sentry's API
       ip_address: authorization.ip
     });
 
@@ -80,7 +79,6 @@ export class CreatorAuthenticationService {
     sentry.getCurrentScope().setUser({
       id: creator.id,
       username: creator.creatorName ?? (undefined as unknown as string),
-      // biome-ignore lint/style/useNamingConvention: sentry's API
       ip_address: authorization.ip
     });
 
@@ -94,7 +92,7 @@ export class CreatorAuthenticationService {
   private getAuthorizationFromRequest(request: FastifyRequest): CreatorAuthorization | undefined {
     const header = request.headers.authorization;
     if (!header) {
-      return;
+      return undefined;
     }
 
     const ip = request.ip as IpAddress;
@@ -112,11 +110,13 @@ export class CreatorAuthenticationService {
           return this.getModAuthorizationFromRequest(ip, payload);
         }
         default: {
-          assert(false, `Invalid Authorization scheme, expected "Creator" or "CreatorID".`);
+          // noinspection ExceptionCaughtLocallyJS
+          throw new assert.AssertionError({
+            message: `Invalid Authorization scheme, expected "Creator" or "CreatorID".`
+          });
         }
       }
     } catch (error) {
-      // biome-ignore lint/suspicious/noMisplacedAssertion: false positive
       if (error instanceof assert.AssertionError) {
         throw new UnauthorizedError(`Invalid Authorization header (${error.message}).`);
       }
@@ -129,7 +129,7 @@ export class CreatorAuthenticationService {
     ip: IpAddress,
     payload: string
   ): SimpleCreatorAuthorization {
-    assert(payload.length, `Creator ID must be a non-empty string.`);
+    assert.ok(payload.length, `Creator ID must be a non-empty string.`);
 
     return {
       kind: 'simple',
@@ -143,24 +143,25 @@ export class CreatorAuthenticationService {
 
     // Note: the creator name is URL-encoded, but this is already
     // decoded by URLSearchParams.
+    // oxlint-disable-next-line typescript/prefer-nullish-coalescing - empty name normalizes to null
     const creatorName = params.get('name')?.trim() || null;
     const creatorId = params.get('id');
     const provider = params.get('provider');
     const hwid = params.get('hwid');
 
-    assert(
-      creatorName?.length || creatorName === null,
+    assert.ok(
+      Boolean(creatorName?.length) || creatorName === null,
       `Creator Name must be either an empty string, or a string.`
     );
 
-    assert(creatorId?.length, `Creator ID must be a non-empty string.`);
+    assert.ok(creatorId?.length, `Creator ID must be a non-empty string.`);
 
-    assert(
+    assert.ok(
       provider == 'paradox' || provider == 'local',
       `Provider must be either "paradox" or "local".`
     );
 
-    assert(hwid?.length, `HWID must be a non-empty string.`);
+    assert.ok(hwid?.length, `HWID must be a non-empty string.`);
 
     return {
       kind: 'mod',

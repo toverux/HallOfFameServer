@@ -68,7 +68,6 @@ function maskError(error: unknown, message: string, isDev = false): GraphQLError
  * resolvers are already wrapper before being passed to this function), but the framework does
  * require us to be able to handle other errors as well.
  */
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: splitting it would make it harder to follow.
 function handleErrors(
   logger: Logger,
   { errors, context }: { errors: readonly unknown[]; context: Readonly<Record<string, unknown>> }

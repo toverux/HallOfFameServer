@@ -1,6 +1,6 @@
-import * as util from 'node:util';
 import { ConsoleLogger, type ConsoleLoggerOptions, type LogLevel } from '@nestjs/common';
 import * as sentry from '@sentry/bun';
+import { inspect } from 'bun';
 
 interface AppLoggerOptions extends ConsoleLoggerOptions {
   readonly sentryFilterContexts: readonly string[];
@@ -47,7 +47,7 @@ export class SentryConsoleLogger extends ConsoleLogger {
   ): void {
     super[level].call(this, message, ...rest);
 
-    const messageStr = typeof message == 'string' ? message : util.inspect(message);
+    const messageStr = typeof message == 'string' ? message : inspect(message);
 
     if ((level == 'debug' || level == 'verbose') && !messageStr.includes('[sentry]')) {
       return;

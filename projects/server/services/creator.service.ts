@@ -8,11 +8,11 @@ import {
 } from '@nestjs/common';
 import * as sentry from '@sentry/bun';
 import { oneLine } from 'common-tags';
-// biome-ignore lint/correctness/noUnresolvedImports: false positive
 import * as uuid from 'uuid';
 import type { Creator } from '#prisma-lib/client';
 import type { CreatorId, HardwareId, IpAddress } from '../../shared/utils/branded-types';
 import type { JsonObject } from '../../shared/utils/json';
+import { unreachable } from '../../shared/utils/type-assertion';
 import { isPrismaError } from '../common/prisma-errors';
 import { StandardError } from '../common/standard-error';
 import { config } from '../config';
@@ -23,6 +23,7 @@ export type CreatorAuthorization = SimpleCreatorAuthorization | ModCreatorAuthor
 
 // noinspection TypeScriptDuplicateUnionOrIntersectionType
 export type CreatorIdentifier = NonNullable<
+  // oxlint-disable-next-line typescript/no-redundant-type-constituents - 'me' is a documented special API identifier value
   Creator['id'] | Creator['creatorName'] | Creator['creatorNameSlug'] | 'me'
 >;
 
@@ -69,6 +70,16 @@ export class CreatorService {
   private readonly logger = new Logger(CreatorService.name);
 
   /**
+   * Maximum number of recent IP addresses/hardware IDs kept in a Creator's history.
+   */
+  private static readonly maxAddressHistory = 3;
+
+  /**
+   * Maximum allowed length for a Creator Name.
+   */
+  private static readonly maxCreatorNameLength = 25;
+
+  /**
    * Authenticates a creator based on the provided authorization kind and details.
    *
    * @see authenticateCreatorSimple
@@ -76,17 +87,24 @@ export class CreatorService {
    */
   public authenticateCreator(authorization: CreatorAuthorization): Promise<Creator> {
     // Validate the Creator ID.
-    if (!uuid.validate(authorization.creatorId) || uuid.version(authorization.creatorId) != 4) {
+    if (
+      !uuid.validate(authorization.creatorId) ||
+      // oxlint-disable-next-line no-magic-numbers -- UUID v4
+      uuid.version(authorization.creatorId) != 4
+    ) {
       throw new InvalidCreatorIdError(authorization.creatorId);
     }
 
     switch (authorization.kind) {
-      case 'simple':
+      case 'simple': {
         return this.authenticateCreatorSimple(authorization);
-      case 'mod':
+      }
+      case 'mod': {
         return this.authenticateCreatorForMod(authorization);
-      default:
-        throw authorization satisfies never;
+      }
+      default: {
+        return unreachable(authorization);
+      }
     }
   }
 
@@ -111,7 +129,7 @@ export class CreatorService {
       creator = await this.prisma.creator.update({
         where: { id: creator.id },
         data: {
-          ips: Array.from(new Set([ip, ...creator.ips])).slice(0, 3)
+          ips: Array.from(new Set([ip, ...creator.ips])).slice(0, CreatorService.maxAddressHistory)
         }
       });
     }
@@ -126,9 +144,9 @@ export class CreatorService {
    *
    * There are two possible outcomes:
    * - If the Creator ID doesn't match any record, a new Creator is created with the provided
-   *   credentials.
+   * credentials.
    * - If the Creator ID matches a record, the request is authenticated, and the Creator Name is
-   *   updated if it is changed.
+   * updated if it is changed.
    *
    * This is only a wrapper around {@link authenticateCreatorForModUnsafe} that handles concurrent
    * requests conflicts.
@@ -156,7 +174,6 @@ export class CreatorService {
    * authentication that can be retried in case of error due to concurrent requests leading to an
    * account creation (and therefore a unique constraint violation).
    */
-  // biome-ignore lint/complexity/noExcessiveLinesPerFunction: it's long, but better that way.
   public async authenticateCreatorForModUnsafe({
     creatorId,
     creatorIdProvider,
@@ -169,16 +186,15 @@ export class CreatorService {
     // We validate it only when an account is created or updated.
 
     // Find the creator by either the Creator ID or the Creator Name.
-    // If we find a match,
-    // - If the Creator ID is incorrect (not a UUID), reject request.
-    // - If the Creator ID is correct, we'll update the Creator Name if it changed.
+    // If we find a match:
+    // - If the Creator ID is incorrect (not a UUID), reject the request.
+    // - If the Creator ID is correct, we'll update the Creator Name if it is changed.
     // If we don't find a match, create a new account.
     const creatorNameSlug = this.getCreatorNameSlug(creatorName);
 
     const creators = await this.prisma.creator.findMany({
       where: creatorName
         ? {
-            // biome-ignore lint/style/useNamingConvention: lib
             OR: [{ creatorId }, { creatorName }, { creatorNameSlug }]
           }
         : { creatorId }
@@ -188,19 +204,19 @@ export class CreatorService {
     // Creator Name is being changed to a name that is already taken.
     // This returns two creators, one matching the Creator ID and one matching the Creator Name.
     if (creators.length > 1) {
-      assert(
+      assert.ok(
         creators.length == 2,
         `Only two creators are returned, otherwise there are non-unique Creator Names.`
       );
 
-      assert(creatorName, `Creator Name can only be non-null if >1 creators are found.`);
+      assert.ok(creatorName, `Creator Name can only be non-null if >1 creators are found.`);
 
       throw new IncorrectCreatorIdError(creatorName);
     }
 
     // After this previous check we know that the first and only creator is the one we want to
     // authenticate or create.
-    const creator = creators[0];
+    const [creator] = creators;
 
     return creator ? updateCreator.call(this) : createCreator.call(this);
 
@@ -227,13 +243,13 @@ export class CreatorService {
     }
 
     async function updateCreator(this: CreatorService): Promise<Creator> {
-      assert(creator);
+      assert.ok(creator);
 
       // Check if the Creator ID match, unless the reset flag is set.
       if (creator.creatorId != creatorId && !creator.allowCreatorIdReset) {
         // This should never happen, as when we enter this condition, it means that we matched
         // on the Creator Name and not the Creator ID.
-        assert(creator.creatorName);
+        assert.ok(creator.creatorName);
 
         throw new IncorrectCreatorIdError(creator.creatorName);
       }
@@ -262,8 +278,11 @@ export class CreatorService {
           allowCreatorIdReset: false,
           creatorId,
           creatorIdProvider,
-          hwids: Array.from(new Set([hwid, ...creator.hwids])).slice(0, 3),
-          ips: Array.from(new Set([ip, ...creator.ips])).slice(0, 3)
+          hwids: Array.from(new Set([hwid, ...creator.hwids])).slice(
+            0,
+            CreatorService.maxAddressHistory
+          ),
+          ips: Array.from(new Set([ip, ...creator.ips])).slice(0, CreatorService.maxAddressHistory)
         }
       });
 
@@ -280,6 +299,7 @@ export class CreatorService {
       this: CreatorService,
       creatorToTranslate: Creator
     ): void {
+      // oxlint-disable-next-line promise/prefer-await-to-then promise/prefer-await-to-callbacks
       this.updateCreatorNameTranslation(creatorToTranslate).catch(error => {
         this.logger.error(
           `Failed to translate creator name "${creatorToTranslate.creatorName}" (#${creatorToTranslate.id}).`,
@@ -305,9 +325,9 @@ export class CreatorService {
         .replaceAll("'", '')
         .replaceAll('’', '')
         // Replace consecutive spaces or hyphens with a single hyphen.
-        .replace(/\s+|-+/g, '-')
+        .replaceAll(/\s+|-+/gu, '-')
         // Remove leading and trailing hyphens.
-        .replace(/^-+|-+$/g, '')
+        .replaceAll(/^-+|-+$/gu, '')
         .toLowerCase()
     );
   }
@@ -381,19 +401,19 @@ export class CreatorService {
    * Trims start, end, and consecutive spaces and validates that the string does not exceed 25
    * characters.
    *
-   * @throws InvalidCreatorNameError If it is not a valid Creator Name.
+   * @throws {InvalidCreatorNameError} If it is not a valid Creator Name.
    */
   private static validateCreatorName(name: string | null): string | null {
     if (!name?.trim()) {
       return null;
     }
 
-    if (name.length > 25) {
+    if (name.length > CreatorService.maxCreatorNameLength) {
       throw new InvalidCreatorNameError(name);
     }
 
     // Normalize multiple spaces to a single space.
-    return name.replace(/\s+/g, ' ');
+    return name.replaceAll(/\s+/gu, ' ');
   }
 }
 

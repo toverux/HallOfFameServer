@@ -9,6 +9,9 @@ pre-commit:
     tsc:
       glob: "*.{ts,tsx,js,json}"
       run: mise exec bun -- bun --bun tsc --noEmit
-    biome:
-      glob: "*.{ts,tsx,js,json}"
-      run: mise exec bun -- bun biome check --error-on-warnings --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
+    oxlint:
+      glob: "*.{ts,tsx,js,jsx,mjs,cjs}"
+      run: mise exec bun -- bun --bun oxlint --deny-warnings --no-error-on-unmatched-pattern {staged_files}
+    oxfmt:
+      glob: "*.{ts,tsx,js,jsx,mjs,cjs,json,jsonc,md}"
+      run: mise exec bun -- bun --bun oxfmt --check --no-error-on-unmatched-pattern {staged_files}

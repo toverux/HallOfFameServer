@@ -5,7 +5,6 @@ import { CreatorDeleteCommand } from './creator-delete.command';
 import { CreatorMergeCommand } from './creator-merge.command';
 import { CreatorTranslateCommand } from './creator-translate.command';
 
-/** @public */
 @Command({
   name: 'creator',
   description: `Commands related to creators.`,

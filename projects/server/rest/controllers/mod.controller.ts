@@ -25,7 +25,7 @@ export class ModController {
     @Res() res: FastifyReply,
     @Param('paradoxModId') paradoxModIdStr: string
   ): Promise<void> {
-    const paradoxModId = Number.parseInt(paradoxModIdStr, 10) as ParadoxModId;
+    const paradoxModId = Math.trunc(Number(paradoxModIdStr)) as ParadoxModId;
 
     if (Number.isNaN(paradoxModId)) {
       throw new BadRequestException(`Mod ID "${paradoxModIdStr}" is not valid, expected an int.`);

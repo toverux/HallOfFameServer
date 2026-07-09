@@ -48,6 +48,7 @@ export class ModerateShowcasedModsCommand extends CommandRunner {
       return;
     }
 
+    // oxlint-disable-next-line import/no-named-as-default-member
     const browser = await puppeteer.launch({
       headless: false,
       userDataDir: config.puppeteer.userDataDir,
@@ -73,7 +74,7 @@ export class ModerateShowcasedModsCommand extends CommandRunner {
         await browser.close();
       }
 
-      // This should just be because the browser was gracefully closed and the user want to stop.
+      // This should just be because the browser was gracefully closed and the user wants to stop.
       if (
         !config.verbose &&
         (error instanceof PuppeteerError ||
@@ -94,7 +95,7 @@ export class ModerateShowcasedModsCommand extends CommandRunner {
     screenshots: ReadonlyArray<Screenshot & { readonly creator: Creator }>
   ): Promise<void> {
     function setPageStatus(text: string): void {
-      page.evaluate(text => (window as unknown as HofWindow).setStatus(text), text);
+      void page.evaluate(value => (globalThis as unknown as HofWindow).setStatus(value), text);
     }
 
     for (const screenshot of screenshots) {
@@ -110,7 +111,7 @@ export class ModerateShowcasedModsCommand extends CommandRunner {
         continue;
       }
 
-      await page.evaluate(data => (window as unknown as HofWindow).setScreenshotData(data), {
+      await page.evaluate(data => (globalThis as unknown as HofWindow).setScreenshotData(data), {
         ...screenshot,
         imageUrl: this.screenshotStorage.getScreenshotUrl(screenshot.imageUrlFHD),
         showcasedMod
@@ -119,7 +120,7 @@ export class ModerateShowcasedModsCommand extends CommandRunner {
       setPageStatus(`Ready.`);
 
       const action = await page.evaluate(
-        () => (window as unknown as HofWindow).showcasedModerationEvent.promise
+        () => (globalThis as unknown as HofWindow).showcasedModerationEvent.promise
       );
 
       setPageStatus(`Loading next...`);
@@ -144,8 +145,7 @@ export class ModerateShowcasedModsCommand extends CommandRunner {
     iconsole.info(chalk.bold(`All screenshots have been moderated.`));
   }
 
-  // biome-ignore lint/complexity/noExcessiveLinesPerFunction: it is normal
-  private getPageHtml() {
+  private getPageHtml(): string {
     // noinspection HtmlRequiredAltAttribute,RequiredAttributes
     return stripIndent`
     <title>HoF Showcased Mods Moderation</title>
@@ -242,11 +242,10 @@ export class ModerateShowcasedModsCommand extends CommandRunner {
      * This is serialized to a string and injected into the page, so do not use any external symbol,
      * this must be fully standalone.
      */
-    // biome-ignore lint/complexity/noExcessiveLinesPerFunction: it is normal
-    function script() {
-      // biome-ignore-start lint/style/noNonNullAssertion: they are defined
-      const imgEl = document.getElementById('screenshot') as HTMLImageElement;
-      const statusEl = document.getElementById('status')!;
+    function script(): void {
+      // oxlint-disable typescript/no-non-null-assertion
+      const imgEl = document.querySelector('#screenshot') as HTMLImageElement;
+      const statusEl = document.querySelector('#status')!;
       const infoEl = document.querySelector('.info') as HTMLElement;
       const screenshotInfoEl = document.querySelector('.info .info--screenshot-info')!;
       const screenshotDescriptionEl = document.querySelector(
@@ -259,11 +258,11 @@ export class ModerateShowcasedModsCommand extends CommandRunner {
       const modDescriptionEl = document.querySelector('.info .info--mod-description')!;
       const acceptButtonEl = document.querySelector('.info #accept')!;
       const removeButtonEl = document.querySelector('.info #remove')!;
-      // biome-ignore-end lint/style/noNonNullAssertion: they are defined
+      // oxlint-enable typescript/no-non-null-assertion
 
-      let screenshot: ModeratedScreenshot | undefined;
+      let screenshot: ModeratedScreenshot | undefined = undefined;
 
-      const hofWindow = window as unknown as HofWindow;
+      const hofWindow = globalThis as unknown as HofWindow;
 
       hofWindow.setStatus = setStatus;
       hofWindow.setScreenshotData = setScreenshotData;
@@ -272,7 +271,7 @@ export class ModerateShowcasedModsCommand extends CommandRunner {
         imgEl.style.visibility = 'visible';
       });
 
-      const resolve = (result: 'accept' | 'remove') => {
+      const resolve = (result: 'accept' | 'remove'): void => {
         hofWindow.showcasedModerationEvent.resolve(result);
         screenshot = undefined;
         refreshScreenshot();

@@ -112,7 +112,6 @@ export class AiTranslatorService {
     const response = await this.openAi.responses.create({
       model: 'gpt-5.4',
       reasoning: { effort: 'medium' },
-      // biome-ignore lint/style/useNamingConvention: OpenAI's API.
       safety_identifier: creatorId,
       input: [
         { role: 'system', content: prompt },
@@ -134,14 +133,7 @@ export class AiTranslatorService {
     }
 
     // Parse the JSON response from the model.
-    let responseJson: JsonValue;
-    try {
-      responseJson = JSON.parse(response.output_text);
-    } catch (error) {
-      throw new Error(`Invalid JSON response from OpenAI: ${response.output_text}`, {
-        cause: error
-      });
-    }
+    const responseJson = AiTranslatorService.parseJsonResponse(response.output_text);
 
     // Make sure the JSON from the model is valid.
     const result = AiTranslatorService.openAiResponseZodSchema.parse(responseJson);
@@ -157,5 +149,13 @@ export class AiTranslatorService {
     this.logger.verbose(response);
 
     return result;
+  }
+
+  private static parseJsonResponse(outputText: string): JsonValue {
+    try {
+      return JSON.parse(outputText);
+    } catch (error) {
+      throw new Error(`Invalid JSON response from OpenAI: ${outputText}`, { cause: error });
+    }
   }
 }

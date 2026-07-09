@@ -1,6 +1,6 @@
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
-import * as path from 'node:path';
+import path from 'node:path';
 import { Inject, type Provider } from '@nestjs/common';
 import chalk from 'chalk';
 import { oneLine } from 'common-tags';
@@ -105,10 +105,9 @@ export class ModerateReportsCommand extends CommandRunner {
         await open(reportedScreenshotFilePath);
       }
 
-      const { action } = await this.inquirer.ask<ModerationActionQuestionsResult>(
-        'moderation-action',
-        undefined
-      );
+      const { action } =
+        // oxlint-disable-next-line unicorn/no-useless-undefined - required
+        await this.inquirer.ask<ModerationActionQuestionsResult>('moderation-action', undefined);
 
       switch (action) {
         case 'approve': {
@@ -129,8 +128,9 @@ export class ModerateReportsCommand extends CommandRunner {
           iconsole.info(`DELETED screenshot and BANNED creator.`);
           break;
         }
-        default:
+        default: {
           unreachable(action);
+        }
       }
     }
 

@@ -4,15 +4,7 @@ import chalk from 'chalk';
 import { oneLine } from 'common-tags';
 import { filesize } from 'filesize';
 import { CommandRunner, Option, SubCommand } from 'nest-commander';
-import {
-  bufferCount,
-  // biome-ignore lint/suspicious/noDeprecatedImports: not using the deprecated signature.
-  from,
-  lastValueFrom,
-  // biome-ignore lint/suspicious/noDeprecatedImports: not using the deprecated signature.
-  mergeMap,
-  retry
-} from 'rxjs';
+import { bufferCount, from, lastValueFrom, mergeMap, retry } from 'rxjs';
 import { iconsole } from '../../../../shared/iconsole';
 import { PrismaService, ScreenshotSimilarityDetectorService } from '../../../services';
 
@@ -49,7 +41,7 @@ export class ScreenshotInferFeatureEmbeddingsCommand extends CommandRunner {
     defaultValue: 100
   })
   public parseBatchSize(val: string): number {
-    const batchSize = Number.parseInt(val, 10);
+    const batchSize = Math.trunc(Number(val));
 
     if (batchSize < 1 || Number.isNaN(batchSize)) {
       throw `Batch size must not be inferior to 1, got ${batchSize}.`;
@@ -66,7 +58,7 @@ export class ScreenshotInferFeatureEmbeddingsCommand extends CommandRunner {
     defaultValue: 2
   })
   public parseConcurrency(val: string): number {
-    const concurrency = Number.parseInt(val, 10);
+    const concurrency = Math.trunc(Number(val));
 
     if (concurrency < 1 || Number.isNaN(concurrency)) {
       throw `Concurrency must not be inferior to 1, got ${concurrency}.`;
@@ -81,7 +73,7 @@ export class ScreenshotInferFeatureEmbeddingsCommand extends CommandRunner {
     defaultValue: 4
   })
   public parseRetries(val: string): number {
-    const retries = Number.parseInt(val, 10);
+    const retries = Math.trunc(Number(val));
 
     if (retries < 0 || Number.isNaN(retries)) {
       throw `Retries count must not be inferior to 0, got ${retries}.`;

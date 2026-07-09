@@ -20,7 +20,6 @@ import { yogaBuilder } from './yoga-builder';
   ],
   exports: [...services, ...schemaServices, SchemaBuilder]
 })
-// biome-ignore lint/complexity/noStaticOnlyClass: common NestJS pattern.
 export class GraphQLModule {
   public static forRoot(): DynamicModule {
     return {

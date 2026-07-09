@@ -1,4 +1,3 @@
-// biome-ignore-all lint: MongoDB script
 // noinspection JSUnresolvedReference
 
 try {

@@ -18,13 +18,18 @@ import { PrismaService, ScreenshotStorageService } from '../../services';
 export class AnniversaryCommand extends CommandRunner {
   public static readonly providers: () => Provider[] = () => [AnniversaryCommand];
 
+  /**
+   * Minimum number of screenshots a city must have to be eligible for a recap.
+   */
+  private static readonly minScreenshotsPerCity = 4;
+
   @Option({
     flags: '--count [number]',
     description: `How many city renders to generate.`,
     defaultValue: 40
   })
   public parseCount(val: string): number {
-    return Number.parseInt(val, 10);
+    return Math.trunc(Number(val));
   }
 
   @Option({
@@ -47,7 +52,6 @@ export class AnniversaryCommand extends CommandRunner {
   @Inject(ScreenshotStorageService)
   private readonly screenshotStorage!: ScreenshotStorageService;
 
-  // biome-ignore lint/complexity/noExcessiveLinesPerFunction: simple linear cli flow
   public override async run(
     _args: [],
     options: Readonly<{ count: number; open: boolean }>
@@ -58,7 +62,7 @@ export class AnniversaryCommand extends CommandRunner {
 
     const citiesByName = new Map<
       `${Creator['id']}_${Screenshot['cityName']}`,
-      (typeof screenshots)[number][]
+      Array<(typeof screenshots)[number]>
     >();
 
     for (const screenshot of screenshots) {
@@ -75,35 +79,36 @@ export class AnniversaryCommand extends CommandRunner {
     iconsole.log(`Found ${citiesByName.size} cities.`);
 
     const citiesRecap = Array.from(citiesByName.values())
-      .map(screenshots => {
-        const screenshotsOrderedByFavoritingRatio = screenshots.toSorted(
+      .map(cityScreenshots => {
+        const screenshotsOrderedByFavoritingRatio = cityScreenshots.toSorted(
           (a, b) => b.favoritesCount / b.uniqueViewsCount - a.favoritesCount / a.uniqueViewsCount
         );
 
-        const screenshotsOrderedByDate = screenshots.toSorted(
+        const screenshotsOrderedByDate = cityScreenshots.toSorted(
           (a, b) => a.createdAt.getTime() - b.createdAt.getTime()
         );
 
         const firstSeenAt = nn(screenshotsOrderedByDate.at(0)).createdAt;
         const lastSeenAt = nn(screenshotsOrderedByDate.at(-1)).createdAt;
 
-        const favoritesCount = screenshots.reduce((count, s) => count + s.favoritesCount, 0);
+        const favoritesCount = cityScreenshots.reduce(
+          (count, screenshot) => count + screenshot.favoritesCount,
+          0
+        );
 
-        const medianLikeRatio = (() => {
-          const sorted = screenshots
-            .map(s => s.favoritesCount / s.uniqueViewsCount)
-            .sort((a, b) => a - b);
+        const medianLikeRatio = ((): number => {
+          const sorted = cityScreenshots
+            .map(screenshot => screenshot.favoritesCount / screenshot.uniqueViewsCount)
+            .toSorted((a, b) => a - b);
 
           const middle = Math.floor(sorted.length / 2);
 
           return sorted.length % 2 == 0
-            ? // biome-ignore lint/style/noNonNullAssertion: cannot be null
-              (sorted[middle - 1]! + sorted[middle]!) / 2
-            : // biome-ignore lint/style/noNonNullAssertion: cannot be null
-              sorted[middle]!;
+            ? (nn(sorted[middle - 1]) + nn(sorted[middle])) / 2
+            : nn(sorted[middle]);
         })();
 
-        const firstScreenshot = nn(screenshots[0]);
+        const firstScreenshot = nn(cityScreenshots[0]);
 
         return {
           screenshots: screenshotsOrderedByFavoritingRatio,
@@ -115,8 +120,8 @@ export class AnniversaryCommand extends CommandRunner {
           medianLikeRatio
         };
       })
-      .filter(recap => recap.screenshots.length >= 4)
-      .sort((a, b) => b.medianLikeRatio - a.medianLikeRatio)
+      .filter(recap => recap.screenshots.length >= AnniversaryCommand.minScreenshotsPerCity)
+      .toSorted((a, b) => b.medianLikeRatio - a.medianLikeRatio)
       .slice(0, options.count);
 
     await fs.rm(AnniversaryCommand.outputPath, { recursive: true, force: true });
@@ -151,7 +156,7 @@ export class AnniversaryCommand extends CommandRunner {
           ${cityIndex + 1}. ${city.cityName} by
           ${city.creatorName},
           ${city.favoritesCount} likes
-          (${(Math.round(city.medianLikeRatio * 100)).toFixed(1)}%),
+          (${Math.round(city.medianLikeRatio * 100).toFixed(1)}%),
           ${format(city.firstSeenAt, 'MMM yy')}-${format(city.lastSeenAt, 'MMM yy')}`
         );
 

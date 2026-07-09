@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { type ArgumentMetadata, BadRequestException, type PipeTransform } from '@nestjs/common';
 import { oneLine } from 'common-tags';
-import { ZodError, type ZodSchema, z } from 'zod';
+import { ZodError, z } from 'zod';
 
 export class ZodParsePipe implements PipeTransform<unknown, unknown> {
-  private readonly schema: ZodSchema<unknown>;
+  private readonly schema: z.ZodType;
 
-  public constructor(schema: ZodSchema<unknown>) {
+  public constructor(schema: z.ZodType) {
     this.schema = schema;
   }
 
@@ -14,7 +14,7 @@ export class ZodParsePipe implements PipeTransform<unknown, unknown> {
     try {
       return this.schema.parse(value);
     } catch (error) {
-      assert(error instanceof ZodError);
+      assert.ok(error instanceof ZodError);
 
       throw new BadRequestFormatException(
         oneLine`
@@ -30,7 +30,7 @@ export class BadRequestFormatException extends BadRequestException {
   public constructor(message: string, cause: ZodError) {
     super({
       ...(new BadRequestException(message).getResponse() as object),
-      // delete property added by getResponse()
+      // Delete property added by getResponse()
       error: undefined,
       validation: z.treeifyError(cause)
     });

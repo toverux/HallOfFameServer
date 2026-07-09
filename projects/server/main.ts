@@ -1,5 +1,5 @@
 import './sentry';
-import * as path from 'node:path';
+import path from 'node:path';
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
@@ -11,9 +11,9 @@ import { SentryConsoleLogger } from './logger';
 
 setRuntimeType('server');
 
-void linkEnvFilesForWatchMode();
+await linkEnvFilesForWatchMode();
 
-void bootstrap();
+await bootstrap();
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestFastifyApplication>(AppModule, fastify, {
@@ -71,9 +71,9 @@ async function bootstrap(): Promise<void> {
  */
 async function linkEnvFilesForWatchMode(): Promise<void> {
   try {
-    // @ts-expect-error
+    // @ts-expect-error: TS has no type declaration for the .env text module import.
     await import('../../.env', { with: { type: 'text' } });
-    // @ts-expect-error
+    // @ts-expect-error: Same.
     await import('../../.env.local', { with: { type: 'text' } });
   } catch {
     // Ignore, we're just checking if the files exist.

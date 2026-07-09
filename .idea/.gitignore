@@ -13,5 +13,6 @@
 /compiler.xml
 # Developer Tools plugin preferences
 /developer-tools.xml
-# Mise plugin config (contains stateful data)
-/mise.xml
+# Oxc plugin - contains some user-specific preferences
+OxcSettings.xml
+OxfmtSettings.xml

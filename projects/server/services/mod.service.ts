@@ -3,17 +3,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import * as sentry from '@sentry/bun';
 import * as dateFns from 'date-fns';
-import {
-  catchError,
-  EMPTY,
-  // biome-ignore lint/suspicious/noDeprecatedImports: not using the deprecated signature.
-  from,
-  lastValueFrom,
-  // biome-ignore lint/suspicious/noDeprecatedImports: not using the deprecated signature.
-  mergeMap,
-  retry,
-  toArray
-} from 'rxjs';
+import { catchError, EMPTY, from, lastValueFrom, mergeMap, retry, toArray } from 'rxjs';
 import { z } from 'zod';
 import type { Mod, Prisma } from '#prisma-lib/client';
 import type { ParadoxModId } from '../../shared/utils/branded-types';
@@ -35,11 +25,11 @@ export class ModService {
     displayName: z
       .string()
       .trim()
-      .transform(val => val.replace(/\r\n/g, '\n')),
+      .transform(val => val.replaceAll('\r\n', '\n')),
     shortDescription: z
       .string()
       .trim()
-      .transform(val => val.replace(/\r\n/g, '\n')),
+      .transform(val => val.replaceAll('\r\n', '\n')),
     displayImagePath: z.string(),
     tags: z.array(z.string()),
     subscriptions: z.int(),
@@ -81,7 +71,7 @@ export class ModService {
     });
 
     if (foundMods.length == modIds.size) {
-      return foundMods.sort((a, b) => b.subscribersCount - a.subscribersCount);
+      return foundMods.toSorted((a, b) => b.subscribersCount - a.subscribersCount);
     }
 
     const missingModIds = modIds.difference(new Set(foundMods.map(mod => mod.paradoxModId)));
@@ -106,7 +96,7 @@ export class ModService {
     );
 
     if (missingModResults.length == 0) {
-      return foundMods.sort((a, b) => b.subscribersCount - a.subscribersCount);
+      return foundMods.toSorted((a, b) => b.subscribersCount - a.subscribersCount);
     }
 
     await this.prisma.mod.createMany({
@@ -147,7 +137,7 @@ export class ModService {
     return foundMods
       .concat(newMods)
       .filter(mod => !mod.isRetired)
-      .sort((a, b) => b.subscribersCount - a.subscribersCount);
+      .toSorted((a, b) => b.subscribersCount - a.subscribersCount);
   }
 
   /**
@@ -176,7 +166,6 @@ export class ModService {
    * update, this can be changed to fetch ex. (number of mods / 48) mods per hour, so approximately
    * everything is treated in 48 hours, and/or we can shorten the cron interval.
    */
-  // biome-ignore lint/complexity/noExcessiveLinesPerFunction: inherently sequential and simple
   @Cron('0 * * * *')
   public async syncModDetailsCron(): Promise<void> {
     try {
@@ -273,10 +262,10 @@ export class ModService {
    * Fetches a mod's details from Paradox's API.
    * Returns an enum-like object of kind `retired` when a mod has been removed or banned.
    *
-   * @throws Error                 for any unknown error.
-   * @throws assert.AssertionError for unexpected Paradox API responses shapes.
-   * @throws z.ZodError            if the Paradox API HTTP response seemed correct but the body does
-   *                               not pass {@link paradoxModDetailsSchema} validation.
+   * @throws {Error} For any unknown error.
+   * @throws {assert.AssertionError} For unexpected Paradox API responses shapes.
+   * @throws {z.ZodError} If the Paradox API HTTP response seemed correct but the body does
+   *   not pass {@link paradoxModDetailsSchema} validation.
    */
   private async fetchModDetailsFromParadoxMods(modId: ParadoxModId): Promise<
     | {
@@ -312,7 +301,7 @@ export class ModService {
     );
 
     // First, check that we have a JSON object in response, no matter the status.
-    assert(
+    assert.ok(
       responseData && typeof responseData == 'object',
       `Invalid Paradox API response (${debugResponseStatusStr}): ${responseText}`
     );
@@ -326,8 +315,7 @@ export class ModService {
       // Ex. `errorCode` for unavailable mods is always "bad-input".
       // "The mod with the specified modId could not be found"
       // "This mod version is banned"
-      // biome-ignore lint/performance/useTopLevelRegex: infrequent call
-      responseData.errorMessage.match(/found|banned/i)
+      responseData.errorMessage.match(/found|banned/iu)
     ) {
       this.logger.warn(
         `Mod with ID ${modId} was retired or not found (${responseData.errorMessage}).`
@@ -337,13 +325,13 @@ export class ModService {
     }
 
     // Now assert that we have a 2XX response.
-    assert(
+    assert.ok(
       response.ok,
       `Failed to fetch mod details from Paradox API (${debugResponseStatusStr}): ${responseText}`
     );
 
     // Now assert that we have a seemingly valid response.
-    assert(
+    assert.ok(
       'modDetail' in responseData,
       `Missing "modDetail" in response for ${debugResponseStatusStr} response: ${responseText}`
     );

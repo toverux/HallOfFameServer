@@ -4,7 +4,6 @@ import { InjectCommander } from 'nest-commander';
 import { SharedModule } from '../shared.module';
 import { commands } from './commands';
 
-/** @public */
 @Module({
   providers: commands,
   imports: [SharedModule.forRoot()]

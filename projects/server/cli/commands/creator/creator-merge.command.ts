@@ -29,7 +29,6 @@ export class CreatorMergeCommand extends CommandRunner {
   ): Promise<void> {
     const duplicateCreator = await prisma.creator.findFirst({
       where: {
-        // biome-ignore lint/style/useNamingConvention: prisma
         OR: [{ id: duplicate }, { creatorId: duplicate }, { creatorName: duplicate }]
       }
     });
@@ -40,7 +39,6 @@ export class CreatorMergeCommand extends CommandRunner {
 
     const targetCreator = await prisma.creator.findFirst({
       where: {
-        // biome-ignore lint/style/useNamingConvention: prisma
         OR: [{ id: target }, { creatorId: target }, { creatorName: target }]
       }
     });

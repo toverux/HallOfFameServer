@@ -44,7 +44,7 @@ export class DateFnsLocalizationService {
       return date;
     }
 
-    const offsetInMinutes = Number.parseInt(offsetString, 10);
+    const offsetInMinutes = Math.trunc(Number(offsetString));
 
     if (Number.isNaN(offsetInMinutes)) {
       return date;

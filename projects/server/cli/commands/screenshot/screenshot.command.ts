@@ -7,7 +7,6 @@ import { ScreenshotMergeCommand } from './screenshot-merge.command';
 import { ScreenshotResyncStatsCommand } from './screenshot-resync-stats.command';
 import { ScreenshotTranslateCommand } from './screenshot-translate.command';
 
-/** @public */
 @Command({
   name: 'screenshot',
   description: `Commands related to screenshots.`,

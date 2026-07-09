@@ -1,8 +1,20 @@
 services:
   mongo:
-    image: mongo
+    image: mongo:8.2
     container_name: halloffame-dev
     command: ["mongod", "--bind_ip_all", "--replSet", "rs0"]
+    environment:
+      # MongoDB 8.x SIGSEGVs under load on Linux 6.19+ (this host runs 7.0.x). Linux 6.19's
+      # "rseq: Optimize event setting" stopped unconditionally writing the rseq cpu_id_start
+      # field on every return to userspace; MongoDB's vendored TCMalloc relies on that
+      # (undocumented) clobber to detect preemption, so its per-CPU cache corrupts and crashes.
+      # The real fix is kernel-side (Linux broke userspace, so it restores the old behavior for
+      # the 32-byte rseq struct that TCMalloc registers); TCMalloc and MongoDB need no change.
+      # Drop this env var once the kernel carries that compat patch. Note: glibc.pthread.rseq=0
+      # does NOT help; disabling shadow stacks empirically avoids the crash, so we apply it here.
+      # https://lwn.net/Articles/1070072/
+      # https://github.com/google/tcmalloc/issues/292
+      GLIBC_TUNABLES: "glibc.cpu.hwcaps=-SHSTK"
     ports:
       - "27017:27017"
     volumes:

@@ -2,7 +2,6 @@ import fastifyMultipart from '@fastify/multipart';
 import { HttpStatus, Injectable, Logger, type NestMiddleware } from '@nestjs/common';
 import { FastifyAdapter } from '@nestjs/platform-fastify';
 import type { FastifyBaseLogger, FastifyReply, FastifyRequest } from 'fastify';
-import { ensureNumber } from '../shared/utils/type-assertion';
 import { config } from './config';
 
 const httpLogger = new Logger('Fastify');
@@ -47,7 +46,8 @@ export class FastifyLoggerMiddleware implements NestMiddleware {
     res.on('finish', () => {
       const elapsedTime = Date.now() - startTime;
 
-      const resContentLength = ensureNumber(res.getHeader('content-length')) || 0;
+      // oxlint-disable-next-line typescript/prefer-nullish-coalescing - empty string fallthrough
+      const resContentLength = String(res.getHeader('content-length') || 0);
 
       // oxlint-disable typescript/no-unsafe-enum-comparison - Fastify status number vs HttpStatus enum
       const logFn =

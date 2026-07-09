@@ -67,7 +67,7 @@ export class PrismaService
     const totalSizeStr = filesize(Number(stats.totalSize), { round: 0 });
 
     this.logger.log(
-      `Connected to MongoDB, database ${ensureString(stats.dbName)}, size: ${totalSizeStr}.`
+      `Connected to MongoDB, database ${ensureString(stats.db)}, size: ${totalSizeStr}.`
     );
   }
 }

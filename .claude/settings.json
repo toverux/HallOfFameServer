@@ -1,0 +1,43 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // empty' | grep -qE '(^|/)(bun\\.lock$|dist/|\\.angular/|prisma/lib/)' && { echo 'Protected path: bun.lock, dist/, .angular/ and prisma/lib/ are generated. Do not edit directly (regenerate or use the proper command).' >&2; exit 2; } || exit 0"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.command // empty' | grep -qE '(^|[;&|])[[:space:]]*npx([[:space:]]|$)' && { echo 'Use mise / bun / bunx, not npx.' >&2; exit 2; } || exit 0"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CHECK_LINE_LENGTH_EXTENSIONS='ts tsx' CHECK_LINE_LENGTH_SUPPRESSION='oxlint-disable|@ts-expect-error' bash .claude/hooks/check-line-length.sh"
+          },
+          {
+            "type": "command",
+            "command": "F=$(jq -r '.tool_input.file_path // empty'); case \"$F\" in *.ts|*.tsx|*.md) { [ -f \"$F\" ] && grep -nP '\\x{2014}' \"$F\" >&2; } && { echo 'Remove em dashes (—) per general-code-style; use commas, colons, or reword.' >&2; exit 2; } ;; esac; exit 0"
+          },
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // empty' | grep -q 'schema\\.prisma$' && { echo 'schema.prisma changed; regenerating the Prisma client...' >&2; mise build:prisma:generate >&2; } ; exit 0"
+          }
+        ]
+      }
+    ]
+  }
+}

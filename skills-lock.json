@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "general-guidelines": {
+      "source": "toverux/skills",
+      "sourceType": "github",
+      "skillPath": "skills/general-guidelines/SKILL.md",
+      "computedHash": "75802b3302b03ac3092027e425996cf858212ff8c554b76a04d3e7b4f1e3fbfc"
+    },
+    "type-fest": {
+      "source": "izidorome/skills",
+      "sourceType": "github",
+      "skillPath": "skills/type-fest/SKILL.md",
+      "computedHash": "53ca0c957d4f99a0f5085a6f3a049089b2b9e865ed5b16566b6972e694063127"
+    }
+  }
+}

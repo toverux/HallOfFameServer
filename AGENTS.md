@@ -9,6 +9,15 @@ Players take up to 4K screenshots in-game, upload them, and browse others' shots
 The service is designed to give every city visibility (each screenshot is shown as often as possible), while likes and trending still surface standout work.
 There is no downvoting and no skill-based moderation, only removal of inappropriate content.
 
+### Foxxy's HoF Viewer
+
+[viewer.halloffame.mtq.io](https://viewer.halloffame.mtq.io) is a third-party web viewer for Hall of Fame content made by community member foxxy. Its code is not part of this repository, but a checkout is available at `../hof-viewer` (relative to this project's root, `dev` branch).
+
+Screenshot pages live at `/city/<screenshotId>`, creator pages at `/?creator=<creatorId or creatorName>`; treat this URL scheme as an external contract.
+This server provides tracked redirect endpoints to it (`GET /screenshots/:id/viewer`, `GET /creators/:id/viewer`) that increment the `viewerClicksCount` counters.
+
+When changing public API behavior, pull the latest `dev` branch in `../hof-viewer` and search it for usages of the affected API before proceeding.
+
 ## Domain concepts
 
 User-facing terms map to these Prisma models (`prisma/schema.prisma`):

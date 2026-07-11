@@ -302,7 +302,9 @@ export class CreatorService {
       // oxlint-disable-next-line promise/prefer-await-to-then promise/prefer-await-to-callbacks
       this.updateCreatorNameTranslation(creatorToTranslate).catch(error => {
         this.logger.error(
-          `Failed to translate creator name "${creatorToTranslate.creatorName}" (#${creatorToTranslate.id}).`,
+          oneLine`
+          Failed to translate creator name "${creatorToTranslate.creatorName}"
+          (#${creatorToTranslate.id}).`,
           error
         );
 
@@ -389,6 +391,8 @@ export class CreatorService {
       creatorNameLatinized: creator.creatorNameLatinized,
       creatorNameTranslated: creator.creatorNameTranslated,
       createdAt: creator.createdAt.toISOString(),
+      viewerUrl: `${config.http.baseUrl}/api/v1/creators/${creator.id}/viewer`,
+      viewerClicksCount: creator.viewerClicksCount,
       socials: creator.socials.map(social => ({
         platform: social.platform,
         link: `${config.http.baseUrl}/api/v1/creators/${creator.id}/social/${social.platform}`,

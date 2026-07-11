@@ -68,6 +68,9 @@ model Creator {
   ips                   String[]
   /// Array of social accounts of the Creator.
   socials               CreatorSocial[]
+  /// Number of clicks out to the Creator's page on the external HoF web viewer.
+  /// Unlike the `View`-based in-game view tracking, this only counts redirects to the web viewer.
+  viewerClicksCount     Int               @default(0)
   /// Locale used in the game by the Creator when they last launched the game with the mod.
   /// Used to better understand the mod's usage.
   locale                String?
@@ -133,6 +136,10 @@ model Screenshot {
   uniqueViewsCount        Int                         @default(0)
   /// Number of views the Screenshot has received in total, not deduplicated by Creator ID.
   viewsCount              Int                         @default(0)
+  /// Number of clicks out to the Screenshot's page on the external HoF web viewer.
+  /// Unlike `viewsCount` and `uniqueViewsCount`, this does not track in-game views, it only
+  /// counts redirects to the web viewer.
+  viewerClicksCount       Int                         @default(0)
   /// Hardware ID of the user who uploaded the Screenshot.
   /// Used in case a user is multi-accounting (which is allowed), to keep track of all the
   /// screenshots uploaded by a same person to apply quota even across multiple accounts.

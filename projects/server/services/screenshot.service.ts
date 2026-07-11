@@ -219,7 +219,9 @@ export class ScreenshotService implements OnApplicationBootstrap {
         // oxlint-disable-next-line promise/prefer-await-to-then promise/prefer-await-to-callbacks
         .catch(error => {
           this.logger.error(
-            `Failed to infer embeddings for screenshot "${screenshot.cityName}" (#${screenshot.id}).`,
+            oneLine`
+            Failed to infer embeddings for screenshot "${screenshot.cityName}"
+            (#${screenshot.id}).`,
             error
           );
 
@@ -233,7 +235,9 @@ export class ScreenshotService implements OnApplicationBootstrap {
       // oxlint-disable-next-line promise/prefer-await-to-then promise/prefer-await-to-callbacks
       this.modService.getMods(modIds).catch(error => {
         this.logger.error(
-          `Failed to warmup mods cache for screenshot "${screenshot.cityName}" (#${screenshot.id}).`,
+          oneLine`
+          Failed to warmup mods cache for screenshot "${screenshot.cityName}"
+          (#${screenshot.id}).`,
           error
         );
 
@@ -654,6 +658,8 @@ export class ScreenshotService implements OnApplicationBootstrap {
       favoritingPercentage: screenshot.favoritingPercentage,
       viewsCount: screenshot.viewsCount,
       uniqueViewsCount: screenshot.uniqueViewsCount,
+      viewerUrl: `${config.http.baseUrl}/api/v1/screenshots/${screenshot.id}/viewer`,
+      viewerClicksCount: screenshot.viewerClicksCount,
       cityName: screenshot.cityName,
       cityNameLocale: screenshot.cityNameLocale,
       cityNameLatinized: screenshot.cityNameLatinized,
@@ -1028,6 +1034,7 @@ export class ScreenshotService implements OnApplicationBootstrap {
       favoritingPercentage: screenshot.favoritingPercentage as Screenshot['favoritingPercentage'],
       uniqueViewsCount: screenshot.uniqueViewsCount as Screenshot['uniqueViewsCount'],
       viewsCount: screenshot.viewsCount as Screenshot['viewsCount'],
+      viewerClicksCount: screenshot.viewerClicksCount as Screenshot['viewerClicksCount'],
       hwid: screenshot.hwid as Screenshot['hwid'],
       ip: screenshot.ip as Screenshot['ip'],
       creatorId: (screenshot.creatorId as JsonObject).$oid as Screenshot['creatorId'],

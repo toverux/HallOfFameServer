@@ -27,6 +27,7 @@ import { Prisma, type Screenshot } from '#prisma-lib/client';
 import type { ParadoxModId } from '../../../shared/utils/branded-types';
 import type { JsonObject } from '../../../shared/utils/json';
 import { nn } from '../../../shared/utils/type-assertion';
+import { viewerBaseUrl } from '../../common/constants';
 import { isPrismaError } from '../../common/prisma-errors';
 import { ForbiddenError, NotFoundByIdError, StandardError } from '../../common/standard-error';
 import { config } from '../../config';
@@ -270,6 +271,33 @@ export class ScreenshotController {
       url,
       config.env == 'development' ? HttpStatus.FOUND : HttpStatus.MOVED_PERMANENTLY
     );
+  }
+
+  /**
+   * Redirects to the screenshot's page on the external HoF web viewer and increments
+   * {@link Screenshot.viewerClicksCount}.
+   */
+  @Get(':id/viewer')
+  public async redirectToViewerPage(
+    @Res() res: FastifyReply,
+    @Param('id') id: Screenshot['id']
+  ): Promise<void> {
+    const screenshot = await this.prisma.screenshot.findUnique({
+      where: { id },
+      select: { id: true }
+    });
+
+    if (!screenshot) {
+      throw new NotFoundByIdError(id);
+    }
+
+    res.redirect(`${viewerBaseUrl}/city/${id}`, HttpStatus.TEMPORARY_REDIRECT);
+
+    // Increment viewer click count for this screenshot.
+    await this.prisma.screenshot.update({
+      where: { id },
+      data: { viewerClicksCount: { increment: 1 } }
+    });
   }
 
   /**

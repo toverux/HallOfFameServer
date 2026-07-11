@@ -17,6 +17,7 @@ import { z } from 'zod';
 import { type Creator, Prisma } from '#prisma-lib/client';
 import { allFulfilled } from '../../../shared/utils/all-fulfilled';
 import type { JsonObject } from '../../../shared/utils/json';
+import { viewerBaseUrl } from '../../common/constants';
 import { NotFoundByIdError } from '../../common/standard-error';
 import { CreatorAuthorizationGuard } from '../../guards';
 import { ZodParsePipe } from '../../pipes';
@@ -166,6 +167,28 @@ export class CreatorController {
     await this.prisma.creator.update({
       where: { id: creator.id },
       data: { socials: creator.socials }
+    });
+  }
+
+  /**
+   * Redirects to the creator's page on the external HoF web viewer and increments
+   * {@link Creator.viewerClicksCount}.
+   */
+  @Get(':id/viewer')
+  public async redirectToViewerPage(
+    @Req() req: FastifyRequest,
+    @Res() res: FastifyReply,
+    @Param('id') creatorId: CreatorIdentifier
+  ): Promise<void> {
+    const creator = await this.fetchCreatorById(creatorId, req);
+
+    // Pass the Mongo ID rather than the Creator Name, it is rename-proof and URL-safe.
+    res.redirect(`${viewerBaseUrl}/?creator=${creator.id}`, HttpStatus.TEMPORARY_REDIRECT);
+
+    // Increment viewer click count for this creator.
+    await this.prisma.creator.update({
+      where: { id: creator.id },
+      data: { viewerClicksCount: { increment: 1 } }
     });
   }
 

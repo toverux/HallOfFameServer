@@ -78,3 +78,10 @@ Authorization: CreatorID {{creatorId}}
 Accept-Language: {{locale}}
 X-Timezone-Offset: {{utcOffset}}
 X-Forwarded-For: {{ip}}
+
+### Redirect to the creator's page on the HoF Viewer (anonymous)
+
+GET {{url}}/api/v1/creators/{{creator.id}}/viewer
+Accept-Language: {{locale}}
+X-Timezone-Offset: {{utcOffset}}
+X-Forwarded-For: {{ip}}

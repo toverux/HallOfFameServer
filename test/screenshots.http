@@ -33,6 +33,13 @@ X-Forwarded-For: {{ip}}
   client.global.set("creator", response.body.creator);
 %}
 
+### Redirect to the screenshot's page on the HoF Viewer (anonymous)
+
+GET {{url}}/api/v1/screenshots/{{screenshot.id}}/viewer
+Accept-Language: {{locale}}
+X-Timezone-Offset: {{utcOffset}}
+X-Forwarded-For: {{ip}}
+
 ### Get random screenshot (anonymous)
 
 GET {{url}}/api/v1/screenshots/weighted

@@ -107,7 +107,7 @@ run = "bun ng build"
 
 [tasks."build:prisma:generate"]
 description = "generate the prisma client and types."
-sources = ["prisma/run-prisma-generate.ts", "schema.prisma"]
+sources = ["prisma/run-prisma-generate.ts", "prisma/schema.prisma"]
 raw = true
 run = "bun prisma/run-prisma-generate.ts"
 

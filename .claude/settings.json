@@ -30,7 +30,7 @@
           },
           {
             "type": "command",
-            "command": "F=$(jq -r '.tool_input.file_path // empty'); case \"$F\" in *.ts|*.tsx|*.md) { [ -f \"$F\" ] && grep -nP '\\x{2014}' \"$F\" >&2; } && { echo 'Remove em dashes (—) per general-code-style; use commas, colons, or reword.' >&2; exit 2; } ;; esac; exit 0"
+            "command": "F=$(jq -r '.tool_input.file_path // empty'); case \"$F\" in *.ts|*.tsx|*.md) { [ -f \"$F\" ] && grep -nP '\\x{2014}' \"$F\" >&2; } && { echo 'Remove em dashes (—); use commas, colons, or reword (temp files intended for agents are exempt).' >&2; exit 2; } ;; esac; exit 0"
           },
           {
             "type": "command",

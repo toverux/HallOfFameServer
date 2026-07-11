@@ -3,24 +3,20 @@
 ## Project overview
 
 Hall of Fame is a mod for Cities: Skylines II that allows players to share and view screenshots.
-This repository contains the server-side code that powers the mod's backend services, API endpoints,
-and web interface.
+This repository contains the server-side code that powers the mod's backend services, API endpoints, and web interface.
 
-Players take up to 4K screenshots in-game, upload them, and browse others' shots as the main-menu
-background. The service is designed to give every city visibility (each screenshot is shown as often
-as possible), while likes and trending still surface standout work. There is no downvoting and no
-skill-based moderation, only removal of inappropriate content.
+Players take up to 4K screenshots in-game, upload them, and browse others' shots as the main-menu background.
+The service is designed to give every city visibility (each screenshot is shown as often as possible), while likes and trending still surface standout work.
+There is no downvoting and no skill-based moderation, only removal of inappropriate content.
 
 ## Domain concepts
 
 User-facing terms map to these Prisma models (`prisma/schema.prisma`):
 
-- **Creator** – a user account. Authenticated via a Paradox account ID or a local mod-generated ID
-  (`CreatorIdProvider`); may attach social links (`CreatorSocial`) and be flagged as a supporter.
+- **Creator** – a user account. Authenticated via a Paradox account ID or a local mod-generated ID (`CreatorIdProvider`); may attach social links (`CreatorSocial`) and be flagged as a supporter.
 - **Screenshot** – an uploaded image (up to 4K); can be reported for moderation.
 - **Favorite** – a "like" on a screenshot.
-- **View** – records that a Creator has seen a Screenshot; backs the "show every city as often as
-  possible" display algorithm and trending.
+- **View** – records that a Creator has seen a Screenshot; backs the "show every city as often as possible" display algorithm and trending.
 - **Ban** – moderation record; tracks hardware IDs and IPs to mitigate hostile multi-accounting.
 - **Mod** – cached metadata about a Paradox mod, referenced loosely by `paradoxModId`.
 - **ScreenshotFeatureEmbedding** – TensorFlow.js feature vector for a screenshot (image similarity).
@@ -63,6 +59,15 @@ You can run `mise tasks` to see the full list of shortcut commands. Do NOT use n
 Tip: you can append arguments to mise shortcuts, mise will pass them through, ex. `mise some:task --some-arg`.
 
 Always run the appropriate check/test commands after performing changes; but do it at the end of the editing session, not in the middle.
+
+## MCP servers
+
+Two MCP servers are available to the agent, but they are not necessarily loaded by default:
+
+- **Chrome DevTools MCP** – Drive a browser to test the web interface, inspect network requests, debug pages, etc.
+- **MongoDB MCP** – Inspect and query the database directly.
+
+If you want to use one of them (ex. to test your changes) and its tools are not available, ask the user to start it, then continue from there.
 
 ## Boundaries
 

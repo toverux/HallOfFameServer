@@ -37,6 +37,13 @@ export class ModController {
       throw new NotFoundByIdError(String(paradoxModId));
     }
 
+    // Increment click count for this mod, before redirecting so the count is saved once the client
+    // gets the response.
+    await this.prisma.mod.update({
+      where: { paradoxModId },
+      data: { clicks: { increment: 1 } }
+    });
+
     res.redirect(
       // Specifying the platform (Windows) is mandatory, and Windows is the one platform where we're
       // sure to hit because everything is available to Windows.
@@ -44,11 +51,5 @@ export class ModController {
       `https://mods.paradoxplaza.com/mods/${paradoxModId}/Windows`,
       HttpStatus.TEMPORARY_REDIRECT
     );
-
-    // Increment click count for this mod.
-    await this.prisma.mod.update({
-      where: { paradoxModId },
-      data: { clicks: { increment: 1 } }
-    });
   }
 }

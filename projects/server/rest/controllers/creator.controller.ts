@@ -158,16 +158,17 @@ export class CreatorController {
       );
     }
 
-    // Redirect to the direct link stored in the database.
-    res.redirect(platform.link, HttpStatus.TEMPORARY_REDIRECT);
-
-    // Increment click count for this platform.
+    // Increment click count for this platform, before redirecting so the count is saved once the
+    // client gets the response.
     platform.clicks++;
 
     await this.prisma.creator.update({
       where: { id: creator.id },
       data: { socials: creator.socials }
     });
+
+    // Redirect to the direct link stored in the database.
+    res.redirect(platform.link, HttpStatus.TEMPORARY_REDIRECT);
   }
 
   /**
@@ -182,14 +183,15 @@ export class CreatorController {
   ): Promise<void> {
     const creator = await this.fetchCreatorById(creatorId, req);
 
-    // Pass the Mongo ID rather than the Creator Name, it is rename-proof and URL-safe.
-    res.redirect(`${viewerBaseUrl}/?creator=${creator.id}`, HttpStatus.TEMPORARY_REDIRECT);
-
-    // Increment viewer click count for this creator.
+    // Increment viewer click count for this creator, before redirecting so the count is saved once
+    // the client gets the response.
     await this.prisma.creator.update({
       where: { id: creator.id },
       data: { viewerClicksCount: { increment: 1 } }
     });
+
+    // Pass the Mongo ID rather than the Creator Name, it is rename-proof and URL-safe.
+    res.redirect(`${viewerBaseUrl}/?creator=${creator.id}`, HttpStatus.TEMPORARY_REDIRECT);
   }
 
   private async fetchCreatorById(id: CreatorIdentifier, req: FastifyRequest): Promise<Creator> {

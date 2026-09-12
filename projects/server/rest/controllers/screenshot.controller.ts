@@ -291,13 +291,14 @@ export class ScreenshotController {
       throw new NotFoundByIdError(id);
     }
 
-    res.redirect(`${viewerBaseUrl}/city/${id}`, HttpStatus.TEMPORARY_REDIRECT);
-
-    // Increment viewer click count for this screenshot.
+    // Increment viewer click count for this screenshot, before redirecting so the count is saved
+    // once the client gets the response.
     await this.prisma.screenshot.update({
       where: { id },
       data: { viewerClicksCount: { increment: 1 } }
     });
+
+    res.redirect(`${viewerBaseUrl}/city/${id}`, HttpStatus.TEMPORARY_REDIRECT);
   }
 
   /**

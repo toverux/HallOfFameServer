@@ -115,6 +115,8 @@ export class ScreenshotMergingService {
       const existing = deduplicated.find(
         candidate =>
           candidate.creatorId == favorite.creatorId ||
+          // Even when both lack a hardware ID: the unique index on (screenshotId, hwid) allows a
+          // single favorite without one per screenshot.
           candidate.hwid == favorite.hwid ||
           candidate.ip == favorite.ip
       );

@@ -99,14 +99,33 @@ export class ModerateShowcasedModsCommand extends CommandRunner {
     }
 
     for (const screenshot of screenshots) {
-      const showcasedMod = await this.modService.getMod(screenshot.showcasedModId as ParadoxModId);
+      const modId = screenshot.showcasedModId as ParadoxModId;
+      const showcasedMod = await this.modService.getMod(modId);
 
+      // ModService.getMod() leaves out a retired mod, whose showcase is removed without asking,
+      // and a mod it failed to fetch, whose screenshot waits for the next run.
       if (!showcasedMod) {
-        iconsole.error(
-          chalk.bold.redBright(
-            `Screenshot #${screenshot.id} has a showcased mod that does not exist.`
-          )
-        );
+        const mod = await this.prisma.mod.findUnique({
+          where: { paradoxModId: modId },
+          select: { isRetired: true }
+        });
+
+        if (mod?.isRetired) {
+          await this.prisma.screenshot.update({
+            where: { id: screenshot.id },
+            data: { showcasedModId: null, isShowcasedModValidated: false }
+          });
+
+          iconsole.log(
+            `Removed showcase of retired mod #${modId} for screenshot #${screenshot.id}.`
+          );
+        } else {
+          iconsole.error(
+            chalk.bold.redBright(
+              `Could not fetch showcased mod #${modId} of screenshot #${screenshot.id}, skipped.`
+            )
+          );
+        }
 
         continue;
       }

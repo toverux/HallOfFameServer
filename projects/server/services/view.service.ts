@@ -22,10 +22,11 @@ export class ViewService {
   /**
    * Cache of Creator ID (database one, not the UUID v4) to viewed screenshot IDs to avoid
    * repeatedly querying the database for the same data when the user is browsing screenshots.
+   * An entry is cached as its load starts, and `loaded` settles once the load filled its set.
    */
   private readonly viewsCache = new LRUCache<
     Creator['id'],
-    { maxAge: number; screenshotIds: Set<Screenshot['id']> }
+    { maxAge: number; screenshotIds: Set<Screenshot['id']>; loaded: Promise<void> }
   >({
     // Allow a max of 100 creator entries in the cache.
     max: 100,
@@ -49,23 +50,28 @@ export class ViewService {
     const cache = this.viewsCache.get(creatorId);
 
     if (cache?.maxAge == maxAgeInDays) {
+      await cache.loaded;
+
       return cache.screenshotIds;
     }
 
-    const screenshots = await this.prisma.view.findMany({
-      select: { screenshotId: true },
-      where: {
-        AND: [
-          { creatorId },
-          maxAgeInDays ? { viewedAt: { gte: dateFns.subDays(new Date(), maxAgeInDays) } } : {}
-        ]
+    // Cached before it loads, so concurrent lookups share the load and markViewed() adds a view
+    // created meanwhile, which the load may have missed. Cached even when empty for the same.
+    const screenshotIds = new Set<Screenshot['id']>();
+    const loaded = this.loadViewedScreenshotIds(creatorId, maxAgeInDays, screenshotIds);
+
+    this.viewsCache.set(creatorId, { maxAge: maxAgeInDays, screenshotIds, loaded });
+
+    try {
+      await loaded;
+    } catch (error) {
+      // Drop the failed load for the next lookup to retry, unless another replaced it already.
+      if (this.viewsCache.peek(creatorId)?.loaded == loaded) {
+        this.viewsCache.delete(creatorId);
       }
-    });
 
-    const screenshotIds = new Set(screenshots.map(view => view.screenshotId));
-
-    // Cached even when empty: markViewed() adds to it.
-    this.viewsCache.set(creatorId, { maxAge: maxAgeInDays, screenshotIds });
+      throw error;
+    }
 
     return screenshotIds;
   }
@@ -75,15 +81,16 @@ export class ViewService {
    * The view count properties will be updated with the background job.
    */
   public async markViewed(screenshotId: Screenshot['id'], creatorId: Creator['id']): Promise<View> {
-    // Add the view to the Creator's cached views, if loaded. Never start an entry here: it would
-    // hold only this view, hiding the older ones from the database until it expires, whereas the
-    // next lookup loads them all, this one included.
-    this.viewsCache.get(creatorId)?.screenshotIds.add(screenshotId);
-
     // Create the View record.
     const view = await this.prisma.view.create({
       data: { screenshotId, creatorId }
     });
+
+    // Add the view to the Creator's cached views, even while they load: once the View exists, a
+    // lookup that starts loads it anyway, but one already running may have missed it.
+    // Never start an entry here: it would hold only this view, hiding the older ones from the
+    // database until it expires.
+    this.viewsCache.get(creatorId)?.screenshotIds.add(screenshotId);
 
     // Update the Screenshot view count.
     // No transaction with the View record creation, this is not critical data, and a background job
@@ -112,5 +119,30 @@ export class ViewService {
       screenshotId: view.screenshotId,
       viewedAt: view.viewedAt.toISOString()
     };
+  }
+
+  /**
+   * Adds the IDs of the screenshots viewed by the given Creator to `screenshotIds`.
+   *
+   * @see getViewedScreenshotIds
+   */
+  private async loadViewedScreenshotIds(
+    creatorId: Creator['id'],
+    maxAgeInDays: number,
+    screenshotIds: Set<Screenshot['id']>
+  ): Promise<void> {
+    const views = await this.prisma.view.findMany({
+      select: { screenshotId: true },
+      where: {
+        AND: [
+          { creatorId },
+          maxAgeInDays ? { viewedAt: { gte: dateFns.subDays(new Date(), maxAgeInDays) } } : {}
+        ]
+      }
+    });
+
+    for (const view of views) {
+      screenshotIds.add(view.screenshotId);
+    }
   }
 }

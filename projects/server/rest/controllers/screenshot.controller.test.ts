@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, setSystemTime, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, setSystemTime, spyOn, test } from 'bun:test';
+import { Logger } from '@nestjs/common';
 import * as Bun from 'bun';
 import * as dfns from 'date-fns';
 import sharp from 'sharp';
@@ -72,7 +73,7 @@ const modUploadFields: Readonly<Record<string, string>> = {
   metadata: JSON.stringify(modMetadata),
   mapName: 'Lakeland',
   showcasedModId: '87755',
-  description: 'Sunset over the bay.'
+  description: `Sunset over the bay.`
 };
 
 // A Full HD JPEG.
@@ -533,7 +534,7 @@ describe('ScreenshotController', () => {
           paradoxModId: 87_755,
           name: 'Hall of Fame',
           authorName: 'toverux',
-          shortDescription: 'Share your cities.\nBrowse everyone else’s.',
+          shortDescription: `Share your cities.\nBrowse everyone else’s.`,
           thumbnailUrl: 'https://mods.paradoxplaza.com/thumbnails/hall-of-fame.jpg',
           tags: ['Code Mod'],
           subscribersCount: 25_000,
@@ -555,6 +556,62 @@ describe('ScreenshotController', () => {
 
       expect(again.json<unknown>()).toEqual(response.json<unknown>());
       expect(fetchStub.requests).toHaveLength(3);
+    });
+
+    test(`retries a failing Paradox Mods lookup, then leaves the mod out`, async () => {
+      const screenshot = await createScreenshot(
+        testApp.prisma,
+        await createCreator(testApp.prisma),
+        { paradoxModIds: [87_755] }
+      );
+
+      fetchStub.respondWithJson(
+        paradoxModUrl(87_755),
+        { error: 'Service Unavailable' },
+        { status: 503 }
+      );
+
+      // Silences the failure logged once the retries are exhausted.
+      const logError = spyOn(Logger.prototype, 'error').mockReturnValue(void 0);
+
+      const response = await testApp.app.inject({
+        method: 'GET',
+        url: `/api/v1/screenshots/${screenshot.id}/playset`
+      });
+
+      logError.mockRestore();
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json<unknown>()).toEqual([]);
+
+      // The first attempt and three retries.
+      expect(fetchStub.requests).toEqual(Array.from({ length: 4 }, () => paradoxModUrl(87_755)));
+
+      expect(await testApp.prisma.mod.count()).toBe(0);
+    });
+
+    test(`leaves out a mod whose details fail validation, without retrying`, async () => {
+      const screenshot = await createScreenshot(
+        testApp.prisma,
+        await createCreator(testApp.prisma),
+        { paradoxModIds: [87_755] }
+      );
+
+      stubParadoxMod(87_755, { subscriptions: 'many' });
+
+      // Silences the failure logged for the mod.
+      const logError = spyOn(Logger.prototype, 'error').mockReturnValue(void 0);
+
+      const response = await testApp.app.inject({
+        method: 'GET',
+        url: `/api/v1/screenshots/${screenshot.id}/playset`
+      });
+
+      logError.mockRestore();
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json<unknown>()).toEqual([]);
+      expect(fetchStub.requests).toEqual([paradoxModUrl(87_755)]);
     });
 
     test(`returns 403 when the creator did not share their playset`, async () => {
@@ -612,6 +669,26 @@ describe('ScreenshotController', () => {
       expect(response.statusCode).toBe(200);
       expect(response.json<unknown>()).toEqual(weightedPayload(screenshot, creator, 'random'));
     });
+
+    test.each(['random=-1', 'random=2&popular=-1', `random=${Number.MAX_SAFE_INTEGER}&popular=1`])(
+      `returns 400 for weights the pick cannot use: %s`,
+      async query => {
+        const response = await testApp.app.inject({
+          method: 'GET',
+          url: `/api/v1/screenshots/weighted?${query}`
+        });
+
+        expect(response.statusCode).toBe(400);
+
+        expect(response.json<unknown>()).toEqual({
+          statusCode: 400,
+          message:
+            `Algorithm weights must be positive integers or zero, ` +
+            `totaling at most ${Number.MAX_SAFE_INTEGER}.`,
+          error: 'Bad Request'
+        });
+      }
+    );
 
     // Each algorithm weighted alone, against a screenshot it selects and ones it passes over.
     describe('algorithms', () => {
@@ -1411,7 +1488,7 @@ describe('ScreenshotController', () => {
       const response = await upload(
         modHeaders(creator),
         modUploadFields,
-        new Blob(['Not a screenshot.'])
+        new Blob([`Not a screenshot.`])
       );
 
       expect(response.statusCode).toBe(400);
@@ -1670,6 +1747,128 @@ describe('ScreenshotController', () => {
     }
   });
 
+  describe('PUT /api/v1/screenshots/:id', () => {
+    test.each([
+      {
+        body: { cityName: '' },
+        message:
+          `City name "" is invalid, it must contain only letters, numbers, spaces, hyphens, ` +
+          `apostrophes, commas, and middle dots, with at least one letter or number, and be ` +
+          `between 1 and 35 characters long.`,
+        error: 'InvalidCityNameError'
+      },
+      {
+        body: { description: 'x'.repeat(4001) },
+        message: `Description must be at most 4000 characters long.`,
+        error: 'InvalidPayloadError'
+      }
+    ])(`rejects $body as the upload does`, async ({ body, message, error }) => {
+      const creator = await createCreator(testApp.prisma);
+      const screenshot = await createScreenshot(testApp.prisma, creator);
+
+      const response = await testApp.app.inject({
+        method: 'PUT',
+        url: `/api/v1/screenshots/${screenshot.id}`,
+        headers: modHeaders(creator),
+        payload: body
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json<unknown>()).toEqual({ statusCode: 400, message, error });
+
+      expect(
+        await testApp.prisma.screenshot.findUniqueOrThrow({ where: { id: screenshot.id } })
+      ).toEqual(screenshot);
+    });
+
+    test(`caches a newly showcased mod once the update is committed`, async () => {
+      const creator = await createCreator(testApp.prisma);
+      const screenshot = await createScreenshot(testApp.prisma, creator, { showcasedModId: null });
+
+      stubParadoxMod(87_755);
+
+      const response = await testApp.app.inject({
+        method: 'PUT',
+        url: `/api/v1/screenshots/${screenshot.id}`,
+        headers: modHeaders(creator),
+        payload: { showcasedModId: '87755' }
+      });
+
+      expect(response.statusCode).toBe(200);
+
+      await testApp.backgroundTasks.settled();
+
+      expect(await testApp.prisma.mod.count({ where: { paradoxModId: 87_755 } })).toBe(1);
+    });
+
+    test(`puts a newly showcased mod up for moderation`, async () => {
+      const creator = await createCreator(testApp.prisma);
+
+      const screenshot = await createScreenshot(testApp.prisma, creator, {
+        showcasedModId: 74_604,
+        isShowcasedModValidated: true
+      });
+
+      stubParadoxMod(87_755);
+
+      const response = await testApp.app.inject({
+        method: 'PUT',
+        url: `/api/v1/screenshots/${screenshot.id}`,
+        headers: modHeaders(creator),
+        payload: { showcasedModId: '87755' }
+      });
+
+      expect(response.statusCode).toBe(200);
+
+      expect(
+        await testApp.prisma.screenshot.findUniqueOrThrow({ where: { id: screenshot.id } })
+      ).toMatchObject({ showcasedModId: 87_755, isShowcasedModValidated: false });
+    });
+
+    test(`keeps the moderation outcome of a showcased mod sent again`, async () => {
+      const creator = await createCreator(testApp.prisma);
+
+      const screenshot = await createScreenshot(testApp.prisma, creator, {
+        showcasedModId: 87_755,
+        isShowcasedModValidated: true
+      });
+
+      const response = await testApp.app.inject({
+        method: 'PUT',
+        url: `/api/v1/screenshots/${screenshot.id}`,
+        headers: modHeaders(creator),
+        payload: { showcasedModId: '87755' }
+      });
+
+      expect(response.statusCode).toBe(200);
+
+      expect(
+        await testApp.prisma.screenshot.findUniqueOrThrow({ where: { id: screenshot.id } })
+      ).toMatchObject({ showcasedModId: 87_755, isShowcasedModValidated: true });
+    });
+
+    test(`keeps a pending translation when the city name is left alone`, async () => {
+      const creator = await createCreator(testApp.prisma);
+
+      const screenshot = await createScreenshot(testApp.prisma, creator, {
+        needsTranslation: true
+      });
+
+      const response = await testApp.app.inject({
+        method: 'PUT',
+        url: `/api/v1/screenshots/${screenshot.id}`,
+        headers: modHeaders(creator),
+        payload: { description: `Sunset over the bay.` }
+      });
+
+      expect(response.statusCode).toBe(200);
+
+      expect(
+        await testApp.prisma.screenshot.findUniqueOrThrow({ where: { id: screenshot.id } })
+      ).toMatchObject({ description: `Sunset over the bay.`, needsTranslation: true });
+    });
+  });
+
   test.each([
     { method: 'POST', path: '/views' },
     { method: 'POST', path: '/favorites' },
@@ -1737,6 +1936,9 @@ describe('validateCityName', () => {
     '京',
     '亚历山大·港',
     'Ville•Nord',
+    // Letters with combining marks.
+    'मुंबई',
+    'กรุงเทพ',
     '2049',
     'x'.repeat(35),
     // Counted in characters, not UTF-16 code units.
@@ -1754,7 +1956,9 @@ describe('validateCityName', () => {
     'Tokyo 🗼',
     '   ',
     ',,,',
-    '-'
+    '-',
+    // More combining marks on one letter than any script needs.
+    'á́́́'
   ])(`rejects "%s"`, name => {
     expect(() => validateCityName(name)).toThrow(
       `City name "${name}" is invalid, it must contain only letters, numbers, spaces, ` +
@@ -1801,8 +2005,12 @@ describe('validatePopulation', () => {
 });
 
 describe('validateDescription', () => {
-  test.each([undefined, ''])(`treats %p as no description`, description => {
+  test.each([undefined, '', ' \n '])(`treats %p as no description`, description => {
     expect(validateDescription(description)).toBeUndefined();
+  });
+
+  test(`trims surrounding whitespace`, () => {
+    expect(validateDescription('  Sunset over the bay. \n')).toBe(`Sunset over the bay.`);
   });
 
   test(`accepts 4000 characters`, () => {
@@ -1828,11 +2036,14 @@ describe('validateModIds', () => {
     expect<readonly number[]>(Array.from(validateModIds(csv))).toEqual(modIds);
   });
 
-  test.each(['0', '-87755', 'hall-of-fame', '74604,', '74604;87755'])(`rejects "%s"`, csv => {
-    expect(() => validateModIds(csv)).toThrow(
-      `Mod IDs must be positive integers and separated by a comma.`
-    );
-  });
+  test.each(['0', '-87755', 'hall-of-fame', '74604,', '74604;87755', 'Infinity', '1e30'])(
+    `rejects "%s"`,
+    csv => {
+      expect(() => validateModIds(csv)).toThrow(
+        `Mod IDs must be positive integers and separated by a comma.`
+      );
+    }
+  );
 });
 
 describe('validateRenderSettings', () => {
@@ -1913,7 +2124,7 @@ function stubParadoxMod(modId: number, overrides: Readonly<Record<string, JsonVa
       modId: String(modId),
       author: 'toverux',
       displayName: `Mod ${modId}`,
-      shortDescription: 'Adds a few things to the game.',
+      shortDescription: `Adds a few things to the game.`,
       displayImagePath: `https://mods.paradoxplaza.com/thumbnails/${modId}.jpg`,
       tags: ['Code Mod'],
       subscriptions: 1000,

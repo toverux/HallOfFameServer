@@ -1,6 +1,39 @@
-import { describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { nn } from '../../shared/utils/type-assertion';
-import { pickWeightedAlgorithm } from './screenshot.service';
+import { createCreator, createScreenshot } from '../testing/factories';
+import { createTestApp, type TestApp } from '../testing/test-app';
+import { pickWeightedAlgorithm, ScreenshotService } from './screenshot.service';
+
+describe('ScreenshotService.updateCityNameTranslation', () => {
+  let testApp: TestApp;
+
+  // The test app provides the service with its many dependencies, the fakes included.
+  beforeEach(async () => {
+    testApp = await createTestApp();
+  });
+
+  afterEach(async () => {
+    await testApp.app.close();
+  });
+
+  test(`leaves a screenshot renamed during its translation to the rename's own`, async () => {
+    const screenshot = await createScreenshot(testApp.prisma, await createCreator(testApp.prisma), {
+      cityName: '大阪',
+      needsTranslation: true
+    });
+
+    // As the translation of the name before the rename finishes.
+    const result = await testApp.app
+      .get(ScreenshotService)
+      .updateCityNameTranslation({ ...screenshot, cityName: '東京' });
+
+    expect(result).toEqual({ translated: false });
+
+    expect(
+      await testApp.prisma.screenshot.findUniqueOrThrow({ where: { id: screenshot.id } })
+    ).toEqual(screenshot);
+  });
+});
 
 describe('pickWeightedAlgorithm', () => {
   test.each([

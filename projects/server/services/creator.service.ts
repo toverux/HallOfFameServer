@@ -423,6 +423,17 @@ export class CreatorService {
   }
 }
 
+/**
+ * Conditions to OR together to match the records of a unique user:
+ * made by their Creator ID, or from any of their hardware IDs or IPs,
+ * as multi-accounting is not allowed.
+ */
+export function uniqueUserConditions(
+  creator: Pick<Creator, 'id' | 'hwids' | 'ips'>
+): [{ creatorId: string }, { hwid: { in: string[] } }, { ip: { in: string[] } }] {
+  return [{ creatorId: creator.id }, { hwid: { in: creator.hwids } }, { ip: { in: creator.ips } }];
+}
+
 export abstract class CreatorError extends StandardError {}
 
 export class InvalidCreatorIdError extends CreatorError {

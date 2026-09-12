@@ -3,7 +3,19 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import * as sentry from '@sentry/bun';
 import * as dateFns from 'date-fns';
-import { catchError, EMPTY, from, lastValueFrom, mergeMap, retry, toArray } from 'rxjs';
+import {
+  catchError,
+  defer,
+  EMPTY,
+  from,
+  lastValueFrom,
+  mergeMap,
+  type Observable,
+  retry,
+  throwError,
+  timer,
+  toArray
+} from 'rxjs';
 import { z } from 'zod';
 import type { Mod, Prisma } from '#prisma-lib/client';
 import type { ParadoxModId } from '../../shared/utils/branded-types';
@@ -13,13 +25,21 @@ import { PrismaService } from './prisma.service';
 
 @Injectable()
 export class ModService {
+  /**
+   * Retries of a Paradox API request that failed fast, see {@link retryDelay}.
+   */
   private static readonly paradoxApiRetries = 3;
+
+  /**
+   * Milliseconds before the first retry, doubling for each next one.
+   */
+  private static readonly paradoxApiRetryDelay = 250;
 
   private static readonly paradoxApiConcurrency = 5;
 
   /**
-   * Milliseconds per attempt, so a stalled Paradox API cannot hold a lookup, or the shutdown
-   * waiting for a background one, indefinitely.
+   * Milliseconds per attempt,
+   * so a stalled Paradox API cannot hold a lookup, or the shutdown waiting for a background one.
    */
   private static readonly paradoxApiTimeout = 10_000;
 
@@ -82,23 +102,9 @@ export class ModService {
 
     const missingModIds = modIds.difference(new Set(foundMods.map(mod => mod.paradoxModId)));
 
-    const missingModResults = await lastValueFrom(
-      from(missingModIds).pipe(
-        mergeMap(
-          modId =>
-            from(this.fetchModDetailsFromParadoxMods(modId)).pipe(
-              retry(ModService.paradoxApiRetries),
-              catchError(error => {
-                this.logger.error(`Failed to fetch mod details for new mod ${modId}.`, error);
-                sentry.captureException(error);
-
-                return EMPTY;
-              })
-            ),
-          ModService.paradoxApiConcurrency
-        ),
-        toArray()
-      )
+    const missingModResults = await this.fetchModsDetails(
+      missingModIds,
+      modId => `Failed to fetch mod details for new mod ${modId}.`
     );
 
     if (missingModResults.length == 0) {
@@ -191,23 +197,9 @@ export class ModService {
       this.logger.log(`Checking mod details freshness for ${modsToCheck.length} mods...`);
 
       // Make a query for each mod.
-      const modResults = await lastValueFrom(
-        from(modsToCheck.map(mod => mod.paradoxModId as ParadoxModId)).pipe(
-          mergeMap(
-            modId =>
-              from(this.fetchModDetailsFromParadoxMods(modId)).pipe(
-                retry(ModService.paradoxApiRetries),
-                catchError(error => {
-                  this.logger.error(`Failed to update mod details for known mod ${modId}.`, error);
-                  sentry.captureException(error);
-
-                  return EMPTY;
-                })
-              ),
-            ModService.paradoxApiConcurrency
-          ),
-          toArray()
-        )
+      const modResults = await this.fetchModsDetails(
+        modsToCheck.map(mod => mod.paradoxModId as ParadoxModId),
+        modId => `Failed to update mod details for known mod ${modId}.`
       );
 
       // Keep mods that have been updated since the last sync.
@@ -262,6 +254,38 @@ export class ModService {
   }
 
   /**
+   * Fetches the details of each mod from Paradox's API, see {@link fetchModDetailsFromParadoxMods}.
+   * A mod whose details cannot be fetched is left out, the failure logged with `failureMessage`.
+   */
+  private fetchModsDetails(
+    modIds: Iterable<ParadoxModId>,
+    failureMessage: (modId: ParadoxModId) => string
+  ): Promise<Array<Awaited<ReturnType<ModService['fetchModDetailsFromParadoxMods']>>>> {
+    return lastValueFrom(
+      from(modIds).pipe(
+        mergeMap(
+          modId =>
+            // Deferred so each retry fetches again, where a promise would replay its outcome.
+            defer(() => this.fetchModDetailsFromParadoxMods(modId)).pipe(
+              retry({
+                count: ModService.paradoxApiRetries,
+                delay: (failure, retryCount) => ModService.retryDelay(failure, retryCount)
+              }),
+              catchError(failure => {
+                this.logger.error(failureMessage(modId), failure);
+                sentry.captureException(failure);
+
+                return EMPTY;
+              })
+            ),
+          ModService.paradoxApiConcurrency
+        ),
+        toArray()
+      )
+    );
+  }
+
+  /**
    * Fetches a mod's details from Paradox's API.
    * Returns an enum-like object of kind `retired` when a mod has been removed or banned.
    *
@@ -285,17 +309,17 @@ export class ModService {
 
     this.logger.verbose(`Fetching mod details from Paradox API: ${url}`);
 
-    // The signal also aborts reading the body.
+    // The signal also aborts reading the body, which then rejects with the timeout too.
     const response = await fetch(url, {
       signal: AbortSignal.timeout(ModService.paradoxApiTimeout)
     });
 
     const debugResponseStatusStr = `${response.status} ${response.statusText}`;
 
-    let responseText: string | null = null;
+    const responseText = await response.text();
+
     let responseData: JsonValue = null;
     try {
-      responseText = await response.text();
       responseData = JSON.parse(responseText);
     } catch {
       // Assert below will take care.
@@ -349,6 +373,22 @@ export class ModService {
       modId,
       details: ModService.paradoxModDetailsSchema.parse(responseData.modDetail)
     };
+  }
+
+  /**
+   * Delays the next retry of a failed Paradox API request, exponentially.
+   * Rethrows the errors a retry would not fix: a timeout, as the API is stalling,
+   * and a response failing validation.
+   */
+  private static retryDelay(error: unknown, retryCount: number): Observable<number> {
+    if (
+      (error instanceof DOMException && error.name == 'TimeoutError') ||
+      error instanceof z.ZodError
+    ) {
+      return throwError(() => error);
+    }
+
+    return timer(ModService.paradoxApiRetryDelay * 2 ** (retryCount - 1));
   }
 
   /**

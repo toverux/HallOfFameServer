@@ -28,7 +28,7 @@ import { config } from '../config';
 import { AiTranslatorService } from './ai-translator.service';
 import { BackgroundTasksService } from './background-tasks.service';
 import { CreatorAuthenticationService } from './creator-authentication.service';
-import { CreatorService } from './creator.service';
+import { CreatorService, uniqueUserConditions } from './creator.service';
 import { DateFnsLocalizationService } from './date-fns-localization.service';
 import { FavoriteService } from './favorite.service';
 import { ModService } from './mod.service';
@@ -297,32 +297,48 @@ export class ScreenshotService implements OnApplicationBootstrap {
 
   /**
    * Updates a screenshot with the specified data.
-   * - If the name of the city changes, the translation is updated asynchronously if needed.
-   * - If a showcased mod is added, the mod cache is warmed up synchronously.
+   * Once the update is committed, runs in the background the translation of a changed city name,
+   * and the mods cache warmup for a newly showcased mod.
    *
    * @param screenshotId The unique identifier of the screenshot to update.
    * @param data The data to update the screenshot with.
-   * @param prisma An optional Prisma transaction client, if the operation is executed within
-   *   an existing transaction.
    *
    * @returns A promise that resolves to the updated screenshot object.
    */
-  public updateScreenshot(
+  public async updateScreenshot(
     screenshotId: Screenshot['id'],
     data: Pick<
       Prisma.ScreenshotUpdateInput,
       'cityName' | 'showcasedModId' | 'description' | 'shareParadoxModIds' | 'shareRenderSettings'
-    >,
-    prisma?: Prisma.TransactionClient
+    >
   ): Promise<Screenshot> {
-    return prisma
-      ? transaction.call(this, prisma)
-      : this.prisma.$transaction(transaction.bind(this));
+    const update = await this.prisma.$transaction(transaction);
+    const updatedScreenshot = update.screenshot;
 
-    async function transaction(
-      this: ScreenshotService,
-      tx: Prisma.TransactionClient
-    ): Promise<Screenshot> {
+    // After the commit, so a rollback starts no work and a slow Paradox API holds no transaction.
+    if (update.isShowcasedModAdded) {
+      this.backgroundTasks.run(
+        oneLine`
+        Failed to warmup mods cache for screenshot "${updatedScreenshot.cityName}"
+        (#${updatedScreenshot.id}).`,
+        () => this.modService.getMod(nn(updatedScreenshot.showcasedModId) as ParadoxModId)
+      );
+    }
+
+    if (update.needsTranslation) {
+      this.backgroundTasks.run(
+        `Failed to translate city name "${updatedScreenshot.cityName}" (#${updatedScreenshot.id}).`,
+        () => this.updateCityNameTranslation(updatedScreenshot)
+      );
+    }
+
+    return updatedScreenshot;
+
+    async function transaction(tx: Prisma.TransactionClient): Promise<{
+      screenshot: Screenshot;
+      needsTranslation: boolean;
+      isShowcasedModAdded: boolean;
+    }> {
       try {
         const originalScreenshot = await tx.screenshot.findUniqueOrThrow({
           where: { id: screenshotId }
@@ -335,34 +351,27 @@ export class ScreenshotService implements OnApplicationBootstrap {
           where: { id: screenshotId },
           data: {
             ...data,
-            needsTranslation,
+            // Never cleared here: a translation still pending from before stays pending.
+            needsTranslation: needsTranslation ? true : Prisma.skip,
             cityNameLocale: needsTranslation ? null : Prisma.skip,
             cityNameLatinized: needsTranslation ? null : Prisma.skip,
             cityNameTranslated: needsTranslation ? null : Prisma.skip,
+            // A newly showcased mod awaits moderation, an unchanged one keeps its outcome.
             isShowcasedModValidated:
-              data.showcasedModId == Prisma.skip
+              data.showcasedModId == Prisma.skip ||
+              data.showcasedModId == originalScreenshot.showcasedModId
                 ? Prisma.skip
-                : data.showcasedModId != originalScreenshot.showcasedModId
+                : false
           }
         });
 
-        // A reference to a mod has been added, update mods' cache.
-        if (
-          screenshot.showcasedModId &&
-          screenshot.showcasedModId != originalScreenshot.showcasedModId
-        ) {
-          await this.modService.getMod(screenshot.showcasedModId as ParadoxModId);
-        }
-
-        // Translate city name asynchronously.
-        if (needsTranslation) {
-          this.backgroundTasks.run(
-            `Failed to translate city name "${screenshot.cityName}" (#${screenshot.id}).`,
-            () => this.updateCityNameTranslation(screenshot)
-          );
-        }
-
-        return screenshot;
+        return {
+          screenshot,
+          needsTranslation,
+          isShowcasedModAdded:
+            screenshot.showcasedModId != null &&
+            screenshot.showcasedModId != originalScreenshot.showcasedModId
+        };
       } catch (error) {
         if (isPrismaError(error) && error.code == 'P2025') {
           throw new NotFoundByIdError(screenshotId, { cause: error });
@@ -507,18 +516,20 @@ export class ScreenshotService implements OnApplicationBootstrap {
    * If another screenshot with the same city name is found that was already translated, its values
    * are reused. This serves both the purpose of saving on OpenAI requests but most importantly,
    * makes sure we have a stable translation for different uploads of the same city.
+   * A screenshot renamed meanwhile is left to the translation its rename started, and counts as
+   * not translated.
    */
   public async updateCityNameTranslation(
     screenshot: Pick<Screenshot, 'id' | 'creatorId' | 'cityName'>
   ): Promise<
     { translated: false } | { translated: true; cached: boolean; screenshot: Screenshot }
   > {
+    // Matching the city name too, see the final update.
+    const where = { id: screenshot.id, cityName: screenshot.cityName };
+
     // If no translation is needed, mark the screenshot as not needing translation.
     if (!AiTranslatorService.isEligibleForTranslation(screenshot.cityName)) {
-      await this.prisma.screenshot.update({
-        where: { id: screenshot.id },
-        data: { needsTranslation: false }
-      });
+      await this.prisma.screenshot.updateMany({ where, data: { needsTranslation: false } });
 
       return { translated: false };
     }
@@ -563,13 +574,19 @@ export class ScreenshotService implements OnApplicationBootstrap {
       };
     }
 
-    // Update the screenshot with the new values.
-    const updatedScreenshot = await this.prisma.screenshot.update({
-      where: { id: screenshot.id },
-      data: updateInput
-    });
+    // Update the screenshot with the new values, unless it was renamed while this translation ran:
+    // the rename's own translation may already have written its values.
+    try {
+      const updatedScreenshot = await this.prisma.screenshot.update({ where, data: updateInput });
 
-    return { translated: true, cached, screenshot: updatedScreenshot };
+      return { translated: true, cached, screenshot: updatedScreenshot };
+    } catch (error) {
+      if (isPrismaError(error) && error.code == 'P2025') {
+        return { translated: false };
+      }
+
+      throw error;
+    }
   }
 
   /**
@@ -782,11 +799,7 @@ export class ScreenshotService implements OnApplicationBootstrap {
       // Enough to tell whether the limit is reached, as many players can share an IP.
       take: config.screenshots.limitPer24h,
       where: {
-        OR: [
-          { creatorId: creator.id },
-          { hwid: { in: creator.hwids } },
-          { ip: { in: creator.ips } }
-        ],
+        OR: uniqueUserConditions(creator),
         createdAt: { gt: dfns.subDays(new Date(), 1) }
       }
     });
@@ -989,6 +1002,7 @@ export class ScreenshotService implements OnApplicationBootstrap {
  * not selected again.
  * - Repeats the process until a result is found or all algorithms have been tried.
  *
+ * @param weights Positive integers or zero, totaling a safe integer, or the pick may never end.
  * @param random Random source returning a number in [0, 1), like `Math.random`.
  */
 export async function pickWeightedAlgorithm<TAlgorithm extends string, TResult>(

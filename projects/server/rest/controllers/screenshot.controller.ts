@@ -343,6 +343,17 @@ export class ScreenshotController {
 
     const weights = { random, popular, trending, recent, archeologist, supporter };
 
+    const totalWeight = Object.values(weights).reduce((total, weight) => total + weight, 0);
+
+    // Out of these bounds, the weighted pick would never end.
+    if (Object.values(weights).some(weight => weight < 0) || !Number.isSafeInteger(totalWeight)) {
+      throw new BadRequestException(
+        oneLine`
+        Algorithm weights must be positive integers or zero,
+        totaling at most ${Number.MAX_SAFE_INTEGER}.`
+      );
+    }
+
     const screenshot = await this.screenshotService.getWeightedRandomScreenshot(
       weights,
       creator?.id,
@@ -434,13 +445,15 @@ export class ScreenshotController {
       throw new ForbiddenError(`You cannot update screenshots that are not yours.`);
     }
 
-    const cityName = body.cityName && validateCityName(body.cityName);
+    const cityName = body.cityName == null ? undefined : validateCityName(body.cityName);
     const showcasedModId = Array.from(validateModIds(body.showcasedModId)).at(0);
 
     const updatedScreenshot = await this.screenshotService.updateScreenshot(screenshotId, {
       cityName: cityName ?? Prisma.skip,
       showcasedModId: showcasedModId ?? Prisma.skip,
-      description: body.description ?? Prisma.skip,
+      // An empty description clears it, as an upload without one.
+      description:
+        body.description == null ? Prisma.skip : (validateDescription(body.description) ?? null),
       shareParadoxModIds: body.shareParadoxModIds ?? Prisma.skip,
       shareRenderSettings: body.shareRenderSettings ?? Prisma.skip
     });
@@ -662,10 +675,12 @@ export class ScreenshotController {
  * Regular expression to validate a trimmed city name:
  * - Must contain only letters, numbers, spaces, hyphens, apostrophes and commas (Latin, CJK), and
  * middle dots (the Chinese interpunct, and a bullet), with at least one letter or number.
+ * - A letter or number may carry up to three combining marks, as scripts like Devanagari and Thai
+ * need, where more only stack into unreadable text.
  * - Must be between 1 and 35 characters long. 1-character-long names are for languages like
  * Chinese.
  */
-const cityNameRegex = /^(?=.*[\p{L}\p{N}])[\p{L}\p{N}\- '’,、·•]{1,35}$/u;
+const cityNameRegex = /^(?=.{1,35}$)(?=.*[\p{L}\p{N}])(?:[\p{L}\p{N}]\p{M}{0,3}|[- '’,、·•])+$/u;
 
 /**
  * Maximum accepted milestone value.
@@ -717,17 +732,19 @@ export function validatePopulation(population: string): number {
 }
 
 export function validateDescription(description: string | undefined): string | undefined {
-  if (!description) {
+  const trimmedDescription = description?.trim();
+
+  if (!trimmedDescription) {
     return undefined;
   }
 
-  if (description.length > maxDescriptionLength) {
+  if (trimmedDescription.length > maxDescriptionLength) {
     throw new InvalidPayloadError(
       `Description must be at most ${maxDescriptionLength} characters long.`
     );
   }
 
-  return description;
+  return trimmedDescription;
 }
 
 export function validateModIds(commaSeparatedModIds: string | undefined): Set<ParadoxModId> {
@@ -738,7 +755,7 @@ export function validateModIds(commaSeparatedModIds: string | undefined): Set<Pa
   const modIds = commaSeparatedModIds.split(',').map(id => {
     const parsed = Math.trunc(Number(id.trim()));
 
-    if (Number.isNaN(parsed) || parsed < 1) {
+    if (!Number.isSafeInteger(parsed) || parsed < 1) {
       throw new InvalidPayloadError(`Mod IDs must be positive integers and separated by a comma.`);
     }
 

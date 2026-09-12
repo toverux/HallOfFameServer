@@ -3,7 +3,7 @@ import type { Creator, Favorite, Prisma, Screenshot } from '#prisma-lib/client';
 import { type JsonObject, optionallySerialized } from '../../shared/utils/json';
 import { nn } from '../../shared/utils/type-assertion';
 import { StandardError } from '../common/standard-error';
-import { CreatorService } from './creator.service';
+import { CreatorService, uniqueUserConditions } from './creator.service';
 import { PrismaService } from './prisma.service';
 import { ScreenshotStatsService } from './screenshot-stats.service';
 
@@ -151,18 +151,20 @@ export class FavoriteService {
 
 /**
  * Matches the favorites a unique user left on the given screenshots.
- * Multi-accounting is not allowed for favorites, so a favorite is shared by every account on any of
- * the creator's hardware IDs or IPs, hence the OR clause.
+ *
+ * @see uniqueUserConditions
  */
 function uniqueUserFavorites(
   screenshotId: NonNullable<Prisma.FavoriteWhereInput['screenshotId']>,
   creator: Pick<Creator, 'id' | 'hwids' | 'ips'>
 ): Prisma.FavoriteWhereInput {
+  const [byCreatorId, byHardwareIds, byIps] = uniqueUserConditions(creator);
+
   return {
     OR: [
-      { screenshotId, creatorId: creator.id },
-      { screenshotId, hwid: { in: creator.hwids } },
-      { screenshotId, ip: { in: creator.ips } }
+      { screenshotId, ...byCreatorId },
+      { screenshotId, ...byHardwareIds },
+      { screenshotId, ...byIps }
     ]
   };
 }

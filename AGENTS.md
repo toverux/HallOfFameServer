@@ -89,6 +89,7 @@ Always run the appropriate check commands and `mise test:agents` after changes, 
 Both start the dev MongoDB (`mise dev:db:start`), which the suite requires: each run gets its own throwaway database, emptied before every test.
 Test files sit next to their subject as `*.test.ts` and import `describe`, `test`, `expect`, and friends explicitly from `bun:test`; the single root tsconfig would leak test globals into production code.
 Write `expect(promise).resolves` and `.rejects` without `await`: in Bun they block until the promise settles.
+They refuse a Prisma query, which is a thenable rather than a Promise: await the query and assert on its value.
 
 ## Glossary
 

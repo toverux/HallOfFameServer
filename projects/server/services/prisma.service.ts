@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict';
-import { Injectable, Logger, type OnApplicationBootstrap } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  type OnApplicationBootstrap,
+  type OnModuleDestroy
+} from '@nestjs/common';
 import { filesize } from 'filesize';
 import { type Prisma, PrismaClient } from '#prisma-lib/client';
 import { ensureString } from '../../shared/utils/type-assertion';
@@ -23,7 +28,7 @@ const prismaOptions = {
 @Injectable()
 export class PrismaService
   extends PrismaClient<typeof prismaOptions, (typeof logDefinitions)[number]['level']>
-  implements OnApplicationBootstrap
+  implements OnApplicationBootstrap, OnModuleDestroy
 {
   private readonly logger = new Logger(PrismaService.name);
 
@@ -69,5 +74,9 @@ export class PrismaService
     this.logger.log(
       `Connected to MongoDB, database ${ensureString(stats.db)}, size: ${totalSizeStr}.`
     );
+  }
+
+  public async onModuleDestroy(): Promise<void> {
+    await this.$disconnect();
   }
 }

@@ -13,9 +13,9 @@
 /dist
 /halloffame.mongoarchive
 
-# Test files
-/test/http-client.env.json
-/test/screenshot-*.jpg
+# HTTP request files' local environment and debug output
+/projects/server/http-tests/http-client.env.json
+/projects/server/http-tests/screenshot-*.jpg
 
 # Agent working material (specs and tickets in flight, see `docs/agents/cantrips-loop.md`)
 /.scratch/

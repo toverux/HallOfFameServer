@@ -1,0 +1,6 @@
+[test]
+# In order: the environment must be set before any server module reads its configuration.
+preload = [
+  "./projects/server/testing/preload-environment.ts",
+  "./projects/server/testing/preload-database.ts"
+]

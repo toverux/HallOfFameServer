@@ -190,7 +190,7 @@ export class CreatorService {
     // - If the Creator ID is incorrect (not a UUID), reject the request.
     // - If the Creator ID is correct, we'll update the Creator Name if it is changed.
     // If we don't find a match, create a new account.
-    const creatorNameSlug = this.getCreatorNameSlug(creatorName);
+    const creatorNameSlug = CreatorService.getCreatorNameSlug(creatorName);
 
     const creators = await this.prisma.creator.findMany({
       where: creatorName
@@ -317,7 +317,7 @@ export class CreatorService {
    * Transforms a Creator Name to a slug-style one used to check for username collisions or future
    * URL routing.
    */
-  public getCreatorNameSlug(name: string | null): string | null {
+  public static getCreatorNameSlug(name: string | null): string | null {
     if (!name?.trim()) {
       return null;
     }

@@ -5,8 +5,12 @@ import { defineConfig } from 'oxlint';
 // oxlint-disable-next-line import/no-default-export - oxlint interface
 export default defineConfig({
   extends: [all, agnostic],
+  plugins: ['jest'],
   ignorePatterns: ['init-replica-set.js'],
   rules: {
+    // Jest (bun test) rule that conflicts with production code, re-enabled below with an override
+    // on test files.
+    'jest/require-hook': 'off',
     'id-length': [
       'deny',
       {
@@ -38,6 +42,19 @@ export default defineConfig({
     'typescript/no-extraneous-class': ['error', { allowWithDecorator: true }]
   },
   overrides: [
+    {
+      files: ['*.test.ts'],
+      rules: {
+        // Re-enable rule disabled above.
+        'jest/require-hook': 'deny',
+        // Tests state literal inputs and expected outputs, naming each would hide the worked
+        // example.
+        'no-magic-numbers': 'off',
+        // Tests pass `undefined` explicitly, as the input under test or for a required
+        // `T | undefined` parameter, which the rule's fix would make a type error.
+        'unicorn/no-useless-undefined': ['deny', { checkArguments: false }]
+      }
+    },
     {
       files: ['projects/server/**/*'],
       rules: {

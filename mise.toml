@@ -95,6 +95,22 @@ description = "Lints with oxlint (read-only, warnings denied), output optimized 
 depends = "build:prisma:generate"
 run = "bun --bun oxlint --deny-warnings --format agent"
 
+# TEST TASKS
+# ==========
+
+# Kept out of check:* because `mise build` and the Docker build run `check` without a database.
+
+[tasks."test"]
+description = "Runs the server test suite with bun test, against a throwaway database on the dev MongoDB."
+depends = ["build:prisma:generate", "dev:db:start"]
+raw = true
+run = "bun test"
+
+[tasks."test:agents"]
+description = "Runs the server test suite, output optimized for AI agents (failures only)."
+depends = ["build:prisma:generate", "dev:db:start"]
+run = "bun test --only-failures"
+
 # FIX TASKS
 # =========
 

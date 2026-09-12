@@ -1,0 +1,4 @@
+# Test material stays out of the image.
+**/*.test.ts
+/projects/server/testing
+/projects/server/http-tests

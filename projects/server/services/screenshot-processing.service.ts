@@ -9,7 +9,7 @@ import { config } from '../config';
 
 @Injectable()
 export class ScreenshotProcessingService {
-  private static readonly debugImagesDir = path.join(import.meta.dir, '../../../test');
+  private static readonly debugImagesDir = path.join(import.meta.dir, '../http-tests');
 
   public async resizeScreenshots(
     imageData: Buffer,
@@ -69,7 +69,7 @@ export class ScreenshotProcessingService {
       image4k.toBuffer()
     ]);
 
-    // Write debug images to the test directory.
+    // Write debug images next to the HTTP request files.
     if (config.env == 'development') {
       await allFulfilled(
         Object.entries({

@@ -43,7 +43,7 @@ TypeScript, one root `tsconfig.json` covering the whole repo, `.agents/hooks` in
 - `noEmit` is restored to `false` (the bun base sets it true) because the Angular CLI cannot build otherwise.
 - `moduleDetection: force` (from the bun base), so the import-free `.agents/hooks` scripts are modules rather than colliding global scripts.
 - `#prisma-lib/*` maps to the generated `prisma/lib/*`, which `build:prisma:generate` writes and `.gitignore` excludes.
-- Server, CLI, and `.agents/hooks` run on Bun; the Angular client runs in the browser, its SSR bundle inside the Bun server. No test runner.
+- Server, CLI, and `.agents/hooks` run on Bun; the Angular client runs in the browser, its SSR bundle inside the Bun server.
 
 ## Repository structure
 
@@ -55,8 +55,9 @@ TypeScript, one root `tsconfig.json` covering the whole repo, `.agents/hooks` in
 - `projects/server/graphql` – GraphQL resolvers and schema
 - `projects/server/cli` – Command-line interface tools
 - `projects/server/services` – Business logic services
+- `projects/server/testing` – Shared test infrastructure: preloads, factories, testing-module builder
+- `projects/server/http-tests` – HTTP request files for manual testing with JetBrains HTTP Client, not part of the test suite
 - `projects/shared` – Shared code between client and server
-- `test` – HTTP request files for testing with JetBrains HTTP Client
 - `.agents/rules` – Code style rules loaded into the agent's context
 - `.agents/hooks` – Editor hooks (em-dash and line-length checks), wired in `.claude/settings.json`
 - `docs/adr` – Architecture decision records; read before re-deciding something already settled.
@@ -73,12 +74,21 @@ TypeScript, one root `tsconfig.json` covering the whole repo, `.agents/hooks` in
 - `mise check:agents:oxlint`: Only lints the code, optimized output.
 - `mise fix`: Apply the auto-fixes in place (oxlint `--fix`, then oxfmt).
 - `mise fix:oxlint`, `mise fix:oxfmt`: The individual fixers.
-- `docker build -t halloffameserver . --progress=plain`: Check that the Docker build works.
+- `docker build -t halloffameserver . --target release --progress=plain`: Check that the Docker build works; the full build's final stage runs `db push` and `migrate` against the dev MongoDB, reachable only with `--network=host`.
 
 Run `mise tasks` to see the full shortcut list; append arguments freely, mise passes them through (ex. `mise some:task --some-arg`).
 Do NOT use npx to run commands; prefer mise shortcuts, or bun/bunx when no shortcut exists.
 
-Always run the appropriate check/test commands after changes, at the end of the editing session rather than mid-flight.
+Always run the appropriate check commands and `mise test:agents` after changes, at the end of the editing session rather than mid-flight.
+
+## Testing
+
+- `mise test`: Run the test suite (`bun test`, server and shared code); arguments pass through, ex. a file path or `--test-name-pattern`.
+- `mise test:agents`: The same, printing only failures.
+
+Both start the dev MongoDB (`mise dev:db:start`), which the suite requires: each run gets its own throwaway database, emptied before every test.
+Test files sit next to their subject as `*.test.ts` and import `describe`, `test`, `expect`, and friends explicitly from `bun:test`; the single root tsconfig would leak test globals into production code.
+Write `expect(promise).resolves` and `.rejects` without `await`: in Bun they block until the promise settles.
 
 ## Glossary
 

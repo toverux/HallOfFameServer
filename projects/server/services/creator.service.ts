@@ -95,7 +95,7 @@ export class CreatorService {
       // oxlint-disable-next-line no-magic-numbers -- UUID v4
       uuid.version(authorization.creatorId) != 4
     ) {
-      throw new InvalidCreatorIdError(authorization.creatorId);
+      return Promise.reject(new InvalidCreatorIdError(authorization.creatorId));
     }
 
     switch (authorization.kind) {
@@ -314,6 +314,9 @@ export class CreatorService {
   /**
    * Transforms a Creator Name to a slug-style one used to check for username collisions or future
    * URL routing.
+   * A run mixing spaces and hyphens slugs to several hyphens ("Big - City" to "big---city").
+   * Changing the rule needs a migration: authentication matches the new slug of the name sent
+   * against stored slugs, so a Creator could match another's and get IncorrectCreatorIdError.
    */
   public static getCreatorNameSlug(name: string | null): string | null {
     if (!name?.trim()) {
@@ -400,22 +403,23 @@ export class CreatorService {
   }
 
   /**
-   * Trims start, end, and consecutive spaces and validates that the string does not exceed 25
-   * characters.
+   * Trims the name and collapses whitespace runs to a single space, then validates that the result
+   * does not exceed 25 characters.
    *
    * @throws {InvalidCreatorNameError} If it is not a valid Creator Name.
    */
   private static validateCreatorName(name: string | null): string | null {
-    if (!name?.trim()) {
+    const normalized = name?.trim().replaceAll(/\s+/gu, ' ');
+
+    if (!normalized) {
       return null;
     }
 
-    if (name.length > CreatorService.maxCreatorNameLength) {
-      throw new InvalidCreatorNameError(name);
+    if (normalized.length > CreatorService.maxCreatorNameLength) {
+      throw new InvalidCreatorNameError(normalized);
     }
 
-    // Normalize multiple spaces to a single space.
-    return name.replaceAll(/\s+/gu, ' ');
+    return normalized;
   }
 }
 

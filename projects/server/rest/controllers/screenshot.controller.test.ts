@@ -17,6 +17,7 @@ import {
   createView
 } from '../../testing/factories';
 import { fetchStub } from '../../testing/fetch-stub';
+import * as identifiers from '../../testing/identifiers';
 import {
   expectedFavoritePayload,
   expectedModPayload,
@@ -33,9 +34,6 @@ import {
   validatePopulation,
   validateRenderSettings
 } from './screenshot.controller';
-
-// An ObjectId no factory hands out.
-const unknownScreenshotId = '0123456789abcdef01234567';
 
 /**
  * Builds a requester's account relative to the one that liked or uploaded first.
@@ -1712,14 +1710,14 @@ describe('ScreenshotController', () => {
     async path => {
       const response = await testApp.app.inject({
         method: 'GET',
-        url: `/api/v1/screenshots/${unknownScreenshotId}${path}`
+        url: `/api/v1/screenshots/${identifiers.unknownScreenshotId}${path}`
       });
 
       expect(response.statusCode).toBe(404);
 
       expect(response.json<unknown>()).toEqual({
         statusCode: 404,
-        message: `Could not find resource with ID "${unknownScreenshotId}".`,
+        message: `Could not find resource with ID "${identifiers.unknownScreenshotId}".`,
         error: 'NotFoundByIdError'
       });
     }

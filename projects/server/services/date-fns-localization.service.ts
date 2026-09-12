@@ -3,7 +3,6 @@ import * as dfns from 'date-fns';
 import * as locales from 'date-fns/locale';
 import type { FastifyRequest } from 'fastify';
 import { resolveAcceptLanguage } from 'resolve-accept-language';
-import { nn } from '../../shared/utils/type-assertion';
 
 @Injectable()
 export class DateFnsLocalizationService {
@@ -56,25 +55,16 @@ export class DateFnsLocalizationService {
   private buildLocalesMap(): Map<string, dfns.Locale> {
     const entries = Object.values(locales)
       .map(locale => ({ locale, code: locale.code.toLowerCase() }))
-      // Remap locales that are not supported by resolve-accept-language because they use
-      // three-letter codes, for now in date-fns this is only the case for "ckb", aka
-      // "Central Kurdish".
-      .map(({ locale, code }) => ({
-        locale,
-        code: code == 'ckb' ? 'ku-IQ' : code
-      }))
-      // Remap "xx" to "xx-xx" codes as resolve-accept-language expects only the latter
-      // format, both meaning the same thing.
+      // Remap "xx" to "xx-xx" codes as resolve-accept-language expects only the latter format, both
+      // meaning the same thing.
       .map(({ locale, code }) => ({
         code: code.includes('-') ? code : `${code}-${code}`,
         locale
       }))
-      // Exclude script variants, as resolve-accept-language does not support them.
-      // “About 99% of all cases can be covered using the language-country format. We could
-      // possibly extend script support in the future given a valid use case, but in the
-      // meantime, our goal is to keep this library as simple as possible, while providing the
-      // best matches.” - resolve-accept-language author.
-      .filter(({ code }) => !['cyrl', 'hira', 'latn', 'tarask'].includes(nn(code.split('-')[1])))
+      // Keep only the language-country format resolve-accept-language accepts, as any other would
+      // fail every lookup: this excludes script variants ("sr-latn") and three-letter languages
+      // (ex. "ckb").
+      .filter(({ code }) => /^[a-z]{2}-[a-z]{2}$/u.test(code))
       .map(({ code, locale }) => [code, locale] as const);
 
     return new Map(entries);

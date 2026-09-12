@@ -450,6 +450,8 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnAppl
       );
 
       // Remove embedding from index.
+      // Known gap: this runs within the caller's transaction, so a rollback, like a failed merge,
+      // restores the embedding in the database but not in the index; it belongs after the commit.
       if (this.wasUsearchIndexRequired) {
         const index = await this.usearchIndex;
         const key = BigInt(`0x${embedding.id}`);

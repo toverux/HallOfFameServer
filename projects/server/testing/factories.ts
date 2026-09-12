@@ -94,14 +94,16 @@ export function createScreenshot(
 export function createFavorite(
   prisma: PrismaService,
   screenshot: Pick<Screenshot, 'id'>,
-  creator: Pick<Creator, 'id' | 'hwids' | 'ips'>
+  creator: Pick<Creator, 'id' | 'hwids' | 'ips'>,
+  overrides: Partial<Prisma.FavoriteUncheckedCreateInput> = {}
 ): Promise<Favorite> {
   return prisma.favorite.create({
     data: {
       screenshotId: screenshot.id,
       creatorId: creator.id,
       ip: nn(creator.ips[0]),
-      hwid: creator.hwids[0] ?? null
+      hwid: creator.hwids[0] ?? null,
+      ...overrides
     }
   });
 }

@@ -2,15 +2,8 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { nn } from '../../shared/utils/type-assertion';
 import { config } from '../config';
 import { createBan, createCreator } from '../testing/factories';
+import * as identifiers from '../testing/identifiers';
 import { createTestApp, modHeaders, type TestApp } from '../testing/test-app';
-
-// Documentation range (RFC 5737), never routable.
-const ip = '198.51.100.1';
-
-const hwid = 'f00dfeedf00dfeedf00dfeedf00dfeedf00dfeed';
-
-// A UUID v4 no factory hands out.
-const unusedCreatorId = '00000000-0000-4000-8000-0000000000ff';
 
 describe('CreatorAuthorizationGuard', () => {
   let testApp: TestApp;
@@ -43,25 +36,25 @@ describe('CreatorAuthorizationGuard', () => {
         url: '/api/v1/creators/me',
         headers: modHeaders({
           creatorName: 'New Mayor',
-          creatorId: unusedCreatorId,
+          creatorId: identifiers.unusedCreatorId,
           creatorIdProvider: 'local',
-          hwids: [hwid],
-          ips: [ip]
+          hwids: [identifiers.hwid1],
+          ips: [identifiers.ip1]
         })
       });
 
       expect(response.statusCode).toBe(200);
 
       const creator = await testApp.prisma.creator.findUniqueOrThrow({
-        where: { creatorId: unusedCreatorId }
+        where: { creatorId: identifiers.unusedCreatorId }
       });
 
       expect(creator).toMatchObject({
         creatorName: 'New Mayor',
         creatorNameSlug: 'new-mayor',
         creatorIdProvider: 'local',
-        hwids: [hwid],
-        ips: [ip]
+        hwids: [identifiers.hwid1],
+        ips: [identifiers.ip1]
       });
 
       expect(response.json<unknown>()).toEqual({
@@ -84,10 +77,10 @@ describe('CreatorAuthorizationGuard', () => {
         url: '/api/v1/creators/me',
         headers: modHeaders({
           creatorName: '東京市長',
-          creatorId: unusedCreatorId,
+          creatorId: identifiers.unusedCreatorId,
           creatorIdProvider: 'paradox',
-          hwids: [hwid],
-          ips: [ip]
+          hwids: [identifiers.hwid1],
+          ips: [identifiers.ip1]
         })
       });
 
@@ -104,7 +97,7 @@ describe('CreatorAuthorizationGuard', () => {
       const response = await testApp.app.inject({
         method: 'GET',
         url: '/api/v1/creators/me',
-        headers: modHeaders({ ...creator, creatorId: unusedCreatorId })
+        headers: modHeaders({ ...creator, creatorId: identifiers.unusedCreatorId })
       });
 
       expect(response.statusCode).toBe(401);
@@ -135,7 +128,7 @@ describe('CreatorAuthorizationGuard', () => {
       const response = await testApp.app.inject({
         method: 'GET',
         url: '/api/v1/creators/me',
-        headers: { authorization: `CreatorID ${unusedCreatorId}` }
+        headers: { authorization: `CreatorID ${identifiers.unusedCreatorId}` }
       });
 
       expect(response.statusCode).toBe(401);
@@ -182,7 +175,7 @@ describe('CreatorAuthorizationGuard', () => {
         method: 'GET',
         url: '/api/v1/creators/me',
         headers: {
-          authorization: `Creator name=Mayor&id=${unusedCreatorId}&provider=paradox`
+          authorization: `Creator name=Mayor&id=${identifiers.unusedCreatorId}&provider=paradox`
         }
       });
 
@@ -238,12 +231,12 @@ describe('CreatorAuthorizationGuard', () => {
     test(`rejects a banned IP, read from the proxy's X-Forwarded-For`, async () => {
       const creator = await createCreator(testApp.prisma);
 
-      await createBan(testApp.prisma, { ip });
+      await createBan(testApp.prisma, { ip: identifiers.ip1 });
 
       const response = await testApp.app.inject({
         method: 'GET',
         url: '/api/v1/creators/me',
-        headers: { ...modHeaders(creator), 'x-forwarded-for': ip }
+        headers: { ...modHeaders(creator), 'x-forwarded-for': identifiers.ip1 }
       });
 
       expect(response.statusCode).toBe(403);

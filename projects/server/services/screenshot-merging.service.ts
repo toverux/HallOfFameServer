@@ -1,7 +1,8 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { oneLine } from 'common-tags';
-import type { Favorite, Prisma, View } from '#prisma-lib/client';
+import type { Favorite, Prisma, Screenshot, View } from '#prisma-lib/client';
 import { allFulfilled } from '../../shared/utils/all-fulfilled';
+import { NotFoundByIdError } from '../common/standard-error';
 import { PrismaService } from './prisma.service';
 import { ScreenshotStatsService } from './screenshot-stats.service';
 import { ScreenshotService } from './screenshot.service';
@@ -27,9 +28,12 @@ export class ScreenshotMergingService {
    * Merge screenshots to target from sources.
    * The target gets the favorites and views that the sources have that the target does not already
    * have.
-   * The sources are then deleted.
+   * The sources are then deleted, their images once the merge is committed, so a failed merge
+   * keeps them.
+   *
+   * @throws {NotFoundByIdError} If the target or a source does not exist, changing nothing.
    */
-  public mergeScreenshots(
+  public async mergeScreenshots(
     targetId: string,
     sourceIds: string[]
   ): Promise<{
@@ -38,14 +42,16 @@ export class ScreenshotMergingService {
     mergedViewsCount: number;
     deletedViewsCount: number;
   }> {
-    return this.prisma.$transaction(async prisma => {
+    const { deletedSources, ...counts } = await this.prisma.$transaction(async prisma => {
+      await this.ensureScreenshotsExist(prisma, [targetId, ...sourceIds]);
+
       const { mergedCount: mergedFavoritesCount, deletedCount: deletedFavoritesCount } =
         await this.mergeFavorites(prisma, targetId, sourceIds);
 
       const { mergedCount: mergedViewsCount, deletedCount: deletedViewsCount } =
         await this.mergeViews(prisma, targetId, sourceIds);
 
-      await this.deleteSourceScreenshots(prisma, sourceIds);
+      const deleted = await this.deleteSourceScreenshots(prisma, sourceIds);
 
       await this.screenshotStatsService.resyncStats(new Set([targetId]), prisma);
 
@@ -56,8 +62,40 @@ export class ScreenshotMergingService {
         ${mergedViewsCount} views, ${deletedViewsCount} duplicates deleted.`
       );
 
-      return { mergedFavoritesCount, deletedFavoritesCount, mergedViewsCount, deletedViewsCount };
+      return {
+        mergedFavoritesCount,
+        deletedFavoritesCount,
+        mergedViewsCount,
+        deletedViewsCount,
+        deletedSources: deleted
+      };
     });
+
+    for (const screenshot of deletedSources) {
+      this.screenshotService.deleteScreenshotImages(screenshot);
+    }
+
+    return counts;
+  }
+
+  /**
+   * Checks that every screenshot exists before anything changes, so a mistyped ID fails the merge
+   * naming it, rather than moving favorites and views to a screenshot that does not exist.
+   */
+  private async ensureScreenshotsExist(
+    prisma: Prisma.TransactionClient,
+    ids: readonly string[]
+  ): Promise<void> {
+    const screenshots = await prisma.screenshot.findMany({
+      where: { id: { in: [...ids] } },
+      select: { id: true }
+    });
+
+    const missingId = ids.find(id => !screenshots.some(screenshot => screenshot.id == id));
+
+    if (missingId) {
+      throw new NotFoundByIdError(missingId);
+    }
   }
 
   /**
@@ -147,12 +185,15 @@ export class ScreenshotMergingService {
     return { mergedCount, deletedCount };
   }
 
-  private async deleteSourceScreenshots(
+  /**
+   * Deletes the source screenshots, leaving their images for after the transaction.
+   */
+  private deleteSourceScreenshots(
     prisma: Prisma.TransactionClient,
     sourceIds: string[]
-  ): Promise<void> {
-    await allFulfilled(
-      sourceIds.map(sourceId => this.screenshotService.deleteScreenshot(sourceId, prisma))
+  ): Promise<Screenshot[]> {
+    return allFulfilled(
+      sourceIds.map(sourceId => this.screenshotService.deleteScreenshotRecords(sourceId, prisma))
     );
   }
 }

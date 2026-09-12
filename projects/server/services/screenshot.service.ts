@@ -285,8 +285,10 @@ export class ScreenshotService implements OnApplicationBootstrap {
         }
       });
 
+      // The images go within the transaction, as it uploaded them.
       if (healthcheck) {
-        await this.deleteScreenshot(updatedScreenshot.id, prisma);
+        await this.deleteScreenshotRecords(updatedScreenshot.id, prisma);
+        await this.screenshotStorage.deleteScreenshots(updatedScreenshot);
       }
 
       return updatedScreenshot;
@@ -372,48 +374,62 @@ export class ScreenshotService implements OnApplicationBootstrap {
   }
 
   /**
-   * Deletes a screenshot and its associated resources, including embeddings and stored images.
-   *
-   * @param screenshotId The unique identifier of the screenshot to be deleted.
-   * @param prisma An optional Prisma transaction client, if the operation is executed within
-   *   an existing transaction.
+   * Deletes a screenshot and its embedding, then its stored images once the deletion is
+   * committed, so a failed deletion keeps them.
    *
    * @returns A promise that resolves to the deleted screenshot record.
    */
-  public deleteScreenshot(
+  public async deleteScreenshot(screenshotId: Screenshot['id']): Promise<Screenshot> {
+    const screenshot = await this.prisma.$transaction(tx =>
+      this.deleteScreenshotRecords(screenshotId, tx)
+    );
+
+    this.deleteScreenshotImages(screenshot);
+
+    return screenshot;
+  }
+
+  /**
+   * Deletes the stored images of a screenshot whose deletion is committed, in the background.
+   * A failure is logged and reported, leaving orphaned images, as the deletion itself stands.
+   */
+  public deleteScreenshotImages(screenshot: Screenshot): void {
+    this.backgroundTasks.run(
+      `Failed to delete the images of screenshot #${screenshot.id} "${screenshot.cityName}".`,
+      () => this.screenshotStorage.deleteScreenshots(screenshot)
+    );
+  }
+
+  /**
+   * Deletes a screenshot and its embedding within the caller's transaction, leaving its stored
+   * images.
+   * The caller deletes them with {@link deleteScreenshotImages} once the transaction is
+   * committed, so a rollback keeps them.
+   *
+   * @returns A promise that resolves to the deleted screenshot record.
+   */
+  public async deleteScreenshotRecords(
     screenshotId: Screenshot['id'],
-    prisma?: Prisma.TransactionClient
+    tx: Prisma.TransactionClient
   ): Promise<Screenshot> {
-    return prisma
-      ? transaction.call(this, prisma)
-      : this.prisma.$transaction(transaction.bind(this));
+    try {
+      // Embeddings require special cleanup (ex. index removal), so we do not rely on the Prisma
+      // relation.
+      await this.screenshotSimilarityDetector.deleteEmbedding(screenshotId, tx);
 
-    async function transaction(
-      this: ScreenshotService,
-      tx: Prisma.TransactionClient
-    ): Promise<Screenshot> {
-      try {
-        // Embeddings require special cleanup (ex. index removal), so we do not rely on the Prisma
-        // relation.
-        await this.screenshotSimilarityDetector.deleteEmbedding(screenshotId, tx);
+      const screenshot = await tx.screenshot.delete({
+        where: { id: screenshotId }
+      });
 
-        const screenshot = await tx.screenshot.delete({
-          where: { id: screenshotId }
-        });
+      this.logger.log(`Deleted screenshot #${screenshot.id} "${screenshot.cityName}".`);
 
-        // Remove images.
-        await this.screenshotStorage.deleteScreenshots(screenshot);
-
-        this.logger.log(`Deleted screenshot #${screenshot.id} "${screenshot.cityName}".`);
-
-        return screenshot;
-      } catch (error) {
-        if (isPrismaError(error) && error.code == 'P2025') {
-          throw new NotFoundByIdError(screenshotId, { cause: error });
-        }
-
-        throw error;
+      return screenshot;
+    } catch (error) {
+      if (isPrismaError(error) && error.code == 'P2025') {
+        throw new NotFoundByIdError(screenshotId, { cause: error });
       }
+
+      throw error;
     }
   }
 

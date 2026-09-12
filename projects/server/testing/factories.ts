@@ -3,7 +3,8 @@
  * Tests override only the fields they care about, and pass related records in.
  */
 
-import type { Ban, Creator, Mod, Prisma, Screenshot, View } from '#prisma-lib/client';
+import type { Ban, Creator, Favorite, Mod, Prisma, Screenshot, View } from '#prisma-lib/client';
+import { nn } from '../../shared/utils/type-assertion';
 import { CreatorService } from '../services/creator.service';
 import type { PrismaService } from '../services/prisma.service';
 
@@ -81,6 +82,26 @@ export function createScreenshot(
       renderSettings: {},
       metadata: {},
       ...overrides
+    }
+  });
+}
+
+/**
+ * Records that the given Creator liked the given Screenshot, from their latest IP and hardware ID
+ * as a like from the game does.
+ * The Screenshot's counters are left as they are.
+ */
+export function createFavorite(
+  prisma: PrismaService,
+  screenshot: Pick<Screenshot, 'id'>,
+  creator: Pick<Creator, 'id' | 'hwids' | 'ips'>
+): Promise<Favorite> {
+  return prisma.favorite.create({
+    data: {
+      screenshotId: screenshot.id,
+      creatorId: creator.id,
+      ip: nn(creator.ips[0]),
+      hwid: creator.hwids[0] ?? null
     }
   });
 }

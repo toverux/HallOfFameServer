@@ -26,7 +26,6 @@ import { z } from 'zod';
 import { Prisma, type Screenshot } from '#prisma-lib/client';
 import type { ParadoxModId } from '../../../shared/utils/branded-types';
 import type { JsonObject } from '../../../shared/utils/json';
-import { nn } from '../../../shared/utils/type-assertion';
 import { viewerBaseUrl } from '../../common/constants';
 import { isPrismaError } from '../../common/prisma-errors';
 import { ForbiddenError, NotFoundByIdError, StandardError } from '../../common/standard-error';
@@ -378,16 +377,7 @@ export class ScreenshotController {
       ? await this.modService.getMod(screenshot.showcasedModId as ParadoxModId)
       : null;
 
-    const createdBy = await this.prisma.creator.findFirst({
-      where: { id: screenshot.creatorId }
-    });
-
-    nn.assert(createdBy);
-
-    const payload = this.screenshotService.serialize(
-      { ...screenshot, showcasedMod, creator: createdBy },
-      req
-    );
+    const payload = this.screenshotService.serialize({ ...screenshot, showcasedMod }, req);
 
     // oxlint-disable-next-line no-underscore-dangle
     payload.__algorithm = screenshot.__algorithm;

@@ -49,10 +49,15 @@ type RandomScreenshotAlgorithm =
 type RandomScreenshotWeights = Readonly<Record<RandomScreenshotAlgorithm, number>>;
 
 type RandomScreenshotFunctions = Readonly<
-  Record<RandomScreenshotAlgorithm, (nin: readonly JsonOid[]) => Promise<Screenshot | null>>
+  Record<
+    RandomScreenshotAlgorithm,
+    (nin: readonly JsonOid[]) => Promise<ScreenshotWithCreator | null>
+  >
 >;
 
-type ScreenshotWithAlgo = Screenshot & {
+type ScreenshotWithCreator = Screenshot & { creator: Creator };
+
+type ScreenshotWithAlgo = ScreenshotWithCreator & {
   __algorithm: RandomScreenshotAlgorithm | 'random_default';
 };
 
@@ -746,79 +751,23 @@ export class ScreenshotService implements OnApplicationBootstrap {
   }
 
   /**
-   * Used by {@link getWeightedRandomScreenshot}.
-   *
-   * Given a set of weights for each algorithm:
-   * - Selects an algorithm based on the weights.
-   * - Tries to get a screenshot using the selected algorithm.
-   * - If no screenshot is found using the selected algorithm, removes it from the candidate
-   * algorithms so it is not selected again.
-   * - Repeats the process until a screenshot is found or all algorithms have been tried.
+   * Used by {@link getWeightedRandomScreenshot}, see {@link pickWeightedAlgorithm}.
    */
   private async tryGetWeightedRandomScreenshot(
     weights: RandomScreenshotWeights,
     viewedIds: readonly JsonOid[]
   ): Promise<ScreenshotWithAlgo | undefined> {
-    // Get a mutable copy of the weights.
-    const currentWeights = { ...weights };
-
-    // Loop until we find a screenshot or all algorithms have been tried, at which point it
-    // returns undefined.
-    while (true) {
-      // Get the total weight of the remaining algorithms.
-      const totalWeight = Object.values(currentWeights).reduce(
-        (total, weight) => total + weight,
-        0
-      );
-
-      // If the total weight is 0, we have tried all algorithms, bail out.
-      if (totalWeight == 0) {
-        return undefined;
-      }
-
-      // Get a random number between 0 and the total weight.
-      // This number will evolve as we iterate through the algorithms until we find one that
-      // has a weight higher than the random number.
-      // This is a weighted random selection, a classic algorithm.
-      let random = Math.random() * totalWeight;
-
-      // Algorithm-to-weight pairs to iterate through.
-      const algoWeightsKeyPairs = Object.entries(currentWeights) as Array<
-        [RandomScreenshotAlgorithm, number]
-      >;
-
-      // Iterate through the algorithms and their weights until we find a winner for the
-      // running random number.
-      // Remember: this loop does not iterate through algorithms to call each one until a
-      // screenshot is found, it just selects a random algorithm; the former is the role of
-      // the outer loop.
-      for (const [algorithm, weight] of algoWeightsKeyPairs) {
-        // If the random number is higher than the weight of the current algorithm, subtract
-        // the weight from the random number and try the next algorithm.
-        if (random >= weight) {
-          random -= weight;
-          continue;
-        }
-
+    const pick = await pickWeightedAlgorithm(
+      weights,
+      algorithm => {
         this.logger.debug(`Try screenshot selection algorithm: ${algorithm}`);
 
-        // We found a winner, try to get a screenshot!
-        // oxlint-disable-next-line no-await-in-loop - sequential by design: one weighted-random algorithm is tried per iteration, only trying another if the previous found nothing
-        const screenshot = await this.randomScreenshotFunctions[algorithm](viewedIds);
+        return this.randomScreenshotFunctions[algorithm](viewedIds);
+      },
+      Math.random
+    );
 
-        // If we found a screenshot, return it with the algorithm name.
-        if (screenshot) {
-          return { ...screenshot, __algorithm: algorithm };
-        }
-
-        // If we didn't find a screenshot, set the algorithm's weight to 0 so it is not tried again.
-        currentWeights[algorithm] = 0;
-
-        // Break the for loop, we tried this algorithm. The outer loop will call us again to
-        // try another one if there are any left.
-        break;
-      }
-    }
+    return pick && { ...pick.result, __algorithm: pick.algorithm };
   }
 
   /**
@@ -857,7 +806,7 @@ export class ScreenshotService implements OnApplicationBootstrap {
   /**
    * Retrieves a completely random screenshot.
    */
-  private getScreenshotRandom(nin: readonly JsonOid[]): Promise<Screenshot | null> {
+  private getScreenshotRandom(nin: readonly JsonOid[]): Promise<ScreenshotWithCreator | null> {
     return this.runAggregateForSingleScreenshot([
       {
         $match: {
@@ -875,7 +824,7 @@ export class ScreenshotService implements OnApplicationBootstrap {
    * - ≥ X% favoriting percentage (X being dynamically determined, see
    * {@link getPopularFavoritingPercentageThreshold})
    */
-  private getScreenshotPopular(nin: readonly JsonOid[]): Promise<Screenshot | null> {
+  private getScreenshotPopular(nin: readonly JsonOid[]): Promise<ScreenshotWithCreator | null> {
     // Uses [isReported, favoritesCount, favoritingPercentage] compound index for matching, test
     // changes to ensure index usage.
     return this.runAggregateForSingleScreenshot([
@@ -898,7 +847,7 @@ export class ScreenshotService implements OnApplicationBootstrap {
    * - Limits to the X best.
    * - Takes one random screenshot in that pool.
    */
-  private getScreenshotTrending(nin: readonly JsonOid[]): Promise<Screenshot | null> {
+  private getScreenshotTrending(nin: readonly JsonOid[]): Promise<ScreenshotWithCreator | null> {
     // Uses [isReported, favoritingPercentage] compound index for sorting with limiting and
     // filtering, test changes to ensure index usage.
     return this.runAggregateForSingleScreenshot([
@@ -922,7 +871,7 @@ export class ScreenshotService implements OnApplicationBootstrap {
    * - Limits to the X most recent, least viewed.
    * - Takes one random screenshot in that pool.
    */
-  private getScreenshotRecent(nin: readonly JsonOid[]): Promise<Screenshot | null> {
+  private getScreenshotRecent(nin: readonly JsonOid[]): Promise<ScreenshotWithCreator | null> {
     const $date = dfns.subDays(new Date(), config.screenshots.recencyThresholdDays);
 
     // Uses [isReported, createdAt] compound index for sorting with limiting and filtering when
@@ -949,7 +898,9 @@ export class ScreenshotService implements OnApplicationBootstrap {
    * - Limits to the X most ancient, least viewed.
    * - Takes one random screenshot in that pool.
    */
-  private getScreenshotArcheologist(nin: readonly JsonOid[]): Promise<Screenshot | null> {
+  private getScreenshotArcheologist(
+    nin: readonly JsonOid[]
+  ): Promise<ScreenshotWithCreator | null> {
     const $date = dfns.subDays(new Date(), config.screenshots.recencyThresholdDays);
 
     // Uses [isReported, viewsCount, createdAt] compound index for sorting with limiting and
@@ -976,7 +927,9 @@ export class ScreenshotService implements OnApplicationBootstrap {
    * - Sorts by upload date ascending so that the oldest screenshots are prioritized.
    * - Takes one random screenshot in that pool.
    */
-  private async getScreenshotSupporter(nin: readonly JsonOid[]): Promise<Screenshot | null> {
+  private async getScreenshotSupporter(
+    nin: readonly JsonOid[]
+  ): Promise<ScreenshotWithCreator | null> {
     const supporters = await this.prisma.creator.aggregateRaw({
       pipeline: [
         { $match: { isSupporter: true } },
@@ -1006,59 +959,100 @@ export class ScreenshotService implements OnApplicationBootstrap {
   }
 
   /**
-   * Runs an aggregate pipeline that retrieves a single screenshot (for use by
-   * {@link randomScreenshotFunctions} functions), ensures that the result is valid, and returns a
-   * handcrafted {@link Screenshot} instead of a POJO.
+   * Runs an aggregate pipeline that selects a single screenshot, for use by
+   * {@link randomScreenshotFunctions} functions.
+   * Loads it with its creator through Prisma rather than from the raw document, which lacks the
+   * fields the document never had, where Prisma reads them as null.
    */
   private async runAggregateForSingleScreenshot(
     pipeline: Prisma.InputJsonValue[]
-  ): Promise<Screenshot | null> {
+  ): Promise<ScreenshotWithCreator | null> {
     const results = await this.prisma.screenshot.aggregateRaw({
-      pipeline
+      pipeline: [...pipeline, { $project: { _id: true } }]
     });
 
     assert.ok(Array.isArray(results), `Expected an array of 0..1 results.`);
 
-    const screenshot = results[0] as JsonObject;
-    if (!(screenshot?._id as JsonObject | undefined)?.$oid) {
+    const id = ((results[0] as JsonObject | undefined)?._id as JsonObject | undefined)?.$oid;
+
+    if (typeof id != 'string') {
       return null;
     }
 
-    return {
-      id: (screenshot._id as JsonObject).$oid as string,
-      createdAt: new Date((screenshot.createdAt as JsonObject).$date as string),
-      isApproved: screenshot.isApproved as Screenshot['isApproved'],
-      isReported: screenshot.isReported as Screenshot['isReported'],
-      reportedById: screenshot.reportedById as Screenshot['reportedById'],
-      favoritesCount: screenshot.favoritesCount as Screenshot['favoritesCount'],
-      favoritingPercentage: screenshot.favoritingPercentage as Screenshot['favoritingPercentage'],
-      uniqueViewsCount: screenshot.uniqueViewsCount as Screenshot['uniqueViewsCount'],
-      viewsCount: screenshot.viewsCount as Screenshot['viewsCount'],
-      viewerClicksCount: screenshot.viewerClicksCount as Screenshot['viewerClicksCount'],
-      hwid: screenshot.hwid as Screenshot['hwid'],
-      ip: screenshot.ip as Screenshot['ip'],
-      creatorId: (screenshot.creatorId as JsonObject).$oid as Screenshot['creatorId'],
-      cityName: screenshot.cityName as Screenshot['cityName'],
-      cityNameLocale: screenshot.cityNameLocale as Screenshot['cityNameLocale'],
-      cityNameLatinized: screenshot.cityNameLatinized as Screenshot['cityNameLatinized'],
-      cityNameTranslated: screenshot.cityNameTranslated as Screenshot['cityNameTranslated'],
-      needsTranslation: screenshot.needsTranslation as Screenshot['needsTranslation'],
-      cityMilestone: screenshot.cityMilestone as Screenshot['cityMilestone'],
-      cityPopulation: screenshot.cityPopulation as Screenshot['cityPopulation'],
-      mapName: screenshot.mapName as Screenshot['mapName'],
-      imageUrlThumbnail: screenshot.imageUrlThumbnail as Screenshot['imageUrlThumbnail'],
-      imageUrlFHD: screenshot.imageUrlFHD as Screenshot['imageUrlFHD'],
-      imageUrl4K: screenshot.imageUrl4K as Screenshot['imageUrl4K'],
-      showcasedModId: screenshot.showcasedModId as Screenshot['showcasedModId'],
-      isShowcasedModValidated:
-        screenshot.isShowcasedModValidated as Screenshot['isShowcasedModValidated'],
-      description: screenshot.description as Screenshot['description'],
-      shareParadoxModIds: screenshot.shareParadoxModIds as Screenshot['shareParadoxModIds'],
-      paradoxModIds: screenshot.paradoxModIds as Screenshot['paradoxModIds'],
-      shareRenderSettings: screenshot.shareRenderSettings as Screenshot['shareRenderSettings'],
-      renderSettings: screenshot.renderSettings as Screenshot['renderSettings'],
-      metadata: screenshot.metadata as Screenshot['metadata']
-    };
+    // Null if deleted in between, as if the algorithm found nothing.
+    return this.prisma.screenshot.findUnique({ where: { id }, include: { creator: true } });
+  }
+}
+
+/**
+ * Given a set of weights for each algorithm:
+ * - Selects an algorithm based on the weights.
+ * - Tries to get a result using the selected algorithm.
+ * - If the selected algorithm returns nothing, removes it from the candidate algorithms so it is
+ * not selected again.
+ * - Repeats the process until a result is found or all algorithms have been tried.
+ *
+ * @param random Random source returning a number in [0, 1), like `Math.random`.
+ */
+export async function pickWeightedAlgorithm<TAlgorithm extends string, TResult>(
+  weights: Readonly<Record<TAlgorithm, number>>,
+  runAlgorithm: (algorithm: TAlgorithm) => Promise<TResult | null>,
+  random: () => number
+): Promise<{ algorithm: TAlgorithm; result: TResult } | undefined> {
+  // Get a mutable copy of the weights.
+  const currentWeights: Record<TAlgorithm, number> = { ...weights };
+
+  // Loop until we find a result or all algorithms have been tried, at which point it returns
+  // undefined.
+  while (true) {
+    // Get the total weight of the remaining algorithms.
+    const totalWeight = Object.values<number>(currentWeights).reduce(
+      (total, weight) => total + weight,
+      0
+    );
+
+    // If the total weight is 0, we have tried all algorithms, bail out.
+    if (totalWeight == 0) {
+      return undefined;
+    }
+
+    // Get a random number between 0 and the total weight.
+    // This number will evolve as we iterate through the algorithms until we find one that has a
+    // weight higher than the random number.
+    // This is a weighted random selection, a classic algorithm.
+    let roll = random() * totalWeight;
+
+    // Algorithm-to-weight pairs to iterate through.
+    const algoWeightsKeyPairs = Object.entries(currentWeights) as Array<[TAlgorithm, number]>;
+
+    // Iterate through the algorithms and their weights until we find a winner for the running
+    // random number.
+    // Remember: this loop does not iterate through algorithms to call each one until a result is
+    // found, it just selects a random algorithm; the former is the role of the outer loop.
+    for (const [algorithm, weight] of algoWeightsKeyPairs) {
+      // If the random number is higher than the weight of the current algorithm, subtract the
+      // weight from the random number and try the next algorithm.
+      if (roll >= weight) {
+        roll -= weight;
+        continue;
+      }
+
+      // We found a winner, try to get a result!
+      // oxlint-disable-next-line no-await-in-loop - sequential by design: one weighted-random algorithm is tried per iteration, only trying another if the previous found nothing
+      const result = await runAlgorithm(algorithm);
+
+      // If we found a result, return it with the algorithm name.
+      if (result != null) {
+        return { algorithm, result };
+      }
+
+      // If we didn't find a result, set the algorithm's weight to 0 so it is not tried again.
+      currentWeights[algorithm] = 0;
+
+      // Break the for loop, we tried this algorithm. The outer loop will pick again among the
+      // remaining ones, if there are any left.
+      break;
+    }
   }
 }
 

@@ -4,7 +4,6 @@ import { LRUCache } from 'lru-cache';
 import type { Creator, Screenshot, View } from '#prisma-lib/client';
 import { hours } from '../../shared/utils/duration';
 import { type JsonObject, optionallySerialized } from '../../shared/utils/json';
-import { nn } from '../../shared/utils/type-assertion';
 import { CreatorService } from './creator.service';
 import { PrismaService } from './prisma.service';
 import { ScreenshotStatsService } from './screenshot-stats.service';
@@ -26,7 +25,7 @@ export class ViewService {
    */
   private readonly viewsCache = new LRUCache<
     Creator['id'],
-    { maxAge?: number; screenshotIds: Set<Screenshot['id']> }
+    { maxAge: number; screenshotIds: Set<Screenshot['id']> }
   >({
     // Allow a max of 100 creator entries in the cache.
     max: 100,
@@ -44,20 +43,13 @@ export class ViewService {
    */
   public async getViewedScreenshotIds(
     creatorId: Creator['id'],
-    maxAgeInDays: number | undefined
+    maxAgeInDays = 0
   ): Promise<Set<Screenshot['id']>> {
-    if (this.viewsCache.has(creatorId)) {
-      const cache = nn(this.viewsCache.get(creatorId));
+    // An entry loaded with another max age holds another set of views, reload it.
+    const cache = this.viewsCache.get(creatorId);
 
-      if (cache.maxAge && cache.maxAge != maxAgeInDays) {
-        // If the max age has changed, we need to clear the cache entry
-        // to apply the new limit.
-        this.viewsCache.delete(creatorId);
-      } else {
-        cache.maxAge = maxAgeInDays ?? 0;
-
-        return cache.screenshotIds;
-      }
+    if (cache?.maxAge == maxAgeInDays) {
+      return cache.screenshotIds;
     }
 
     const screenshots = await this.prisma.view.findMany({
@@ -72,12 +64,8 @@ export class ViewService {
 
     const screenshotIds = new Set(screenshots.map(view => view.screenshotId));
 
-    if (screenshotIds.size > 0) {
-      this.viewsCache.set(creatorId, {
-        maxAge: maxAgeInDays ?? 0,
-        screenshotIds
-      });
-    }
+    // Cached even when empty: markViewed() adds to it.
+    this.viewsCache.set(creatorId, { maxAge: maxAgeInDays, screenshotIds });
 
     return screenshotIds;
   }
@@ -87,14 +75,10 @@ export class ViewService {
    * The view count properties will be updated with the background job.
    */
   public async markViewed(screenshotId: Screenshot['id'], creatorId: Creator['id']): Promise<View> {
-    // Add the view to the cache once we recorded it in the database.
-    const cache = this.viewsCache.get(creatorId) ?? {
-      screenshotIds: new Set()
-    };
-
-    cache.screenshotIds.add(screenshotId);
-
-    this.viewsCache.set(creatorId, cache);
+    // Add the view to the Creator's cached views, if loaded. Never start an entry here: it would
+    // hold only this view, hiding the older ones from the database until it expires, whereas the
+    // next lookup loads them all, this one included.
+    this.viewsCache.get(creatorId)?.screenshotIds.add(screenshotId);
 
     // Create the View record.
     const view = await this.prisma.view.create({

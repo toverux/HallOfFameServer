@@ -1,4 +1,5 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "hooks": {
     "PreToolUse": [
       {
@@ -26,11 +27,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "CHECK_LINE_LENGTH_EXTENSIONS='ts tsx' CHECK_LINE_LENGTH_SUPPRESSION='oxlint-disable|@ts-expect-error' bash .claude/hooks/check-line-length.sh"
+            "command": "mise exec bun -- bun \"$CLAUDE_PROJECT_DIR/.agents/hooks/check-line-length.ts\" --extensions ts,tsx,scss,html --suppressions \"oxlint-disable|@ts-expect-error\""
           },
           {
             "type": "command",
-            "command": "F=$(jq -r '.tool_input.file_path // empty'); case \"$F\" in *.ts|*.tsx|*.md) { [ -f \"$F\" ] && grep -nP '\\x{2014}' \"$F\" >&2; } && { echo 'Remove em dashes (—); use commas, colons, or reword (temp files intended for agents are exempt).' >&2; exit 2; } ;; esac; exit 0"
+            "command": "mise exec bun -- bun \"$CLAUDE_PROJECT_DIR/.agents/hooks/check-em-dashes.ts\" --allow-extensions md,txt"
           },
           {
             "type": "command",

@@ -1,6 +1,7 @@
 # Machine-specific configuration
 /.env.local
 /.env.remote
+*.local.toml
 
 # Toolchain
 /node_modules
@@ -15,3 +16,6 @@
 # Test files
 /test/http-client.env.json
 /test/screenshot-*.jpg
+
+# Agent working material (specs and tickets in flight, see `docs/agents/cantrips-loop.md`)
+/.scratch/

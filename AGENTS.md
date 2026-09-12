@@ -1,9 +1,12 @@
+<!-- toverux/scrolls version: 1.0.1 -->
+
 # AGENTS.md
 
 ## Project overview
 
 Hall of Fame is a mod for Cities: Skylines II that allows players to share and view screenshots.
 This repository contains the server-side code that powers the mod's backend services, API endpoints, and web interface.
+The game-side code lives in a separate repository, `../HallOfFame` (if checked out).
 
 Players take up to 4K screenshots in-game, upload them, and browse others' shots as the main-menu background.
 The service is designed to give every city visibility (each screenshot is shown as often as possible), while likes and trending still surface standout work.
@@ -18,28 +21,29 @@ This server provides tracked redirect endpoints to it (`GET /screenshots/:id/vie
 
 When changing public API behavior, pull the latest `dev` branch in `../hof-viewer` and search it for usages of the affected API before proceeding.
 
-## Domain concepts
-
-User-facing terms map to these Prisma models (`prisma/schema.prisma`):
-
-- **Creator** – a user account. Authenticated via a Paradox account ID or a local mod-generated ID (`CreatorIdProvider`); may attach social links (`CreatorSocial`) and be flagged as a supporter.
-- **Screenshot** – an uploaded image (up to 4K); can be reported for moderation.
-- **Favorite** – a "like" on a screenshot.
-- **View** – records that a Creator has seen a Screenshot; backs the "show every city as often as possible" display algorithm and trending.
-- **Ban** – moderation record; tracks hardware IDs and IPs to mitigate hostile multi-accounting.
-- **Mod** – cached metadata about a Paradox mod, referenced loosely by `paradoxModId`.
-- **ScreenshotFeatureEmbedding** – TensorFlow.js feature vector for a screenshot (image similarity).
-
 ## Tech stack
 
-- [mise-en-place](https://mise.jdx.dev): A tool to manage dev tools, env vars, and tasks per project.
+- [mise-en-place](https://mise.jdx.dev): manages dev tools, env vars, and tasks for this repo.
 - **Frontend**: Angular with SSR.
 - **Backend**: Bun, NestJS, Fastify HTTP server.
-- **API**: REST controllers and GraphQL (GraphQL Yoga).
+- **API**: REST controllers and GraphQL (GraphQL Yoga with Pothos).
 - **Database**: MongoDB with Prisma ORM.
 - **ML Capabilities**: TensorFlow.js for image feature extraction.
 - **Error Tracking**: Sentry.
 - **Containerization**: Docker.
+- **Toolchain**: oxfmt formats and oxlint lints, both extending `@toverux/blanc-hopital`, which also supplies the tsconfig bases; lefthook runs tsc/oxlint/oxfmt on staged files at pre-commit.
+
+## Project settings
+
+TypeScript, one root `tsconfig.json` covering the whole repo, `.agents/hooks` included; `tsconfig.app.json` narrows it to the three Angular entry points for the client build:
+
+- TypeScript 6.0.3, extending `@toverux/blanc-hopital/tsconfig/strict` (strictest, minus `noPropertyAccessFromIndexSignature`) and `/tsconfig/bun`.
+- `verbatimModuleSyntax` and `erasableSyntaxOnly` on; `isolatedModules` on, except off in the Angular build.
+- `experimentalDecorators` and `emitDecoratorMetadata` on, for NestJS and Angular dependency injection.
+- `noEmit` is restored to `false` (the bun base sets it true) because the Angular CLI cannot build otherwise.
+- `moduleDetection: force` (from the bun base), so the import-free `.agents/hooks` scripts are modules rather than colliding global scripts.
+- `#prisma-lib/*` maps to the generated `prisma/lib/*`, which `build:prisma:generate` writes and `.gitignore` excludes.
+- Server, CLI, and `.agents/hooks` run on Bun; the Angular client runs in the browser, its SSR bundle inside the Bun server. No test runner.
 
 ## Repository structure
 
@@ -53,21 +57,48 @@ User-facing terms map to these Prisma models (`prisma/schema.prisma`):
 - `projects/server/services` – Business logic services
 - `projects/shared` – Shared code between client and server
 - `test` – HTTP request files for testing with JetBrains HTTP Client
+- `.agents/rules` – Code style rules loaded into the agent's context
+- `.agents/hooks` – Editor hooks (em-dash and line-length checks), wired in `.claude/settings.json`
+- `docs/adr` – Architecture decision records; read before re-deciding something already settled.
+- `docs/solutions` – Problem-shaped learnings captured by the `/compound` skill (root cause, gotcha, "what didn't work"); search it before diagnosing or re-deciding.
 
 ## Commands
 
-You can run `mise tasks` to see the full list of shortcut commands. Do NOT use npx to run commands, always prefer mise shortcuts, or bun/bunx if there is no dedicated mise shortcut.
+`check:*` tasks are read-only and write nothing to tracked files; the in-place auto-fixers live under `fix:*`.
 
 - `mise build`: Build the application to check building the app works.
 - `mise run:server`: Run the server to check app works (use timeout command to stop it after 5s).
-- `mise check:agents`: Run type checking, formatting, and linting, with optimized output.
+- `mise check:agents`: Verify type checking, linting, and formatting read-only, with optimized output.
 - `mise check:agents:tsc`: Only type-checks the code, optimized output.
 - `mise check:agents:oxlint`: Only lints the code, optimized output.
+- `mise fix`: Apply the auto-fixes in place (oxlint `--fix`, then oxfmt).
+- `mise fix:oxlint`, `mise fix:oxfmt`: The individual fixers.
 - `docker build -t halloffameserver . --progress=plain`: Check that the Docker build works.
 
-Tip: you can append arguments to mise shortcuts, mise will pass them through, ex. `mise some:task --some-arg`.
+Run `mise tasks` to see the full shortcut list; append arguments freely, mise passes them through (ex. `mise some:task --some-arg`).
+Do NOT use npx to run commands; prefer mise shortcuts, or bun/bunx when no shortcut exists.
 
-Always run the appropriate check/test commands after performing changes; but do it at the end of the editing session, not in the middle.
+Always run the appropriate check/test commands after changes, at the end of the editing session rather than mid-flight.
+
+## Glossary
+
+User-facing terms map to these Prisma models (`prisma/schema.prisma`):
+
+- **Creator** – a user account. Authenticated via a Paradox account ID or a local mod-generated ID (`CreatorIdProvider`); may attach social links (`CreatorSocial`) and be flagged as a supporter.
+- **Screenshot** – an uploaded image (up to 4K); can be reported for moderation.
+- **Favorite** – a "like" on a screenshot. Users see it as a like; the model is `Favorite`.
+- **View** – records that a Creator has seen a Screenshot; backs the "show every city as often as possible" display algorithm and trending.
+- **Ban** – moderation record; tracks hardware IDs and IPs to mitigate hostile multi-accounting.
+- **Mod** – cached metadata about a Paradox mod, referenced loosely by `paradoxModId`.
+- **ScreenshotFeatureEmbedding** – TensorFlow.js feature vector for a screenshot (image similarity).
+
+## Guidelines
+
+- Assert non-null with the project's `nn()` helper (`projects/shared/utils/type-assertion.ts`), not the `!` operator: `example(nn(value))` inline, or `nn.assert(value)` as a precondition when the value is used several times. `!` is for measured hot paths only, with the lint warning silenced.
+- The same module provides `ensureBoolean()`, `ensureString()`, `ensureNumber()` and `ensureInEnum(value, enumType)`, each with an `.assert()` form, plus `unreachable(value)` for exhaustiveness in a `switch` default.
+- Server and CLI code asserts invariants with `import assert from 'node:assert/strict'`; client code throws standard errors. Assertions are never for operational errors.
+- The viewer URL scheme and the mod's HTTP wire format are external contracts: changing either is a public API change and must be called out.
+- Bump `oxlint`, `oxfmt` and `oxlint-tsgolint` only together with `@toverux/blanc-hopital`, to the versions its `package.json` targets: its preset enables whole oxlint categories, so a lone oxlint bump switches on new rules and fails `mise check`.
 
 ## MCP servers
 
@@ -82,26 +113,22 @@ If you want to use one of them (ex. to test your changes) and its tools are not 
 
 Never:
 
-- Create a git branch, stage files, or commit work yourself unless the user expressly told you so.
-- Commit secrets, tokens, `.env` files, dumps, or credentials.
+- Create a git branch or commit work yourself unless the user expressly said so.
+- Commit secrets, tokens, `.env` files, dumps, credentials.
 - Modify generated files unless the generation command was run.
 - Change public API behavior without calling it out.
-- Add large dependencies for small utilities.
 
 Ask first before:
 
 - Adding a dependency.
-- Changing database schema.
-- Changing authentication/authorization logic.
-- Reworking architecture.
-- Adding background jobs, queues, or external services.
+- Changing database schema or authentication/authorization logic.
+- Reworking architecture, or adding background jobs, queues, external services.
 - Performing destructive file or data operations.
 
 ## Preferred agent behavior
 
 - Start by inspecting existing patterns.
 - Prefer LSP over Grep/Glob/Read for code navigation.
-- Make the smallest safe change, but if you think a refactor is overdue, speak up.
-- Prefer editing existing files over creating parallel abstractions.
+- Make the smallest safe change, but speak up when a refactor is overdue.
 - When uncertain, state the assumption and proceed conservatively.
-- Propose updates to `AGENTS.md` or `docs/` when you notice a pattern or introduced changes that deserve to be documented for future sessions.
+- Actively propose updates to `AGENTS.md`, comments, or other docs when you detect drift.

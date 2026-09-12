@@ -60,6 +60,8 @@ TypeScript, one root `tsconfig.json` covering the whole repo, `.agents/hooks` in
 - `projects/shared` – Shared code between client and server
 - `.agents/rules` – Code style rules loaded into the agent's context
 - `.agents/hooks` – Editor hooks (em-dash and line-length checks), wired in `.claude/settings.json`
+- `.agents/skills` – Project skills, exposed to Claude Code through symlinks in `.claude/skills`
+- `.github/workflows` – CI
 - `docs/adr` – Architecture decision records; read before re-deciding something already settled.
 - `docs/solutions` – Problem-shaped learnings captured by the `/compound` skill (root cause, gotcha, "what didn't work"); search it before diagnosing or re-deciding.
 
@@ -88,8 +90,9 @@ Always run the appropriate check commands and `mise test:agents` after changes, 
 
 Both start the dev MongoDB (`mise dev:db:start`), which the suite requires: each run gets its own throwaway database, emptied before every test.
 Test files sit next to their subject as `*.test.ts` and import `describe`, `test`, `expect`, and friends explicitly from `bun:test`; the single root tsconfig would leak test globals into production code.
-Write `expect(promise).resolves` and `.rejects` without `await`: in Bun they block until the promise settles.
-They refuse a Prisma query, which is a thenable rather than a Promise: await the query and assert on its value.
+A test goes through the HTTP interface first, the way the mod and the viewer reach the server.
+
+Load the `hof-server-testing` skill before writing or changing a test, a factory, a fake, or the `fetch` stub.
 
 ## Glossary
 

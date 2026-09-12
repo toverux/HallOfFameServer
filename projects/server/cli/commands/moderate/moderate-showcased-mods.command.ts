@@ -244,17 +244,17 @@ export class ModerateShowcasedModsCommand extends CommandRunner {
      */
     function script(): void {
       // oxlint-disable typescript/no-non-null-assertion
-      const imgEl = document.querySelector('#screenshot') as HTMLImageElement;
+      const imgEl = document.querySelector<HTMLImageElement>('#screenshot')!;
       const statusEl = document.querySelector('#status')!;
-      const infoEl = document.querySelector('.info') as HTMLElement;
+      const infoEl = document.querySelector<HTMLElement>('.info')!;
       const screenshotInfoEl = document.querySelector('.info .info--screenshot-info')!;
       const screenshotDescriptionEl = document.querySelector(
         '.info .info--screenshot-description'
       )!;
-      const modThumbnailEl = document.querySelector(
+      const modThumbnailEl = document.querySelector<HTMLImageElement>(
         '.info .info--mod-thumbnail'
-      ) as HTMLImageElement;
-      const modNameEl = document.querySelector('.info .info--mod-name') as HTMLAnchorElement;
+      )!;
+      const modNameEl = document.querySelector<HTMLAnchorElement>('.info .info--mod-name')!;
       const modDescriptionEl = document.querySelector('.info .info--mod-description')!;
       const acceptButtonEl = document.querySelector('.info #accept')!;
       const removeButtonEl = document.querySelector('.info #remove')!;

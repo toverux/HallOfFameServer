@@ -7,11 +7,16 @@ pre-commit:
   parallel: true
   commands:
     tsc:
+      # One root tsconfig covers the whole repo, so a staged file anywhere runs the task that knows
+      # the whole project rather than one tsc over the staged files.
+      # `check:tsc` depends on `build:prisma:generate`, which regenerates the Prisma client first.
       glob: "*.{ts,tsx,js,json}"
-      run: mise exec bun -- bun --bun tsc --noEmit
+      run: mise check:tsc
     oxlint:
       glob: "*.{ts,tsx,js,jsx,mjs,cjs}"
       run: mise exec bun -- bun --bun oxlint --deny-warnings --no-error-on-unmatched-pattern {staged_files}
     oxfmt:
-      glob: "*.{ts,tsx,js,jsx,mjs,cjs,json,jsonc,md}"
+      # Wider than oxlint's glob: oxfmt rewrites JSON, Markdown, TOML and YAML too, which puts
+      # mise.toml and this very file in its scope.
+      glob: "*.{ts,tsx,js,jsx,mjs,cjs,json,jsonc,md,toml,yml,yaml}"
       run: mise exec bun -- bun --bun oxfmt --check --no-error-on-unmatched-pattern {staged_files}

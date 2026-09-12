@@ -68,8 +68,8 @@ update for npm dependencies.
 
 TypeScript code is formatted and linted by the [Oxc toolchain](https://oxc.rs) (oxfmt and oxlint).
 
-Run `mise check` to typecheck the database, linting errors, format files and autofix simple issues
-(run `mise tasks` to see more checking options).
+Run `mise fix` to format files and autofix simple lint issues, and `mise check` to verify types,
+linting, and formatting without writing anything (run `mise tasks` to see more options).
 
 The formatter and linter should run as a pre-commit hook if you have it installed, which should be
 done automatically when running `bun i` (otherwise, run `bun lefthook install`).

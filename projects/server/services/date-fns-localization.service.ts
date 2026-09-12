@@ -54,8 +54,8 @@ export class DateFnsLocalizationService {
   }
 
   private buildLocalesMap(): Map<string, dfns.Locale> {
-    const entries = Object.entries(locales)
-      .map(([_, locale]) => ({ locale, code: locale.code.toLowerCase() }))
+    const entries = Object.values(locales)
+      .map(locale => ({ locale, code: locale.code.toLowerCase() }))
       // Remap locales that are not supported by resolve-accept-language because they use
       // three-letter codes, for now in date-fns this is only the case for "ckb", aka
       // "Central Kurdish".

@@ -7,7 +7,7 @@ bun = "1.3.14"
 node = "26"
 
 [env]
-_.file = ["env", ".env.local"]
+_.file = [".env", ".env.local"]
 _.path = ["{{config_root}}/node_modules/.bin"]
 
 # Use "mise t" to list tasks or "mise r" to interactively select one to run!
@@ -50,35 +50,38 @@ run = "docker compose -f docker-compose.dev.yml down"
 # CHECK TASKS
 # ===========
 
+# check:* are READ-ONLY (idempotent, CI-safe): they verify and write nothing of the source tree.
+# The in-place auto-fixers live under fix:* (see FIX TASKS).
+# Run `mise fix` locally to apply, `mise check` to verify.
+# The `build:prisma:generate` dependency is the one exception, and not a source write: it
+# regenerates the gitignored Prisma client that tsc and type-aware oxlint need.
+
 [tasks."check"]
-description = "Run lint checks (typescript and oxfmt/oxlint), with safe auto-fixes."
-# Not using `depends` because we want a sequential run with lint then format.
+description = "Verify read-only: typescript, oxlint, and oxfmt. Writes nothing, run `mise fix` to auto-fix."
 run = ["mise check:tsc", "mise check:oxlint", "mise check:oxfmt"]
 
 [tasks."check:tsc"]
-description = "Type-checks code with tsc."
+description = "Type-checks code with tsc (read-only)."
 depends = "build:prisma:generate"
 raw = true
 run = "bun --bun tsc --noEmit"
 
 [tasks."check:oxfmt"]
-description = "Formats code with oxfmt."
-depends = "build:prisma:generate"
+description = "Verifies formatting with oxfmt (read-only, `mise fix:oxfmt` writes)."
 raw = true
-run = "bun --bun oxfmt"
+run = "bun --bun oxfmt --check"
 
 [tasks."check:oxlint"]
-description = "Lints code with oxlint."
+description = "Lints with oxlint, warnings denied (read-only, `mise fix:oxlint` auto-fixes)."
 depends = "build:prisma:generate"
 raw = true
-run = "bun --bun oxlint --fix"
+run = "bun --bun oxlint --deny-warnings"
 
 # CHECK TASKS (AGENTS)
 # ====================
 
 [tasks."check:agents"]
-description = "Run lint checks (typescript and oxfmt/oxlint), with safe auto-fixes, output optimized for AI agents."
-# Not using `depends` because we want a sequential run with lint then format.
+description = "Verify read-only (typescript, oxlint, oxfmt), output optimized for AI agents. Writes nothing."
 run = ["mise check:agents:tsc", "mise check:agents:oxlint", "mise check:oxfmt"]
 
 [tasks."check:agents:tsc"]
@@ -88,9 +91,30 @@ raw = true
 run = "bun --bun tsc --noEmit --pretty false"
 
 [tasks."check:agents:oxlint"]
-description = "Lints code with oxlint, output optimized for AI agents."
+description = "Lints with oxlint (read-only, warnings denied), output optimized for AI agents."
 depends = "build:prisma:generate"
-run = "bun --bun oxlint --fix --format agent"
+run = "bun --bun oxlint --deny-warnings --format agent"
+
+# FIX TASKS
+# =========
+
+# fix:* WRITE in place (the counterparts to the read-only check:*). For local dev.
+
+[tasks."fix"]
+description = "Auto-fix in place: oxlint --fix, then oxfmt. `mise check` is the read-only counterpart."
+# Sequential, lint then format, so formatting settles after lint rewrites.
+run = ["mise fix:oxlint", "mise fix:oxfmt"]
+
+[tasks."fix:oxlint"]
+description = "Auto-fixes lint issues with oxlint (writes, `mise check:oxlint` only reports)."
+depends = "build:prisma:generate"
+raw = true
+run = "bun --bun oxlint --fix"
+
+[tasks."fix:oxfmt"]
+description = "Formats code in place with oxfmt (writes, `mise check:oxfmt` only verifies)."
+raw = true
+run = "bun --bun oxfmt"
 
 # BUILD TASKS
 # ===========
@@ -106,7 +130,7 @@ raw = true
 run = "bun ng build"
 
 [tasks."build:prisma:generate"]
-description = "generate the prisma client and types."
+description = "Generates the gitignored Prisma client and types."
 sources = ["prisma/run-prisma-generate.ts", "prisma/schema.prisma"]
 raw = true
 run = "bun prisma/run-prisma-generate.ts"

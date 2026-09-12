@@ -3,6 +3,7 @@
   "extends": ["@toverux/blanc-hopital/tsconfig/strict", "@toverux/blanc-hopital/tsconfig/bun"],
   "compilerOptions": {
     "lib": ["ESNext", "DOM"],
+    "types": ["bun"],
     "resolveJsonModule": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
@@ -15,6 +16,8 @@
       "#prisma-lib/*": ["./prisma/lib/*"]
     }
   },
+  // The default "**/*" skips dot-folders, so list them explicitly.
+  "include": ["**/*", ".agents/hooks/**/*"],
   "angularCompilerOptions": {
     "disableTypeScriptVersionCheck": true
   }

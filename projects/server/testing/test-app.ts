@@ -72,10 +72,21 @@ export async function createTestApp(overrides: readonly ValueProvider[] = []): P
 }
 
 /**
- * Builds the `Creator` Authorization header the mod sends with every request, from the Creator's
- * most recent hardware ID.
+ * Headers of a request from the mod: the `Creator` Authorization header, from the Creator's most
+ * recent hardware ID, sent from their most recent IP.
+ * Without the forwarded IP, every `inject()` request comes from 127.0.0.1, which authentication
+ * then records for every Creator, so distinct Creators would share an IP.
  */
-export function modAuthorization(
+export function modHeaders(
+  creator: Pick<Creator, 'creatorName' | 'creatorId' | 'creatorIdProvider' | 'hwids' | 'ips'>
+): Record<string, string> {
+  return { 'authorization': modAuthorization(creator), 'x-forwarded-for': nn(creator.ips[0]) };
+}
+
+/**
+ * Builds the `Creator` Authorization header the mod sends with every request.
+ */
+function modAuthorization(
   creator: Pick<Creator, 'creatorName' | 'creatorId' | 'creatorIdProvider' | 'hwids'>
 ): string {
   const params = [

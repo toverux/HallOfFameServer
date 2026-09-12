@@ -112,10 +112,11 @@ export function createFavorite(
 export function createView(
   prisma: PrismaService,
   screenshot: Pick<Screenshot, 'id'>,
-  creator: Pick<Creator, 'id'>
+  creator: Pick<Creator, 'id'>,
+  overrides: Partial<Prisma.ViewUncheckedCreateInput> = {}
 ): Promise<View> {
   return prisma.view.create({
-    data: { screenshotId: screenshot.id, creatorId: creator.id }
+    data: { screenshotId: screenshot.id, creatorId: creator.id, ...overrides }
   });
 }
 

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { nn } from '../../shared/utils/type-assertion';
 import { config } from '../config';
 import { createBan, createCreator } from '../testing/factories';
-import { createTestApp, modAuthorization, type TestApp } from '../testing/test-app';
+import { createTestApp, modHeaders, type TestApp } from '../testing/test-app';
 
 // Documentation range (RFC 5737), never routable.
 const ip = '198.51.100.1';
@@ -30,7 +30,7 @@ describe('CreatorAuthorizationGuard', () => {
       const response = await testApp.app.inject({
         method: 'GET',
         url: '/api/v1/creators/me',
-        headers: { authorization: modAuthorization(creator) }
+        headers: modHeaders(creator)
       });
 
       expect(response.statusCode).toBe(200);
@@ -41,15 +41,13 @@ describe('CreatorAuthorizationGuard', () => {
       const response = await testApp.app.inject({
         method: 'GET',
         url: '/api/v1/creators/me',
-        headers: {
-          'authorization': modAuthorization({
-            creatorName: 'New Mayor',
-            creatorId: unusedCreatorId,
-            creatorIdProvider: 'local',
-            hwids: [hwid]
-          }),
-          'x-forwarded-for': ip
-        }
+        headers: modHeaders({
+          creatorName: 'New Mayor',
+          creatorId: unusedCreatorId,
+          creatorIdProvider: 'local',
+          hwids: [hwid],
+          ips: [ip]
+        })
       });
 
       expect(response.statusCode).toBe(200);
@@ -84,14 +82,13 @@ describe('CreatorAuthorizationGuard', () => {
       const response = await testApp.app.inject({
         method: 'GET',
         url: '/api/v1/creators/me',
-        headers: {
-          authorization: modAuthorization({
-            creatorName: '東京市長',
-            creatorId: unusedCreatorId,
-            creatorIdProvider: 'paradox',
-            hwids: [hwid]
-          })
-        }
+        headers: modHeaders({
+          creatorName: '東京市長',
+          creatorId: unusedCreatorId,
+          creatorIdProvider: 'paradox',
+          hwids: [hwid],
+          ips: [ip]
+        })
       });
 
       expect(response.statusCode).toBe(200);
@@ -107,7 +104,7 @@ describe('CreatorAuthorizationGuard', () => {
       const response = await testApp.app.inject({
         method: 'GET',
         url: '/api/v1/creators/me',
-        headers: { authorization: modAuthorization({ ...creator, creatorId: unusedCreatorId }) }
+        headers: modHeaders({ ...creator, creatorId: unusedCreatorId })
       });
 
       expect(response.statusCode).toBe(401);
@@ -246,7 +243,7 @@ describe('CreatorAuthorizationGuard', () => {
       const response = await testApp.app.inject({
         method: 'GET',
         url: '/api/v1/creators/me',
-        headers: { 'authorization': modAuthorization(creator), 'x-forwarded-for': ip }
+        headers: { ...modHeaders(creator), 'x-forwarded-for': ip }
       });
 
       expect(response.statusCode).toBe(403);
@@ -266,7 +263,7 @@ describe('CreatorAuthorizationGuard', () => {
       const response = await testApp.app.inject({
         method: 'GET',
         url: '/api/v1/creators/me',
-        headers: { authorization: modAuthorization(creator) }
+        headers: modHeaders(creator)
       });
 
       expect(response.statusCode).toBe(403);

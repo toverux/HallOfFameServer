@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { config } from '../../config';
 import { createCreator, createScreenshot, createView } from '../../testing/factories';
-import { createTestApp, modAuthorization, type TestApp } from '../../testing/test-app';
+import { createTestApp, modHeaders, type TestApp } from '../../testing/test-app';
 
 const paradoxModsLink = 'https://mods.paradoxplaza.com/authors/Mayor1';
 
@@ -158,7 +158,7 @@ describe('CreatorController', () => {
       const response = await testApp.app.inject({
         method: 'PUT',
         url: '/api/v1/creators/me',
-        headers: { authorization: modAuthorization(creator) },
+        headers: modHeaders(creator),
         payload: { locale: 'fr-FR', metadata }
       });
 
@@ -208,7 +208,7 @@ describe('CreatorController', () => {
       const myStats = await testApp.app.inject({
         method: 'GET',
         url: '/api/v1/creators/me/stats',
-        headers: { authorization: modAuthorization(me) }
+        headers: modHeaders(me)
       });
 
       expect(myStats.statusCode).toBe(200);
@@ -276,7 +276,7 @@ describe('CreatorController', () => {
         const response = await testApp.app.inject({
           method,
           url: `/api/v1/creators/${creator.id}/social/paradoxMods`,
-          headers: { authorization: modAuthorization(creator) }
+          headers: modHeaders(creator)
         });
 
         expect(response.statusCode).toBe(307);

@@ -1,5 +1,5 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
-import type { Creator, Favorite, Screenshot } from '#prisma-lib/client';
+import type { Creator, Favorite, Prisma, Screenshot } from '#prisma-lib/client';
 import { type JsonObject, optionallySerialized } from '../../shared/utils/json';
 import { nn } from '../../shared/utils/type-assertion';
 import { StandardError } from '../common/standard-error';
@@ -27,17 +27,9 @@ export class FavoriteService {
     screenshotId: Screenshot['id'],
     creator: Pick<Creator, 'id' | 'hwids' | 'ips'>
   ): Promise<boolean> {
-    // Find a favorite with any of the provided identifiers; multi-accounting is not allowed for
-    // favorites, so a favorite is shared by any of these, hence the OR clause.
     const favorite = await this.prisma.favorite.findFirst({
       select: { id: true },
-      where: {
-        OR: [
-          { screenshotId, creatorId: creator.id },
-          { screenshotId, hwid: { in: creator.hwids } },
-          { screenshotId, ip: { in: creator.ips } }
-        ]
-      }
+      where: uniqueUserFavorites(screenshotId, creator)
     });
 
     return favorite != null;
@@ -55,17 +47,10 @@ export class FavoriteService {
     screenshotIds: ReadonlyArray<Screenshot['id']>,
     creator: Pick<Creator, 'id' | 'hwids' | 'ips'>
   ): Promise<boolean[]> {
-    // Same as isFavorite(), see its comments.
     const favorites = await this.prisma.favorite.findMany({
       select: { id: true, screenshotId: true },
-      where: {
-        OR: [
-          // `as string[]`: because prisma type unnecessarily takes a mutable array.
-          { screenshotId: { in: screenshotIds as string[] }, creatorId: creator.id },
-          { screenshotId: { in: screenshotIds as string[] }, hwid: { in: creator.hwids } },
-          { screenshotId: { in: screenshotIds as string[] }, ip: { in: creator.hwids } }
-        ]
-      }
+      // `as string[]`: because prisma type unnecessarily takes a mutable array.
+      where: uniqueUserFavorites({ in: screenshotIds as string[] }, creator)
     });
 
     return screenshotIds.map(screenshotId =>
@@ -85,13 +70,7 @@ export class FavoriteService {
     // The compound indexes [creatorId, screenshotId], etc. are still used!
     const existingFavorite = await this.prisma.favorite.findFirst({
       select: { id: true },
-      where: {
-        OR: [
-          { screenshotId, creatorId: creator.id },
-          { screenshotId, hwid: { in: creator.hwids } },
-          { screenshotId, ip: { in: creator.ips } }
-        ]
-      }
+      where: uniqueUserFavorites(screenshotId, creator)
     });
 
     // If the user has already favorited this screenshot, throw an error.
@@ -135,13 +114,7 @@ export class FavoriteService {
     // We can't use .remove() directly because we can't use .remove() which requires a where
     // clause that guarantees uniqueness, but we use an OR clause.
     const existingFavorite = await this.prisma.favorite.findFirst({
-      where: {
-        OR: [
-          { screenshotId, creatorId: creator.id },
-          { screenshotId, hwid: { in: creator.hwids } },
-          { screenshotId, ip: { in: creator.ips } }
-        ]
-      }
+      where: uniqueUserFavorites(screenshotId, creator)
     });
 
     // If the user has not favorited this screenshot, throw an error.
@@ -174,6 +147,24 @@ export class FavoriteService {
       screenshotId: favorite.screenshotId
     };
   }
+}
+
+/**
+ * Matches the favorites a unique user left on the given screenshots.
+ * Multi-accounting is not allowed for favorites, so a favorite is shared by every account on any of
+ * the creator's hardware IDs or IPs, hence the OR clause.
+ */
+function uniqueUserFavorites(
+  screenshotId: NonNullable<Prisma.FavoriteWhereInput['screenshotId']>,
+  creator: Pick<Creator, 'id' | 'hwids' | 'ips'>
+): Prisma.FavoriteWhereInput {
+  return {
+    OR: [
+      { screenshotId, creatorId: creator.id },
+      { screenshotId, hwid: { in: creator.hwids } },
+      { screenshotId, ip: { in: creator.ips } }
+    ]
+  };
 }
 
 export abstract class FavoriteError extends StandardError {}

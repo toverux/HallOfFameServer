@@ -14,7 +14,7 @@ Tests pinning `createdAtFormatted` strings, like the localized-dates cases in `s
 
 ## Root cause
 
-`DateFnsLocalizationService.applyTimezoneOffsetOnDateForRequest` adds the `X-Timezone-Offset` minutes to the UTC instant (`date-fns-localization.service.ts:53`), then `ScreenshotService.serialize` formats it with date-fns `format` (`screenshot.service.ts:685`), which reads local time.
+`DateFnsLocalizationService.applyTimezoneOffsetOnDateForRequest` adds the `X-Timezone-Offset` minutes to the UTC instant, then `ScreenshotService.serialize` formats it with date-fns `format`, which reads local time.
 The output is right only when local time is UTC, as in production's Docker image.
 `.env` sets `TZ=UTC`; mise loads it, and the test environment preload re-applies it.
 

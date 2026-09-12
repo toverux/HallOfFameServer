@@ -35,21 +35,22 @@ export interface TestApp {
 }
 
 /**
- * Builds the app through the production bootstrap, with the default fakes in place of the external
- * services, and initializes it without listening.
- * `overrides` replace providers for one suite, the default fakes included.
- * Close the app after each test: services keep state in memory, the ban cache for one, and
- * closing waits for the background tasks, so none outlives its test.
+ * Builds the app through the production bootstrap,
+ * with the default fakes in place of the external services,
+ * and initializes it without listening.
+ * `overrides` replace providers for one suite, the default fakes included:
+ * replace a fake with an instance of its class, which TestApp then exposes.
+ * Close the app after each test: services keep state in memory, the ban cache for one,
+ * and closing waits for the background tasks, so none outlives its test.
  */
 export async function createTestApp(overrides: readonly ValueProvider[] = []): Promise<TestApp> {
-  const screenshotStorage = new FakeScreenshotStorageService();
-  const aiTranslator = new FakeAiTranslatorService();
-  const screenshotSimilarityDetector = new FakeScreenshotSimilarityDetectorService();
-
   const providers: readonly ValueProvider[] = [
-    { provide: ScreenshotStorageService, useValue: screenshotStorage },
-    { provide: AiTranslatorService, useValue: aiTranslator },
-    { provide: ScreenshotSimilarityDetectorService, useValue: screenshotSimilarityDetector },
+    { provide: ScreenshotStorageService, useValue: new FakeScreenshotStorageService() },
+    { provide: AiTranslatorService, useValue: new FakeAiTranslatorService() },
+    {
+      provide: ScreenshotSimilarityDetectorService,
+      useValue: new FakeScreenshotSimilarityDetectorService()
+    },
     // Last, so they win over the default fakes.
     ...overrides
   ];
@@ -72,9 +73,12 @@ export async function createTestApp(overrides: readonly ValueProvider[] = []): P
     app,
     prisma: app.get(PrismaService),
     backgroundTasks: app.get(BackgroundTasksService),
-    screenshotStorage,
-    aiTranslator,
-    screenshotSimilarityDetector
+    // From the app, so an override of a default fake is the one exposed.
+    screenshotStorage: app.get<unknown, FakeScreenshotStorageService>(ScreenshotStorageService),
+    aiTranslator: app.get<unknown, FakeAiTranslatorService>(AiTranslatorService),
+    screenshotSimilarityDetector: app.get<unknown, FakeScreenshotSimilarityDetectorService>(
+      ScreenshotSimilarityDetectorService
+    )
   };
 }
 

@@ -16,14 +16,22 @@ describe('fetchStub', () => {
     expect(fetchStub.requests).toEqual([modUrl]);
   });
 
+  test(`answers a stubbed URL however it is written`, async () => {
+    fetchStub.respondWithJson('https://example.com', {});
+
+    const response = await fetch('https://example.com/');
+
+    expect(response.status).toBe(200);
+  });
+
   test(`rejects an unexpected URL, then fails the test even if the rejection was caught`, () => {
     expect(fetch('https://example.com/')).rejects.toThrow(
-      'Unexpected fetch GET https://example.com/, stub it with fetchStub.respondWithJson().'
+      `Unexpected fetch GET https://example.com/, stub it with fetchStub.respondWithJson().`
     );
 
     // Consumes the unexpected request, which would otherwise fail this test in the preload.
     expect(() => fetchStub.verify()).toThrow(
-      'Unexpected fetch requests:\nGET https://example.com/'
+      `Unexpected fetch requests:\nGET https://example.com/`
     );
   });
 

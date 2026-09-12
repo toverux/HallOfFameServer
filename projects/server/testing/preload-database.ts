@@ -1,7 +1,7 @@
 /**
- * Bun test preload creating the run's throwaway database with the schema's indexes, so
- * duplicate-key behavior matches production, emptying it before every test, and dropping it when
- * the run ends.
+ * Bun test preload creating the run's throwaway database with the schema's indexes,
+ * so duplicate-key behavior matches production.
+ * It empties the database before every test, and drops it when the run ends.
  */
 
 import { afterAll, beforeEach } from 'bun:test';

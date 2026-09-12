@@ -39,17 +39,19 @@ describe('BackgroundTasksService', () => {
   });
 
   test(`logs a failing task instead of throwing`, async () => {
-    const error = new Error('The translator is unavailable.');
+    const error = new Error(`The translator is unavailable.`);
 
     const logError = spyOn(Logger.prototype, 'error').mockReturnValue(void 0);
 
-    backgroundTasks.run(`Failed to translate "東京".`, () => Promise.reject(error));
+    try {
+      backgroundTasks.run(`Failed to translate "東京".`, () => Promise.reject(error));
 
-    await backgroundTasks.settled();
+      await backgroundTasks.settled();
 
-    expect(logError).toHaveBeenCalledWith(`Failed to translate "東京".`, error);
-
-    logError.mockRestore();
+      expect(logError).toHaveBeenCalledWith(`Failed to translate "東京".`, error);
+    } finally {
+      logError.mockRestore();
+    }
   });
 
   test(`finishes the running tasks before the application shuts down`, async () => {

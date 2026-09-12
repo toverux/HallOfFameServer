@@ -138,7 +138,7 @@ export function createMod(
       isRetired: false,
       name: `Mod ${sequence}`,
       authorName: `Modder ${sequence}`,
-      shortDescription: 'Adds a few things to the game.',
+      shortDescription: `Adds a few things to the game.`,
       thumbnailUrl: `https://mods.paradoxplaza.com/thumbnails/mod-${sequence}.jpg`,
       tags: ['Code Mod'],
       subscribersCount: 1000,

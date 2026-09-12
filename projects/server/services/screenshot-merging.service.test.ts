@@ -224,11 +224,11 @@ describe('ScreenshotMergingService', () => {
 
     // The stats resync comes after the sources are deleted.
     spyOn(testingModule.get(ScreenshotStatsService), 'resyncStats').mockRejectedValue(
-      new Error('The database is unavailable.')
+      new Error(`The database is unavailable.`)
     );
 
     expect(mergingService.mergeScreenshots(target.id, [source.id])).rejects.toThrow(
-      'The database is unavailable.'
+      `The database is unavailable.`
     );
 
     expect(await prisma.screenshot.findUnique({ where: { id: source.id } })).not.toBeNull();
@@ -238,29 +238,31 @@ describe('ScreenshotMergingService', () => {
   });
 
   test(`stands when deleting the images fails, logging the failure`, async () => {
-    const logError = spyOn(Logger.prototype, 'error').mockReturnValue(void 0);
-
     spyOn(screenshotStorage, 'deleteScreenshots').mockRejectedValue(
-      new Error('The storage is unavailable.')
+      new Error(`The storage is unavailable.`)
     );
 
     await createFavorite(prisma, source, second);
 
-    const result = await mergingService.mergeScreenshots(target.id, [source.id]);
+    const logError = spyOn(Logger.prototype, 'error').mockReturnValue(void 0);
 
-    await testingModule.get(BackgroundTasksService).settled();
+    try {
+      const result = await mergingService.mergeScreenshots(target.id, [source.id]);
 
-    expect(result).toMatchObject({ mergedFavoritesCount: 1 });
+      await testingModule.get(BackgroundTasksService).settled();
 
-    expect(await prisma.screenshot.findUnique({ where: { id: source.id } })).toBeNull();
-    expect(await likersOf(target)).toEqual([second.id]);
+      expect(result).toMatchObject({ mergedFavoritesCount: 1 });
 
-    expect(logError).toHaveBeenCalledWith(
-      `Failed to delete the images of screenshot #${source.id} "${source.cityName}".`,
-      expect.any(Error)
-    );
+      expect(await prisma.screenshot.findUnique({ where: { id: source.id } })).toBeNull();
+      expect(await likersOf(target)).toEqual([second.id]);
 
-    logError.mockRestore();
+      expect(logError).toHaveBeenCalledWith(
+        `Failed to delete the images of screenshot #${source.id} "${source.cityName}".`,
+        expect.any(Error)
+      );
+    } finally {
+      logError.mockRestore();
+    }
   });
 
   /**

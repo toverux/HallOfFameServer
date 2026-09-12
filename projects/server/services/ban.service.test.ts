@@ -1,5 +1,6 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
 import type { TestingModule } from '@nestjs/testing';
+import { minutes } from '../../shared/utils/duration';
 import { config } from '../config';
 import { createBan, createCreator } from '../testing/factories';
 import * as identifiers from '../testing/identifiers';
@@ -131,6 +132,24 @@ describe('BanService', () => {
       await prisma.ban.deleteMany();
 
       expect(banService.ensureCreatorNotBanned(creator)).rejects.toThrow(BannedCreatorError);
+    });
+
+    test(`passes a lifted ban once its cache entry expired`, async () => {
+      await createBan(prisma, { ip: identifiers.ip1 });
+
+      expect(banService.ensureNotBanned(identifiers.ip1, undefined)).rejects.toThrow(BannedError);
+
+      await prisma.ban.deleteMany();
+
+      // Past the five minutes the cache keeps an entry, on the clock the cache reads.
+      const expired = performance.now() + minutes(5) + 1;
+      const clock = spyOn(performance, 'now').mockReturnValue(expired);
+
+      try {
+        expect(banService.ensureNotBanned(identifiers.ip1, undefined)).resolves.toBeUndefined();
+      } finally {
+        clock.mockRestore();
+      }
     });
 
     test(`keeps passing an IP and hardware ID cached as not banned`, async () => {

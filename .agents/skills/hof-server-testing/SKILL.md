@@ -50,7 +50,7 @@ No cron runs, and the app logs only errors, so a passing run prints nothing.
 - The global `fetch` is `fetchStub` for the whole run.
   Stub each expected URL with `fetchStub.respondWithJson()` before the request: any other request fails the test.
 - Bun's `spyOn` and `mock` serve one-offs: a call assertion, a forced rejection, a silenced logger.
-  Restore a spy on a shared object (`Logger.prototype`) with `mockRestore()` before the test ends.
+  Restore a spy on a shared object (`Logger.prototype`) with `mockRestore()` even when the test fails: in a `finally`, or before the first assertion.
 
 ## HTTP tests
 
@@ -64,7 +64,6 @@ No cron runs, and the app logs only errors, so a passing run prints nothing.
 ## Assertions
 
 - Assert a body against an explicit expected shape with `toEqual`, written inline rather than as a snapshot, so a wire-format change shows up in review as an edited expectation.
-  Asymmetric matchers (`expect.any(String)`) stand in only for values the test cannot know, such as generated IDs and dates.
 - Build a serialized record's expected shape with `payloads.ts`, passing the route's own fields as overrides.
 - An error body is the JSON the mod parses: assert all of `{ statusCode, message, error }`.
 - Write `expect(promise).resolves` and `.rejects` without `await`: in Bun they block until the promise settles.

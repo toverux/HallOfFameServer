@@ -17,12 +17,13 @@ describe('createTestApp', () => {
     expect(testApp.app.get(ScreenshotStorageService)).toBe<unknown>(testApp.screenshotStorage);
   });
 
-  test(`lets a suite override replace a default fake`, async () => {
+  test(`lets a suite override replace a default fake, exposed in its place`, async () => {
     const aiTranslator = new FakeAiTranslatorService();
 
     testApp = await createTestApp([{ provide: AiTranslatorService, useValue: aiTranslator }]);
 
     expect(testApp.app.get(AiTranslatorService)).toBe<unknown>(aiTranslator);
+    expect(testApp.aiTranslator).toBe(aiTranslator);
     expect(testApp.app.get(ScreenshotStorageService)).toBe<unknown>(testApp.screenshotStorage);
   });
 });

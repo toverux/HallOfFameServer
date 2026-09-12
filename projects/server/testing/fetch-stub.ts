@@ -1,11 +1,11 @@
 import type { JsonValue } from '../../shared/utils/json';
 
 /**
- * Stand-in for the global `fetch`, installed for the whole run by the test preload, so no test
- * reaches the network.
+ * Stand-in for the global `fetch`, installed for the whole run by the test preload,
+ * so no test reaches the network.
  * It answers only the URLs a test told it to expect.
- * Any other request rejects, and fails the test when it ends even if the caller swallowed the
- * rejection, as `ModService` does.
+ * Any other request rejects, and fails the test when it ends,
+ * even if the caller swallowed the rejection, as `ModService` does.
  */
 class FetchStub {
   /**
@@ -44,7 +44,8 @@ class FetchStub {
    * Answers every request to `url` with `body` as JSON.
    */
   public respondWithJson(url: string, body: JsonValue, init?: ResponseInit): void {
-    this.responses.set(url, () => Response.json(body, init));
+    // Normalized as a request's URL is, ex. with a slash after a bare origin.
+    this.responses.set(new Request(url).url, () => Response.json(body, init));
   }
 
   public reset(): void {

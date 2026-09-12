@@ -1,6 +1,6 @@
 /**
- * Bun test preload replacing the global `fetch` with the fetch stub for the whole run, reset before
- * every test and verified after it, so a test that sent an unexpected request fails.
+ * Bun test preload replacing the global `fetch` with the fetch stub for the whole run,
+ * reset before every test and verified after it, so a test that sent an unexpected request fails.
  */
 
 import { afterEach, beforeEach } from 'bun:test';

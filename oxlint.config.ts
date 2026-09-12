@@ -52,7 +52,10 @@ export default defineConfig({
         'no-magic-numbers': 'off',
         // Tests pass `undefined` explicitly, as the input under test or for a required
         // `T | undefined` parameter, which the rule's fix would make a type error.
-        'unicorn/no-useless-undefined': ['deny', { checkArguments: false }]
+        'unicorn/no-useless-undefined': ['deny', { checkArguments: false }],
+        // Asymmetric matchers (`expect.any()`, `expect.stringMatching()`) are typed `any` so they
+        // fit anywhere in an expected shape.
+        'typescript/no-unsafe-assignment': 'off'
       }
     },
     {

@@ -18,14 +18,21 @@ const pinoLikeLogger: FastifyBaseLogger = {
   child: () => pinoLikeLogger
 };
 
-export const fastify = new FastifyAdapter({
-  trustProxy: true,
-  loggerInstance: pinoLikeLogger,
-  disableRequestLogging: true
-});
+/**
+ * Creates the Fastify adapter the server and the tests build the app on, with multipart support.
+ */
+export function createFastifyAdapter(): FastifyAdapter {
+  const adapter = new FastifyAdapter({
+    trustProxy: true,
+    loggerInstance: pinoLikeLogger,
+    disableRequestLogging: true
+  });
 
-// @ts-expect-error: errors due to our strict config on types we don't control.
-fastify.register(fastifyMultipart);
+  // @ts-expect-error: errors due to our strict config on types we don't control.
+  adapter.register(fastifyMultipart);
+
+  return adapter;
+}
 
 @Injectable()
 export class FastifyLoggerMiddleware implements NestMiddleware {

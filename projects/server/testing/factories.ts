@@ -3,7 +3,7 @@
  * Tests override only the fields they care about, and pass related records in.
  */
 
-import type { Ban, Creator, Prisma } from '#prisma-lib/client';
+import type { Ban, Creator, Mod, Prisma, Screenshot, View } from '#prisma-lib/client';
 import { CreatorService } from '../services/creator.service';
 import type { PrismaService } from '../services/prisma.service';
 
@@ -46,6 +46,79 @@ export function createCreator(
       ips: [`203.0.113.${sequence}`],
       socials: [],
       metadata: {},
+      ...overrides
+    }
+  });
+}
+
+/**
+ * Creates a Screenshot by the given Creator, as an upload from the game leaves it.
+ */
+export function createScreenshot(
+  prisma: PrismaService,
+  creator: Pick<Creator, 'id' | 'hwids' | 'ips'>,
+  overrides: Partial<Prisma.ScreenshotUncheckedCreateInput> = {}
+): Promise<Screenshot> {
+  const sequence = nextSequence('screenshot');
+
+  const blobNameBase = `${creator.id}/screenshot-${sequence}`;
+
+  return prisma.screenshot.create({
+    data: {
+      creatorId: creator.id,
+      hwid: creator.hwids[0] ?? null,
+      ip: creator.ips[0] ?? null,
+      cityName: `City ${sequence}`,
+      cityMilestone: 12,
+      cityPopulation: 120_000,
+      mapName: 'Lakeland',
+      imageUrlThumbnail: `${blobNameBase}-thumbnail.jpg`,
+      imageUrlFHD: `${blobNameBase}-fhd.jpg`,
+      imageUrl4K: `${blobNameBase}-4k.jpg`,
+      shareParadoxModIds: true,
+      paradoxModIds: [],
+      shareRenderSettings: true,
+      renderSettings: {},
+      metadata: {},
+      ...overrides
+    }
+  });
+}
+
+/**
+ * Records that the given Creator has seen the given Screenshot.
+ */
+export function createView(
+  prisma: PrismaService,
+  screenshot: Pick<Screenshot, 'id'>,
+  creator: Pick<Creator, 'id'>
+): Promise<View> {
+  return prisma.view.create({
+    data: { screenshotId: screenshot.id, creatorId: creator.id }
+  });
+}
+
+/**
+ * Creates a Mod as the first lookup on Paradox Mods caches it.
+ */
+export function createMod(
+  prisma: PrismaService,
+  overrides: Partial<Prisma.ModCreateInput> = {}
+): Promise<Mod> {
+  const sequence = nextSequence('mod');
+
+  return prisma.mod.create({
+    data: {
+      // oxlint-disable-next-line no-magic-numbers - realistic Paradox Mods IDs are 5-digit
+      paradoxModId: 80_000 + sequence,
+      isRetired: false,
+      name: `Mod ${sequence}`,
+      authorName: `Modder ${sequence}`,
+      shortDescription: 'Adds a few things to the game.',
+      thumbnailUrl: `https://mods.paradoxplaza.com/thumbnails/mod-${sequence}.jpg`,
+      tags: ['Code Mod'],
+      subscribersCount: 1000,
+      knownLastUpdatedAt: new Date('2026-01-15T10:00:00Z'),
       ...overrides
     }
   });

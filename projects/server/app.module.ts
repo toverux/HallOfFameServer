@@ -17,7 +17,8 @@ import { SharedModule } from './shared.module';
 
 @Module({
   imports: [
-    ScheduleModule.forRoot(),
+    // No cron under test: jobs would mutate data or reach external services mid-test.
+    ...(config.env == 'test' ? [] : [ScheduleModule.forRoot()]),
     SentryModule.forRoot(),
     RouterModule.register([{ path: 'api/v1', module: RestModule }]),
     GraphQLModule.forRoot(),

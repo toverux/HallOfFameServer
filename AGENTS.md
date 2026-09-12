@@ -55,7 +55,7 @@ TypeScript, one root `tsconfig.json` covering the whole repo, `.agents/hooks` in
 - `projects/server/graphql` – GraphQL resolvers and schema
 - `projects/server/cli` – Command-line interface tools
 - `projects/server/services` – Business logic services
-- `projects/server/testing` – Shared test infrastructure: preloads, factories, testing-module builder
+- `projects/server/testing` – Shared test infrastructure: preloads, factories, fakes, the `fetch` stub, the testing-module and test app builders
 - `projects/server/http-tests` – HTTP request files for manual testing with JetBrains HTTP Client, not part of the test suite
 - `projects/shared` – Shared code between client and server
 - `.agents/rules` – Code style rules loaded into the agent's context

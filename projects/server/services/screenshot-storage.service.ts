@@ -17,7 +17,8 @@ export class ScreenshotStorageService {
     );
   }
 
-  public getScreenshotUrl(blobName: string): string {
+  // Pure, which `this: void` enforces, so the tests' storage fake reuses it.
+  public getScreenshotUrl(this: void, blobName: string): string {
     return `${config.azure.cdn}/${config.azure.screenshotsContainer}/${blobName}`;
   }
 

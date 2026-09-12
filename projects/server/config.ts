@@ -14,8 +14,8 @@ let runtimeType: RuntimeType | undefined;
  * service.
  */
 export const config = {
-  // `test` is forced by the test preload; environment branches compare against the two others, so
-  // tests run with neither development nor production side effects.
+  // `test` is forced by the test preload. Most branches compare against the two others, so tests
+  // take neither development nor production side effects; crons and log levels branch on `test`.
   env: getEnum('NODE_ENV', ['development', 'production', 'test']),
 
   get runtimeType(): RuntimeType {

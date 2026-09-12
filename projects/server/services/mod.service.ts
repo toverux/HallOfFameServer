@@ -71,7 +71,7 @@ export class ModService {
     });
 
     if (foundMods.length == modIds.size) {
-      return foundMods.toSorted((a, b) => b.subscribersCount - a.subscribersCount);
+      return ModService.availableBySubscribers(foundMods);
     }
 
     const missingModIds = modIds.difference(new Set(foundMods.map(mod => mod.paradoxModId)));
@@ -96,7 +96,7 @@ export class ModService {
     );
 
     if (missingModResults.length == 0) {
-      return foundMods.toSorted((a, b) => b.subscribersCount - a.subscribersCount);
+      return ModService.availableBySubscribers(foundMods);
     }
 
     await this.prisma.mod.createMany({
@@ -134,10 +134,7 @@ export class ModService {
       where: { paradoxModId: { in: Array.from(missingModIds) } }
     });
 
-    return foundMods
-      .concat(newMods)
-      .filter(mod => !mod.isRetired)
-      .toSorted((a, b) => b.subscribersCount - a.subscribersCount);
+    return ModService.availableBySubscribers(foundMods.concat(newMods));
   }
 
   /**
@@ -343,5 +340,15 @@ export class ModService {
       modId,
       details: ModService.paradoxModDetailsSchema.parse(responseData.modDetail)
     };
+  }
+
+  /**
+   * Drops retired mods, which API results never include, and sorts the rest by descending
+   * subscribers count.
+   */
+  private static availableBySubscribers(mods: readonly Mod[]): Mod[] {
+    return mods
+      .filter(mod => !mod.isRetired)
+      .toSorted((a, b) => b.subscribersCount - a.subscribersCount);
   }
 }

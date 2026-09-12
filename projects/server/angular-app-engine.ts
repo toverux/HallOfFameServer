@@ -27,8 +27,11 @@ try {
     throw error;
   }
 
-  new Logger('Angular').error(
-    `Failed to load Angular app engine manifest. Is the Angular app built?`,
-    error
-  );
+  // Tests run without a client build, so a missing one is expected there.
+  if (config.env != 'test') {
+    new Logger('Angular').error(
+      `Failed to load Angular app engine manifest. Is the Angular app built?`,
+      error
+    );
+  }
 }

@@ -15,6 +15,15 @@ services:
       # https://lwn.net/Articles/1070072/
       # https://github.com/google/tcmalloc/issues/292
       GLIBC_TUNABLES: "glibc.cpu.hwcaps=-SHSTK"
+    healthcheck:
+      # Asks the container's own address: on a first start, the image runs the init script against
+      # a temporary mongod listening on localhost only.
+      test: mongosh --quiet --host "$$HOSTNAME" --eval 'db.hello().isWritablePrimary' | grep -q true
+      # Probes every second until healthy, for as long as `mise dev:db:start` waits, then rarely:
+      # only `up --wait` reads the status, and each mongosh launch costs CPU.
+      interval: 10m
+      start_period: 2m
+      start_interval: 1s
     ports:
       - "27017:27017"
     volumes:

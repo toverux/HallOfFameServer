@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # mise trusts the repository config when CI is set.
+      - uses: jdx/mise-action@v4
+
+      # Skips the install scripts, which download browsers and native libraries that neither the
+      # checks nor the tests use; `mise check` generates the Prisma client.
+      - run: bun install --frozen-lockfile --ignore-scripts
+
+      - run: mise check
+
+      # Starts the compose MongoDB through its `dev:db:start` dependency: a service container
+      # cannot pass --replSet, which transactions need.
+      - run: mise test

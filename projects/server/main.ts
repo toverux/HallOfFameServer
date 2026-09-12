@@ -20,6 +20,9 @@ async function bootstrap(): Promise<void> {
 
   configureApp(app);
 
+  // On SIGTERM, as a deploy sends, waits for the background tasks and releases resources.
+  app.enableShutdownHooks();
+
   await app.listen(config.http.port, config.http.address);
 }
 

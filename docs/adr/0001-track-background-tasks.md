@@ -21,5 +21,5 @@ One tracker waits for every task, current and future, where polling makes each t
 - Closing the test app waits for background work; a test awaits `backgroundTasks.settled()` before asserting on it.
 - Resources that tasks use release in `onApplicationShutdown`, see `docs/solutions/background-work-fails-during-app-close.md`.
 - Shutdown waits as long as the slowest task, so a task's outbound calls need timeouts; Paradox Mods lookups time out per attempt.
-- Production does not call `enableShutdownHooks`, so a deploy still cuts running tasks short until it does.
+- The server enables shutdown hooks, so a deploy's SIGTERM drains the tasks. Its mise task is not `raw`, since a `raw` task exits on SIGTERM without passing it on.
 - A request still in flight while the HTTP server closes can start a task after the drain.

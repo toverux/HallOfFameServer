@@ -7,6 +7,8 @@
 import type { ScreenshotFeatureEmbedding } from '#prisma-lib/client';
 import {
   type AiTranslatorService,
+  getScreenshotBlobNames,
+  type ScreenshotBlobNames,
   type ScreenshotSimilarityDetectorService,
   ScreenshotStorageService,
   type TranslationResponse
@@ -14,31 +16,31 @@ import {
 
 type Upload = Parameters<ScreenshotStorageService['uploadScreenshots']>[0];
 
-type UploadedBlobNames = Awaited<ReturnType<ScreenshotStorageService['uploadScreenshots']>>;
-
 type Deletion = Parameters<ScreenshotStorageService['deleteScreenshots']>[0];
 
 export class FakeScreenshotStorageService implements Pick<
   ScreenshotStorageService,
   'getScreenshotUrl' | 'uploadScreenshots' | 'deleteScreenshots'
 > {
-  public readonly uploads: Upload[] = [];
+  /**
+   * The uploaded images, by blob name.
+   */
+  public readonly blobs = new Map<string, Buffer>();
 
   public readonly deletions: Deletion[] = [];
 
   // Pure, so the real implementation serves, and URLs match production.
   public readonly getScreenshotUrl = ScreenshotStorageService.prototype.getScreenshotUrl;
 
-  public uploadScreenshots(data: Upload): Promise<UploadedBlobNames> {
-    this.uploads.push(data);
+  // Names the blobs as production does, so the names are under test.
+  public uploadScreenshots(data: Upload): Promise<ScreenshotBlobNames> {
+    const blobNames = getScreenshotBlobNames(data.creator, data.screenshot, new Date());
 
-    const blobNameBase = `${data.creator.id}/${data.screenshot.id}`;
+    this.blobs.set(blobNames.blobThumbnail, data.bufferThumbnail);
+    this.blobs.set(blobNames.blobFhd, data.bufferFhd);
+    this.blobs.set(blobNames.blob4k, data.buffer4K);
 
-    return Promise.resolve({
-      blobThumbnail: `${blobNameBase}/thumbnail.jpg`,
-      blobFhd: `${blobNameBase}/fhd.jpg`,
-      blob4k: `${blobNameBase}/4k.jpg`
-    });
+    return Promise.resolve(blobNames);
   }
 
   public deleteScreenshots(screenshot: Deletion): Promise<void> {

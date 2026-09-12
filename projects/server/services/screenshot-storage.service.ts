@@ -36,55 +36,29 @@ export class ScreenshotStorageService {
     bufferThumbnail: Buffer;
     bufferFhd: Buffer;
     buffer4K: Buffer;
-  }): Promise<{ blobThumbnail: string; blobFhd: string; blob4k: string }> {
+  }): Promise<ScreenshotBlobNames> {
     const { containerClient } = this;
 
-    const date = dateFns.format(new Date(), 'yyyy-MM-dd-HH-mm-ss');
+    const blobNames = getScreenshotBlobNames(data.creator, data.screenshot, new Date());
 
-    const cityNameSlug = slug(data.screenshot.cityName, { fallback: false });
-
-    const creatorNameSlug =
-      data.creator.creatorNameSlug && slug(data.creator.creatorNameSlug, { fallback: false });
-
-    // Slug will return an empty string if the input only has characters that it cannot slugify
-    // or transliterate, ex. Chinese, so we need to handle fallbacks.
-    const contextSlug =
-      cityNameSlug && creatorNameSlug
-        ? `${cityNameSlug}-by-${creatorNameSlug}`
-        : // oxlint-disable-next-line typescript/prefer-nullish-coalescing - empty slug falls through
-          cityNameSlug || creatorNameSlug || 'screenshot';
-
-    const blobNameBase = `${data.creator.id}/${data.screenshot.id}/${contextSlug}-${date}`;
-
-    const [blobNameThumbnail, blobNameFhd, blobName4K] = await allFulfilled([
-      upload(`${blobNameBase}-thumbnail.jpg`, data.bufferThumbnail),
-      upload(`${blobNameBase}-fhd.jpg`, data.bufferFhd),
-      upload(`${blobNameBase}-4k.jpg`, data.buffer4K)
+    await allFulfilled([
+      upload(blobNames.blobThumbnail, data.bufferThumbnail),
+      upload(blobNames.blobFhd, data.bufferFhd),
+      upload(blobNames.blob4k, data.buffer4K)
     ]);
 
-    return {
-      blobThumbnail: blobNameThumbnail,
-      blobFhd: blobNameFhd,
-      blob4k: blobName4K
-    };
+    return blobNames;
 
-    async function upload(blobName: string, buffer: Buffer): Promise<string> {
-      const { blockBlobClient } = await containerClient.uploadBlockBlob(
-        blobName,
-        buffer,
-        buffer.length,
-        {
-          tags: {
-            creatorId: data.creator.id,
-            screenshotId: data.screenshot.id
-          },
-          blobHTTPHeaders: {
-            blobContentType: 'image/jpeg'
-          }
+    async function upload(blobName: string, buffer: Buffer): Promise<void> {
+      await containerClient.uploadBlockBlob(blobName, buffer, buffer.length, {
+        tags: {
+          creatorId: data.creator.id,
+          screenshotId: data.screenshot.id
+        },
+        blobHTTPHeaders: {
+          blobContentType: 'image/jpeg'
         }
-      );
-
-      return blockBlobClient.name;
+      });
     }
   }
 
@@ -103,4 +77,43 @@ export class ScreenshotStorageService {
       return containerClient.getBlobClient(blobName).deleteIfExists({ deleteSnapshots: 'include' });
     }
   }
+}
+
+export interface ScreenshotBlobNames {
+  readonly blobThumbnail: string;
+  readonly blobFhd: string;
+  readonly blob4k: string;
+}
+
+/**
+ * Names the three blobs of a screenshot uploaded at `date`, grouped by creator then screenshot,
+ * with a readable slug of the city and creator names.
+ */
+export function getScreenshotBlobNames(
+  creator: Pick<Creator, 'id' | 'creatorNameSlug'>,
+  screenshot: Pick<Screenshot, 'id' | 'cityName'>,
+  date: Date
+): ScreenshotBlobNames {
+  const cityNameSlug = slug(screenshot.cityName, { fallback: false });
+
+  const creatorNameSlug =
+    creator.creatorNameSlug && slug(creator.creatorNameSlug, { fallback: false });
+
+  // Slug will return an empty string if the input only has characters that it cannot slugify
+  // or transliterate, ex. Chinese, so we need to handle fallbacks.
+  const contextSlug =
+    cityNameSlug && creatorNameSlug
+      ? `${cityNameSlug}-by-${creatorNameSlug}`
+      : // oxlint-disable-next-line typescript/prefer-nullish-coalescing - empty slug falls through
+        cityNameSlug || creatorNameSlug || 'screenshot';
+
+  const dateSlug = dateFns.format(date, 'yyyy-MM-dd-HH-mm-ss');
+
+  const blobNameBase = `${creator.id}/${screenshot.id}/${contextSlug}-${dateSlug}`;
+
+  return {
+    blobThumbnail: `${blobNameBase}-thumbnail.jpg`,
+    blobFhd: `${blobNameBase}-fhd.jpg`,
+    blob4k: `${blobNameBase}-4k.jpg`
+  };
 }

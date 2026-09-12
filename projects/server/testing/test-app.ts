@@ -8,6 +8,7 @@ import { configureApp } from '../configure-app';
 import { createFastifyAdapter } from '../fastify';
 import {
   AiTranslatorService,
+  BackgroundTasksService,
   PrismaService,
   ScreenshotSimilarityDetectorService,
   ScreenshotStorageService
@@ -24,6 +25,10 @@ export interface TestApp {
    */
   readonly app: NestFastifyApplication;
   readonly prisma: PrismaService;
+  /**
+   * Await `settled()` before asserting on the work a request left running.
+   */
+  readonly backgroundTasks: BackgroundTasksService;
   readonly screenshotStorage: FakeScreenshotStorageService;
   readonly aiTranslator: FakeAiTranslatorService;
   readonly screenshotSimilarityDetector: FakeScreenshotSimilarityDetectorService;
@@ -33,7 +38,8 @@ export interface TestApp {
  * Builds the app through the production bootstrap, with the default fakes in place of the external
  * services, and initializes it without listening.
  * `overrides` replace providers for one suite, the default fakes included.
- * Close the app after each test: services keep state in memory, the ban cache for one.
+ * Close the app after each test: services keep state in memory, the ban cache for one, and
+ * closing waits for the background tasks, so none outlives its test.
  */
 export async function createTestApp(overrides: readonly ValueProvider[] = []): Promise<TestApp> {
   const screenshotStorage = new FakeScreenshotStorageService();
@@ -65,6 +71,7 @@ export async function createTestApp(overrides: readonly ValueProvider[] = []): P
   return {
     app,
     prisma: app.get(PrismaService),
+    backgroundTasks: app.get(BackgroundTasksService),
     screenshotStorage,
     aiTranslator,
     screenshotSimilarityDetector

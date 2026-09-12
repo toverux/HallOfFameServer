@@ -17,6 +17,12 @@ export class ModService {
 
   private static readonly paradoxApiConcurrency = 5;
 
+  /**
+   * Milliseconds per attempt, so a stalled Paradox API cannot hold a lookup, or the shutdown
+   * waiting for a background one, indefinitely.
+   */
+  private static readonly paradoxApiTimeout = 10_000;
+
   private static readonly paradoxModDetailsSchema = z.looseObject({
     modId: z.string().pipe(z.coerce.number()),
     author: z.string(),
@@ -279,7 +285,10 @@ export class ModService {
 
     this.logger.verbose(`Fetching mod details from Paradox API: ${url}`);
 
-    const response = await fetch(url);
+    // The signal also aborts reading the body.
+    const response = await fetch(url, {
+      signal: AbortSignal.timeout(ModService.paradoxApiTimeout)
+    });
 
     const debugResponseStatusStr = `${response.status} ${response.statusText}`;
 

@@ -1,6 +1,7 @@
 import type { Provider } from '@nestjs/common';
 import { AiTranslatorService } from './ai-translator.service';
 import { AzureService } from './azure.service';
+import { BackgroundTasksService } from './background-tasks.service';
 import { BanService } from './ban.service';
 import { CreatorAuthenticationService } from './creator-authentication.service';
 import { CreatorService } from './creator.service';
@@ -18,6 +19,7 @@ import { ViewService } from './view.service';
 
 export * from './ai-translator.service';
 export * from './azure.service';
+export * from './background-tasks.service';
 export * from './ban.service';
 export * from './creator.service';
 export * from './creator-authentication.service';
@@ -36,6 +38,7 @@ export * from './view.service';
 export const services: Provider[] = [
   AiTranslatorService,
   AzureService,
+  BackgroundTasksService,
   BanService,
   CreatorService,
   CreatorAuthenticationService,

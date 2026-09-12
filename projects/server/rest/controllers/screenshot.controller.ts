@@ -25,7 +25,7 @@ import { ObjectId } from 'mongodb';
 import { z } from 'zod';
 import { Prisma, type Screenshot } from '#prisma-lib/client';
 import type { ParadoxModId } from '../../../shared/utils/branded-types';
-import type { JsonObject } from '../../../shared/utils/json';
+import type { JsonObject, JsonValue } from '../../../shared/utils/json';
 import { viewerBaseUrl } from '../../common/constants';
 import { isPrismaError } from '../../common/prisma-errors';
 import { ForbiddenError, NotFoundByIdError, StandardError } from '../../common/standard-error';
@@ -46,30 +46,6 @@ import {
 @Controller('screenshots')
 @UseGuards(CreatorAuthorizationGuard)
 export class ScreenshotController {
-  /**
-   * Regular expression to validate a city name:
-   * - Must contain only letters, numbers, spaces, hyphens, apostrophes and commas (Latin, CJK) and
-   * Chinese middle dot.
-   * - Must be between 1 and 35 characters long. 1-character-long names are for languages like
-   * Chinese.
-   */
-  private static readonly cityNameRegex = /^[\p{L}\p{N}\- '’,、•]{1,35}$/u;
-
-  /**
-   * Maximum accepted milestone value.
-   */
-  private static readonly maxMilestone = 20;
-
-  /**
-   * Maximum accepted city population.
-   */
-  private static readonly maxPopulation = 5_000_000;
-
-  /**
-   * Maximum accepted screenshot description length.
-   */
-  private static readonly maxDescriptionLength = 4000;
-
   /**
    * @see updateOne
    */
@@ -458,8 +434,8 @@ export class ScreenshotController {
       throw new ForbiddenError(`You cannot update screenshots that are not yours.`);
     }
 
-    const cityName = body.cityName && this.validateCityName(body.cityName);
-    const showcasedModId = Array.from(this.validateModIds(body.showcasedModId)).at(0);
+    const cityName = body.cityName && validateCityName(body.cityName);
+    const showcasedModId = Array.from(validateModIds(body.showcasedModId)).at(0);
 
     const updatedScreenshot = await this.screenshotService.updateScreenshot(screenshotId, {
       cityName: cityName ?? Prisma.skip,
@@ -588,38 +564,38 @@ export class ScreenshotController {
       throw new InvalidPayloadError(`Expected a file-field named 'screenshot'.`);
     }
 
-    const cityName = this.validateCityName(this.getMultipartString(multipart, 'cityName', true));
+    const cityName = validateCityName(this.getMultipartString(multipart, 'cityName', true));
 
-    const cityMilestone = this.validateMilestone(
+    const cityMilestone = validateMilestone(
       this.getMultipartString(multipart, 'cityMilestone', true)
     );
 
-    const cityPopulation = this.validatePopulation(
+    const cityPopulation = validatePopulation(
       this.getMultipartString(multipart, 'cityPopulation', true)
     );
 
     const mapName = this.getMultipartString(multipart, 'mapName', false);
 
     const showcasedModId = Array.from(
-      this.validateModIds(this.getMultipartString(multipart, 'showcasedModId', false))
+      validateModIds(this.getMultipartString(multipart, 'showcasedModId', false))
     ).at(0);
 
-    const description = this.validateDescription(
+    const description = validateDescription(
       this.getMultipartString(multipart, 'description', false)
     );
 
     const shareParadoxModIds = this.getMultipartString(multipart, 'shareModIds', false) != 'false';
 
-    const paradoxModIds = this.validateModIds(this.getMultipartString(multipart, 'modIds', false));
+    const paradoxModIds = validateModIds(this.getMultipartString(multipart, 'modIds', false));
 
     const shareRenderSettings =
       this.getMultipartString(multipart, 'shareRenderSettings', false) != 'false';
 
-    const renderSettings = this.validateRenderSettings(
+    const renderSettings = validateRenderSettings(
       this.getMultipartString(multipart, 'renderSettings', false)
     );
 
-    const metadata = this.validateMetadata(this.getMultipartString(multipart, 'metadata', false));
+    const metadata = validateMetadata(this.getMultipartString(multipart, 'metadata', false));
 
     try {
       const file = await multipart.toBuffer();
@@ -663,147 +639,159 @@ export class ScreenshotController {
   private getMultipartString(
     multipart: Multipart,
     fieldName: string,
-    strict = true
+    strict: boolean
   ): string | undefined {
     const field = multipart.fields[fieldName];
 
-    if (!(field && 'value' in field)) {
-      if (!strict) {
-        return undefined;
-      }
+    // A blank field counts as missing.
+    const value = field && 'value' in field ? String(field.value).trim() : '';
 
+    if (value != '') {
+      return value;
+    }
+
+    if (strict) {
       throw new InvalidPayloadError(`Expected a multipart field named '${fieldName}'.`);
     }
 
-    const value = String(field.value).trim();
+    return undefined;
+  }
+}
 
-    if (value == '') {
-      return undefined;
+/**
+ * Regular expression to validate a trimmed city name:
+ * - Must contain only letters, numbers, spaces, hyphens, apostrophes and commas (Latin, CJK), and
+ * middle dots (the Chinese interpunct, and a bullet), with at least one letter or number.
+ * - Must be between 1 and 35 characters long. 1-character-long names are for languages like
+ * Chinese.
+ */
+const cityNameRegex = /^(?=.*[\p{L}\p{N}])[\p{L}\p{N}\- '’,、·•]{1,35}$/u;
+
+/**
+ * Maximum accepted milestone value.
+ */
+const maxMilestone = 20;
+
+/**
+ * Maximum accepted city population.
+ */
+const maxPopulation = 5_000_000;
+
+/**
+ * Maximum accepted screenshot description length.
+ */
+const maxDescriptionLength = 4000;
+
+export function validateCityName(name: string): string {
+  const trimmedName = name.trim();
+
+  if (!cityNameRegex.test(trimmedName)) {
+    throw new InvalidCityNameError(name);
+  }
+
+  return trimmedName;
+}
+
+export function validateMilestone(milestone: string): number {
+  const parsed = Math.trunc(Number(milestone));
+
+  if (Number.isNaN(parsed) || parsed < 0 || parsed > maxMilestone) {
+    throw new InvalidPayloadError(
+      oneLine`
+      Invalid milestone, it must be a positive integer between 0 and
+      ${maxMilestone}.`
+    );
+  }
+
+  return parsed;
+}
+
+export function validatePopulation(population: string): number {
+  const parsed = Math.trunc(Number(population));
+
+  if (Number.isNaN(parsed) || parsed < 0 || parsed > maxPopulation) {
+    throw new InvalidPayloadError(`Invalid population number, it must be a positive integer.`);
+  }
+
+  return parsed;
+}
+
+export function validateDescription(description: string | undefined): string | undefined {
+  if (!description) {
+    return undefined;
+  }
+
+  if (description.length > maxDescriptionLength) {
+    throw new InvalidPayloadError(
+      `Description must be at most ${maxDescriptionLength} characters long.`
+    );
+  }
+
+  return description;
+}
+
+export function validateModIds(commaSeparatedModIds: string | undefined): Set<ParadoxModId> {
+  if (!commaSeparatedModIds) {
+    return new Set();
+  }
+
+  const modIds = commaSeparatedModIds.split(',').map(id => {
+    const parsed = Math.trunc(Number(id.trim()));
+
+    if (Number.isNaN(parsed) || parsed < 1) {
+      throw new InvalidPayloadError(`Mod IDs must be positive integers and separated by a comma.`);
+    }
+
+    return parsed as ParadoxModId;
+  });
+
+  return new Set(modIds);
+}
+
+export function validateRenderSettings(settingsJson: string | undefined): Record<string, number> {
+  return parseJsonObjectField(settingsJson, 'render settings field', (value, key) => {
+    if (typeof value != 'number') {
+      throw new TypeError(`expected a number value for the key "${key}", got "${inspect(value)}"`);
     }
 
     return value;
+  });
+}
+
+export function validateMetadata(metadataJson: string | undefined): JsonObject {
+  return parseJsonObjectField(metadataJson, 'the metadata field', value => value);
+}
+
+/**
+ * Parses a field holding a JSON object, an absent or empty field giving an empty object.
+ * `parseValue` validates each value, throwing an error whose message explains the rejection.
+ */
+function parseJsonObjectField<TValue>(
+  json: string | undefined,
+  fieldDescription: string,
+  parseValue: (value: JsonObject[string], key: string) => TValue
+): Record<string, TValue> {
+  if (!json) {
+    return {};
   }
 
-  private validateCityName(name: string): string {
-    if (!ScreenshotController.cityNameRegex.test(name)) {
-      throw new InvalidCityNameError(name);
+  try {
+    const parsed: JsonValue = JSON.parse(json);
+
+    if (!parsed || typeof parsed != 'object' || Array.isArray(parsed)) {
+      // noinspection ExceptionCaughtLocallyJS
+      throw new Error(`expected a JSON object`);
     }
 
-    return name;
-  }
+    return Object.fromEntries(
+      Object.entries(parsed).map(([key, value]) => [key, parseValue(value, key)])
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
 
-  private validateMilestone(milestone: string): number {
-    const parsed = Math.trunc(Number(milestone));
-
-    if (Number.isNaN(parsed) || parsed < 0 || parsed > ScreenshotController.maxMilestone) {
-      throw new InvalidPayloadError(
-        oneLine`
-        Invalid milestone, it must be a positive integer between 0 and
-        ${ScreenshotController.maxMilestone}.`
-      );
-    }
-
-    return parsed;
-  }
-
-  private validatePopulation(population: string): number {
-    const parsed = Math.trunc(Number(population));
-
-    if (Number.isNaN(parsed) || parsed < 0 || parsed > ScreenshotController.maxPopulation) {
-      throw new InvalidPayloadError(`Invalid population number, it must be a positive integer.`);
-    }
-
-    return parsed;
-  }
-
-  private validateDescription(description: string | undefined): string | undefined {
-    if (!description) {
-      return undefined;
-    }
-
-    if (description.length > ScreenshotController.maxDescriptionLength) {
-      throw new InvalidPayloadError(
-        `Description must be at most ${ScreenshotController.maxDescriptionLength} characters long.`
-      );
-    }
-
-    return description;
-  }
-
-  private validateModIds(commaSeparatedModIds: string | undefined): Set<ParadoxModId> {
-    if (!commaSeparatedModIds) {
-      return new Set();
-    }
-
-    const modIds = commaSeparatedModIds.split(',').map(id => {
-      const parsed = Math.trunc(Number(id.trim()));
-
-      if (Number.isNaN(parsed) || parsed < 1) {
-        throw new InvalidPayloadError(
-          `Mod IDs must be positive integers and separated by a comma.`
-        );
-      }
-
-      return parsed as ParadoxModId;
+    throw new InvalidPayloadError(`Invalid JSON for ${fieldDescription} (${message}).`, {
+      cause: error
     });
-
-    return new Set(modIds);
-  }
-
-  private validateRenderSettings(settingsJson: string | undefined): Record<string, number> {
-    if (!settingsJson) {
-      return {};
-    }
-
-    try {
-      const settings = JSON.parse(settingsJson);
-
-      if (!settings || typeof settings != 'object' || Array.isArray(settings)) {
-        // noinspection ExceptionCaughtLocallyJS
-        throw new Error(`expected a JSON object`);
-      }
-
-      return Object.entries(settings).reduce<Record<string, number>>((map, [key, value]) => {
-        if (typeof value != 'number') {
-          throw new TypeError(
-            `expected a number value for the key "${key}", got "${inspect(value)}"`
-          );
-        }
-
-        map[key] = value;
-
-        return map;
-      }, {});
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-
-      throw new InvalidPayloadError(`Invalid JSON for render settings field (${message}).`, {
-        cause: error
-      });
-    }
-  }
-
-  private validateMetadata(metadataJson: string | undefined): JsonObject {
-    if (!metadataJson) {
-      return {};
-    }
-
-    try {
-      const metadata = JSON.parse(metadataJson);
-
-      if (!metadata || typeof metadata != 'object' || Array.isArray(metadata)) {
-        // noinspection ExceptionCaughtLocallyJS
-        throw new Error(`expected a JSON object`);
-      }
-
-      return metadata;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-
-      throw new InvalidPayloadError(`Invalid JSON for the metadata field (${message}).`, {
-        cause: error
-      });
-    }
   }
 }
 
@@ -833,7 +821,8 @@ class InvalidCityNameError extends UploadError {
     super(
       oneLine`
       City name "${incorrectName}" is invalid, it must contain only letters, numbers, spaces,
-      hyphens and apostrophes, and be between 1 and 25 characters long.`
+      hyphens, apostrophes, commas, and middle dots, with at least one letter or number, and be
+      between 1 and 35 characters long.`
     );
 
     this.incorrectName = incorrectName;

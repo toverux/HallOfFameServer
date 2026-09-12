@@ -4,7 +4,7 @@ import {
   Inject,
   Injectable,
   Logger,
-  type OnModuleDestroy,
+  type OnApplicationShutdown,
   type OnModuleInit
 } from '@nestjs/common';
 import { oneLine } from 'common-tags';
@@ -38,7 +38,7 @@ interface InputScreenshot {
  * efficient Hierarchical Navigable Small Worlds (HNSW) implementation.
  */
 @Injectable()
-export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModuleDestroy {
+export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnApplicationShutdown {
   private readonly logger = new Logger(ScreenshotSimilarityDetectorService.name);
 
   private static readonly embeddingDimensions = 1280;
@@ -106,7 +106,8 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnModu
     }
   }
 
-  public onModuleDestroy(): void {
+  // Not on module destroy: background tasks still infer until before application shutdown.
+  public onApplicationShutdown(): void {
     this.maybeInferenceWorker?.terminate();
   }
 

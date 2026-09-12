@@ -3,7 +3,7 @@ import {
   Injectable,
   Logger,
   type OnApplicationBootstrap,
-  type OnModuleDestroy
+  type OnApplicationShutdown
 } from '@nestjs/common';
 import { filesize } from 'filesize';
 import { type Prisma, PrismaClient } from '#prisma-lib/client';
@@ -28,7 +28,7 @@ const prismaOptions = {
 @Injectable()
 export class PrismaService
   extends PrismaClient<typeof prismaOptions, (typeof logDefinitions)[number]['level']>
-  implements OnApplicationBootstrap, OnModuleDestroy
+  implements OnApplicationBootstrap, OnApplicationShutdown
 {
   private readonly logger = new Logger(PrismaService.name);
 
@@ -76,7 +76,8 @@ export class PrismaService
     );
   }
 
-  public async onModuleDestroy(): Promise<void> {
+  // Not on module destroy: background tasks still query until before application shutdown.
+  public async onApplicationShutdown(): Promise<void> {
     await this.$disconnect();
   }
 }

@@ -6,7 +6,6 @@ import {
   Logger,
   type OnApplicationBootstrap
 } from '@nestjs/common';
-import * as sentry from '@sentry/bun';
 import { oneLine } from 'common-tags';
 import * as dfns from 'date-fns';
 import type { FastifyRequest } from 'fastify';
@@ -27,6 +26,7 @@ import { isPrismaError } from '../common/prisma-errors';
 import { NotFoundByIdError, StandardError } from '../common/standard-error';
 import { config } from '../config';
 import { AiTranslatorService } from './ai-translator.service';
+import { BackgroundTasksService } from './background-tasks.service';
 import { CreatorAuthenticationService } from './creator-authentication.service';
 import { CreatorService } from './creator.service';
 import { DateFnsLocalizationService } from './date-fns-localization.service';
@@ -82,6 +82,9 @@ export class ScreenshotService implements OnApplicationBootstrap {
 
   @Inject(AiTranslatorService)
   private readonly aiTranslator!: AiTranslatorService;
+
+  @Inject(BackgroundTasksService)
+  private readonly backgroundTasks!: BackgroundTasksService;
 
   @Inject(ModService)
   private readonly modService!: ModService;
@@ -205,49 +208,30 @@ export class ScreenshotService implements OnApplicationBootstrap {
     );
 
     if (!healthcheck) {
-      // Translate city name asynchronously.
-      // oxlint-disable-next-line promise/prefer-await-to-then promise/prefer-await-to-callbacks
-      this.updateCityNameTranslation(screenshot).catch(error => {
-        this.logger.error(
-          `Failed to translate city name "${screenshot.cityName}" (#${screenshot.id}).`,
-          error
-        );
+      this.backgroundTasks.run(
+        `Failed to translate city name "${screenshot.cityName}" (#${screenshot.id}).`,
+        () => this.updateCityNameTranslation(screenshot)
+      );
 
-        sentry.captureException(error);
-      });
+      this.backgroundTasks.run(
+        oneLine`
+        Failed to infer embeddings for screenshot "${screenshot.cityName}"
+        (#${screenshot.id}).`,
+        () =>
+          this.screenshotSimilarityDetector.batchUpdateEmbeddings(screenshot.id, [
+            { id: screenshot.id, imageUrlOrBuffer: imageFhdBuffer }
+          ])
+      );
 
-      // Infer embeddings asynchronously.
-      this.screenshotSimilarityDetector
-        .batchUpdateEmbeddings(screenshot.id, [
-          { id: screenshot.id, imageUrlOrBuffer: imageFhdBuffer }
-        ])
-        // oxlint-disable-next-line promise/prefer-await-to-then promise/prefer-await-to-callbacks
-        .catch(error => {
-          this.logger.error(
-            oneLine`
-            Failed to infer embeddings for screenshot "${screenshot.cityName}"
-            (#${screenshot.id}).`,
-            error
-          );
-
-          sentry.captureException(error);
-        });
-
-      // Warmup mods cache asynchronously.
       // Note: no need to include `showcasedModId` as it's necessarily included in `paradoxModIds`.
       const modIds = new Set(screenshot.paradoxModIds as ParadoxModId[]);
 
-      // oxlint-disable-next-line promise/prefer-await-to-then promise/prefer-await-to-callbacks
-      this.modService.getMods(modIds).catch(error => {
-        this.logger.error(
-          oneLine`
-          Failed to warmup mods cache for screenshot "${screenshot.cityName}"
-          (#${screenshot.id}).`,
-          error
-        );
-
-        sentry.captureException(error);
-      });
+      this.backgroundTasks.run(
+        oneLine`
+        Failed to warmup mods cache for screenshot "${screenshot.cityName}"
+        (#${screenshot.id}).`,
+        () => this.modService.getMods(modIds)
+      );
     }
 
     return screenshot;
@@ -370,15 +354,10 @@ export class ScreenshotService implements OnApplicationBootstrap {
 
         // Translate city name asynchronously.
         if (needsTranslation) {
-          // oxlint-disable-next-line promise/prefer-await-to-then promise/prefer-await-to-callbacks
-          this.updateCityNameTranslation(screenshot).catch(error => {
-            this.logger.error(
-              `Failed to translate city name "${screenshot.cityName}" (#${screenshot.id}).`,
-              error
-            );
-
-            sentry.captureException(error);
-          });
+          this.backgroundTasks.run(
+            `Failed to translate city name "${screenshot.cityName}" (#${screenshot.id}).`,
+            () => this.updateCityNameTranslation(screenshot)
+          );
         }
 
         return screenshot;
@@ -772,8 +751,8 @@ export class ScreenshotService implements OnApplicationBootstrap {
 
   /**
    * Checks if a user has uploaded too many screenshots in the last 24 hours.
-   * A user is identified by their creator ID or hardware ID, meaning two Creator IDs with the
-   * same hardware ID will share the same quota.
+   * A user is identified by their creator ID, hardware IDs, or IPs, meaning two Creator IDs
+   * sharing a hardware ID or an IP will share the same quota.
    *
    * @throws {ScreenshotRateLimitExceededError} If the limit is reached.
    */
@@ -784,11 +763,13 @@ export class ScreenshotService implements OnApplicationBootstrap {
     const latestScreenshots = await this.prisma.screenshot.findMany({
       select: { createdAt: true },
       orderBy: { createdAt: 'asc' },
+      // Enough to tell whether the limit is reached, as many players can share an IP.
+      take: config.screenshots.limitPer24h,
       where: {
         OR: [
           { creatorId: creator.id },
           { hwid: { in: creator.hwids } },
-          { ip: { in: creator.hwids } }
+          { ip: { in: creator.ips } }
         ],
         createdAt: { gt: dfns.subDays(new Date(), 1) }
       }

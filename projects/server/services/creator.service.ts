@@ -6,7 +6,6 @@ import {
   Logger,
   UnauthorizedException
 } from '@nestjs/common';
-import * as sentry from '@sentry/bun';
 import { oneLine } from 'common-tags';
 import * as uuid from 'uuid';
 import type { Creator } from '#prisma-lib/client';
@@ -17,6 +16,7 @@ import { isPrismaError } from '../common/prisma-errors';
 import { StandardError } from '../common/standard-error';
 import { config } from '../config';
 import { AiTranslatorService } from './ai-translator.service';
+import { BackgroundTasksService } from './background-tasks.service';
 import { PrismaService } from './prisma.service';
 
 export type CreatorAuthorization = SimpleCreatorAuthorization | ModCreatorAuthorization;
@@ -66,6 +66,9 @@ export class CreatorService {
 
   @Inject(AiTranslatorService)
   private readonly aiTranslator!: AiTranslatorService;
+
+  @Inject(BackgroundTasksService)
+  private readonly backgroundTasks!: BackgroundTasksService;
 
   private readonly logger = new Logger(CreatorService.name);
 
@@ -299,17 +302,12 @@ export class CreatorService {
       this: CreatorService,
       creatorToTranslate: Creator
     ): void {
-      // oxlint-disable-next-line promise/prefer-await-to-then promise/prefer-await-to-callbacks
-      this.updateCreatorNameTranslation(creatorToTranslate).catch(error => {
-        this.logger.error(
-          oneLine`
-          Failed to translate creator name "${creatorToTranslate.creatorName}"
-          (#${creatorToTranslate.id}).`,
-          error
-        );
-
-        sentry.captureException(error);
-      });
+      this.backgroundTasks.run(
+        oneLine`
+        Failed to translate creator name "${creatorToTranslate.creatorName}"
+        (#${creatorToTranslate.id}).`,
+        () => this.updateCreatorNameTranslation(creatorToTranslate)
+      );
     }
   }
 

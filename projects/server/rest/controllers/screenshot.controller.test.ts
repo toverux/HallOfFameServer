@@ -1,10 +1,15 @@
 import { afterEach, beforeEach, describe, expect, setSystemTime, test } from 'bun:test';
+import * as Bun from 'bun';
 import * as dfns from 'date-fns';
+import sharp from 'sharp';
 import type { Creator, Screenshot } from '#prisma-lib/client';
+import { allFulfilled } from '../../../shared/utils/all-fulfilled';
+import type { JsonValue } from '../../../shared/utils/json';
 import { nn } from '../../../shared/utils/type-assertion';
 import { config } from '../../config';
 import type { PrismaService } from '../../services';
 import {
+  createBan,
   createCreator,
   createFavorite,
   createMod,
@@ -19,23 +24,63 @@ import {
   expectedViewPayload
 } from '../../testing/payloads';
 import { createTestApp, modHeaders, type TestApp } from '../../testing/test-app';
+import {
+  validateCityName,
+  validateDescription,
+  validateMetadata,
+  validateMilestone,
+  validateModIds,
+  validatePopulation,
+  validateRenderSettings
+} from './screenshot.controller';
 
 // An ObjectId no factory hands out.
 const unknownScreenshotId = '0123456789abcdef01234567';
 
 /**
- * Builds a requester's account relative to a fan who liked a screenshot.
- * Every account but the unrelated one shares the fan's like: multi-accounting on likes is not
- * allowed.
+ * Builds a requester's account relative to the one that liked or uploaded first.
+ * Every account but the unrelated one shares its likes and its upload limit: multi-accounting is
+ * not allowed.
  */
 const accounts = {
-  'the fan': (_prisma, fan) => Promise.resolve(fan),
-  'another account on the same hardware ID': (prisma, fan) =>
-    createCreator(prisma, { hwids: [nn(fan.hwids[0])] }),
-  'another account on the same IP': (prisma, fan) =>
-    createCreator(prisma, { ips: [nn(fan.ips[0])] }),
+  'the same account': (_prisma, first) => Promise.resolve(first),
+  'another account on the same hardware ID': (prisma, first) =>
+    createCreator(prisma, { hwids: [nn(first.hwids[0])] }),
+  'another account on the same IP': (prisma, first) =>
+    createCreator(prisma, { ips: [nn(first.ips[0])] }),
   'an unrelated account': prisma => createCreator(prisma)
-} satisfies Record<string, (prisma: PrismaService, fan: Creator) => Promise<Creator>>;
+} satisfies Record<string, (prisma: PrismaService, first: Creator) => Promise<Creator>>;
+
+const modMetadata = {
+  platform: 'WindowsPlayer',
+  cpu: 'AMD Ryzen 7 7800X3D 8-Core Processor',
+  gpuName: 'NVIDIA GeForce RTX 4080',
+  gpuVendor: 'NVIDIA',
+  gpuVersion: 'Direct3D 11.0 [level 11.1]'
+};
+
+/**
+ * The fields the mod sends with an upload, in its order, the optional ones last.
+ * The screenshot file follows them.
+ */
+const modUploadFields: Readonly<Record<string, string>> = {
+  cityName: 'Tokyo Bay',
+  cityMilestone: '12',
+  cityPopulation: '154321',
+  shareModIds: 'true',
+  modIds: '74604,87755',
+  shareRenderSettings: 'true',
+  renderSettings: '{"aperture":2.4,"focusDistance":120.5}',
+  metadata: JSON.stringify(modMetadata),
+  mapName: 'Lakeland',
+  showcasedModId: '87755',
+  description: 'Sunset over the bay.'
+};
+
+// A Full HD JPEG.
+const testImage = Bun.file(
+  Bun.fileURLToPath(import.meta.resolve('../../../shared/assets/healthcheck-test-image.jpg'))
+);
 
 describe('ScreenshotController', () => {
   let testApp: TestApp;
@@ -453,18 +498,12 @@ describe('ScreenshotController', () => {
         { paradoxModIds: [74_604, 87_755, 90_001, 90_002] }
       );
 
-      fetchStub.respondWithJson(paradoxModUrl(87_755), {
-        modDetail: {
-          modId: '87755',
-          author: 'toverux',
-          // Paradox Mods sends names and descriptions untrimmed, with Windows line endings.
-          displayName: ' Hall of Fame\r\n',
-          shortDescription: 'Share your cities.\r\nBrowse everyone else’s. ',
-          displayImagePath: 'https://mods.paradoxplaza.com/thumbnails/hall-of-fame.jpg',
-          tags: ['Code Mod'],
-          subscriptions: 25_000,
-          latestUpdate: '2026-08-30T14:00:00Z'
-        }
+      stubParadoxMod(87_755, {
+        // Paradox Mods sends names and descriptions untrimmed, with Windows line endings.
+        displayName: ' Hall of Fame\r\n',
+        shortDescription: 'Share your cities.\r\nBrowse everyone else’s. ',
+        displayImagePath: 'https://mods.paradoxplaza.com/thumbnails/hall-of-fame.jpg',
+        subscriptions: 25_000
       });
 
       fetchStub.respondWithJson(
@@ -929,7 +968,7 @@ describe('ScreenshotController', () => {
     });
 
     test.each([
-      'the fan',
+      'the same account',
       'another account on the same hardware ID',
       'another account on the same IP'
     ] as const)(`rejects a second like from %s`, async account => {
@@ -1091,9 +1130,430 @@ describe('ScreenshotController', () => {
     });
   });
 
+  describe('POST /api/v1/screenshots', () => {
+    // Every upload lists them; a test only asserts on the lookups when it cares.
+    beforeEach(() => {
+      stubParadoxMod(74_604);
+      stubParadoxMod(87_755);
+    });
+
+    afterEach(() => {
+      setSystemTime();
+    });
+
+    test(`stores a screenshot uploaded as the mod sends it`, async () => {
+      setSystemTime(new Date('2026-09-12T10:00:00Z'));
+
+      const creator = await createCreator(testApp.prisma);
+
+      const response = await upload(modHeaders(creator));
+
+      expect(response.statusCode).toBe(201);
+
+      const screenshot = await testApp.prisma.screenshot.findFirstOrThrow();
+
+      await testApp.backgroundTasks.settled();
+
+      const blobDirectory = `${creator.id}/${screenshot.id}`;
+
+      const blobNameBase = `${blobDirectory}/tokyo-bay-by-mayor-1-2026-09-12-10-00-00`;
+
+      expect(screenshot).toMatchObject({
+        creatorId: creator.id,
+        hwid: nn(creator.hwids[0]),
+        ip: nn(creator.ips[0]),
+        createdAt: new Date('2026-09-12T10:00:00Z'),
+        cityName: 'Tokyo Bay',
+        cityMilestone: 12,
+        cityPopulation: 154_321,
+        mapName: 'Lakeland',
+        showcasedModId: 87_755,
+        description: 'Sunset over the bay.',
+        shareParadoxModIds: true,
+        paradoxModIds: [74_604, 87_755],
+        shareRenderSettings: true,
+        renderSettings: { aperture: 2.4, focusDistance: 120.5 },
+        metadata: modMetadata,
+        isReported: false,
+        imageUrlThumbnail: `${blobNameBase}-thumbnail.jpg`,
+        imageUrlFHD: `${blobNameBase}-fhd.jpg`,
+        imageUrl4K: `${blobNameBase}-4k.jpg`
+      });
+
+      expect(response.json<unknown>()).toEqual(expectedScreenshotPayload(screenshot, creator));
+
+      const images = await allFulfilled(
+        Array.from(testApp.screenshotStorage.blobs, async ([blobName, buffer]) => {
+          const { format, width, height } = await sharp(buffer).metadata();
+
+          return { blobName, format, width, height };
+        })
+      );
+
+      // Processing never enlarges the Full HD source.
+      expect(images).toEqual([
+        { blobName: `${blobNameBase}-thumbnail.jpg`, format: 'jpeg', width: 256, height: 144 },
+        { blobName: `${blobNameBase}-fhd.jpg`, format: 'jpeg', width: 1920, height: 1080 },
+        { blobName: `${blobNameBase}-4k.jpg`, format: 'jpeg', width: 1920, height: 1080 }
+      ]);
+
+      const showcasedMod = await testApp.prisma.mod.findUniqueOrThrow({
+        where: { paradoxModId: 87_755 }
+      });
+
+      const single = await testApp.app.inject({
+        method: 'GET',
+        url: `/api/v1/screenshots/${screenshot.id}`
+      });
+
+      expect(single.json<unknown>()).toEqual(
+        expectedScreenshotPayload(screenshot, creator, {
+          showcasedMod: expectedModPayload(showcasedMod),
+          __favorited: false
+        })
+      );
+
+      const list = await testApp.app.inject({
+        method: 'GET',
+        url: '/api/v1/screenshots?creatorId=me',
+        headers: modHeaders(creator)
+      });
+
+      expect(list.json<unknown>()).toEqual([
+        expectedScreenshotPayload(screenshot, creator, { __favorited: false })
+      ]);
+    });
+
+    test(`runs the translation, embeddings, and mod cache warmup in the background`, async () => {
+      const creator = await createCreator(testApp.prisma);
+
+      const response = await upload(modHeaders(creator), {
+        ...modUploadFields,
+        cityName: '東京湾'
+      });
+
+      expect(response.statusCode).toBe(201);
+      expect(response.json<unknown>()).toEqual(expect.objectContaining({ cityNameLocale: null }));
+
+      const { id } = response.json<{ id: string }>();
+
+      await testApp.backgroundTasks.settled();
+
+      expect(testApp.aiTranslator.requests).toEqual([
+        { kind: 'cityName', input: '東京湾', creatorId: creator.id }
+      ]);
+
+      const screenshot = await testApp.prisma.screenshot.findUniqueOrThrow({ where: { id } });
+
+      expect(testApp.screenshotSimilarityDetector.embeddingUpdates).toEqual([
+        [{ id, imageUrlOrBuffer: nn(testApp.screenshotStorage.blobs.get(screenshot.imageUrlFHD)) }]
+      ]);
+
+      expect(fetchStub.requests.toSorted()).toEqual([paradoxModUrl(74_604), paradoxModUrl(87_755)]);
+
+      const single = await testApp.app.inject({ method: 'GET', url: `/api/v1/screenshots/${id}` });
+
+      expect(single.json<unknown>()).toEqual(
+        expect.objectContaining({
+          cityName: '東京湾',
+          cityNameLocale: 'ja',
+          cityNameLatinized: '東京湾 (transliterated)',
+          cityNameTranslated: '東京湾 (translated)',
+          showcasedMod: expect.objectContaining({ paradoxModId: 87_755, name: 'Mod 87755' })
+        })
+      );
+
+      // Served from the mod cache.
+      expect(fetchStub.requests).toHaveLength(2);
+    });
+
+    test(`stores what the mod sends without the optional fields, sharing nothing`, async () => {
+      const creator = await createCreator(testApp.prisma);
+
+      const response = await upload(modHeaders(creator), {
+        cityName: 'Tokyo Bay',
+        cityMilestone: '0',
+        cityPopulation: '0',
+        shareModIds: 'false',
+        modIds: '',
+        shareRenderSettings: 'false',
+        renderSettings: '{}',
+        metadata: '{}'
+      });
+
+      expect(response.statusCode).toBe(201);
+
+      const screenshot = await testApp.prisma.screenshot.findFirstOrThrow();
+
+      expect(screenshot).toMatchObject({
+        cityMilestone: 0,
+        cityPopulation: 0,
+        mapName: null,
+        showcasedModId: null,
+        description: null,
+        shareParadoxModIds: false,
+        paradoxModIds: [],
+        shareRenderSettings: false,
+        renderSettings: {},
+        metadata: {}
+      });
+
+      expect(response.json<unknown>()).toEqual(expectedScreenshotPayload(screenshot, creator));
+    });
+
+    test.each([
+      {
+        field: 'cityName',
+        value: 'Tokyo!',
+        error: 'InvalidCityNameError',
+        message:
+          `City name "Tokyo!" is invalid, it must contain only letters, numbers, spaces, ` +
+          `hyphens, apostrophes, commas, and middle dots, with at least one letter or number, ` +
+          `and be between 1 and 35 characters long.`
+      },
+      {
+        field: 'cityMilestone',
+        value: '21',
+        error: 'InvalidPayloadError',
+        message: `Invalid milestone, it must be a positive integer between 0 and 20.`
+      },
+      {
+        field: 'cityPopulation',
+        value: '-1',
+        error: 'InvalidPayloadError',
+        message: `Invalid population number, it must be a positive integer.`
+      },
+      {
+        field: 'modIds',
+        value: '74604;87755',
+        error: 'InvalidPayloadError',
+        message: `Mod IDs must be positive integers and separated by a comma.`
+      },
+      {
+        field: 'showcasedModId',
+        value: 'hall-of-fame',
+        error: 'InvalidPayloadError',
+        message: `Mod IDs must be positive integers and separated by a comma.`
+      },
+      {
+        field: 'renderSettings',
+        value: '[]',
+        error: 'InvalidPayloadError',
+        message: `Invalid JSON for render settings field (expected a JSON object).`
+      },
+      {
+        field: 'metadata',
+        value: 'null',
+        error: 'InvalidPayloadError',
+        message: `Invalid JSON for the metadata field (expected a JSON object).`
+      },
+      {
+        field: 'description',
+        value: 'x'.repeat(4001),
+        error: 'InvalidPayloadError',
+        message: `Description must be at most 4000 characters long.`
+      }
+    ])(`returns 400 for an invalid $field`, async ({ field, value, error, message }) => {
+      const creator = await createCreator(testApp.prisma);
+
+      const response = await upload(modHeaders(creator), { ...modUploadFields, [field]: value });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json<unknown>()).toEqual({ statusCode: 400, message, error });
+
+      await expectNothingStored();
+    });
+
+    test.each(
+      ['cityName', 'cityMilestone', 'cityPopulation'].flatMap(field => [
+        {
+          field,
+          state: 'missing',
+          fields: Object.fromEntries(
+            Object.entries(modUploadFields).filter(([name]) => name != field)
+          )
+        },
+        { field, state: 'blank', fields: { ...modUploadFields, [field]: '  ' } }
+      ])
+    )(`returns 400 for a $state $field`, async ({ field, fields }) => {
+      const creator = await createCreator(testApp.prisma);
+
+      const response = await upload(modHeaders(creator), fields);
+
+      expect(response.statusCode).toBe(400);
+
+      expect(response.json<unknown>()).toEqual({
+        statusCode: 400,
+        message: `Expected a multipart field named '${field}'.`,
+        error: 'InvalidPayloadError'
+      });
+
+      await expectNothingStored();
+    });
+
+    test(`returns 400 without the screenshot file`, async () => {
+      const creator = await createCreator(testApp.prisma);
+
+      const response = await upload(modHeaders(creator), modUploadFields, null);
+
+      expect(response.statusCode).toBe(400);
+
+      expect(response.json<unknown>()).toEqual({
+        statusCode: 400,
+        message: `Expected a file-field named 'screenshot'.`,
+        error: 'InvalidPayloadError'
+      });
+
+      await expectNothingStored();
+    });
+
+    test(`returns 400 for a file that is not an image`, async () => {
+      const creator = await createCreator(testApp.prisma);
+
+      const response = await upload(
+        modHeaders(creator),
+        modUploadFields,
+        new Blob(['Not a screenshot.'])
+      );
+
+      expect(response.statusCode).toBe(400);
+
+      expect(response.json<unknown>()).toEqual({
+        statusCode: 400,
+        message: `Invalid image format, expected a JPEG file.`,
+        error: 'InvalidImageFormatError'
+      });
+
+      await expectNothingStored();
+    });
+
+    test(`returns 401 without credentials`, async () => {
+      const response = await upload({});
+
+      expect(response.statusCode).toBe(401);
+
+      expect(response.json<unknown>()).toEqual({
+        statusCode: 401,
+        message: `Request not authenticated.`,
+        error: 'UnauthorizedError'
+      });
+
+      await expectNothingStored();
+    });
+
+    test(`returns 403 for a banned creator`, async () => {
+      const creator = await createCreator(testApp.prisma);
+
+      await createBan(testApp.prisma, { creatorId: creator.id });
+
+      const response = await upload(modHeaders(creator));
+
+      expect(response.statusCode).toBe(403);
+
+      expect(response.json<unknown>()).toEqual({
+        statusCode: 403,
+        message: expect.stringMatching(
+          /^Creator "Mayor 1" is banned for the following reason: uploading inappropriate/u
+        ),
+        error: 'BannedCreatorError'
+      });
+
+      await expectNothingStored();
+    });
+
+    describe('24h upload limit', () => {
+      const limit = config.screenshots.limitPer24h;
+
+      test.each([
+        'the same account',
+        'another account on the same hardware ID',
+        'another account on the same IP'
+      ] as const)(`returns 403 once the limit is reached by %s`, async account => {
+        const first = await createCreator(testApp.prisma);
+
+        const oldest = await createScreenshot(testApp.prisma, first, {
+          createdAt: dfns.subHours(new Date(), 23)
+        });
+
+        await allFulfilled(
+          Array.from({ length: limit - 1 }, () => createScreenshot(testApp.prisma, first))
+        );
+
+        const response = await upload(modHeaders(await accounts[account](testApp.prisma, first)));
+
+        expect(response.statusCode).toBe(403);
+
+        // The oldest upload leaves the 24h window first.
+        expect(response.json<unknown>()).toEqual({
+          statusCode: 403,
+          message:
+            `You can only upload a maximum of ${limit} screenshots every 24 hours. ` +
+            `Your next slot will not open before ` +
+            `${dfns.addDays(oldest.createdAt, 1).toLocaleString()} UTC.`,
+          error: 'ScreenshotRateLimitExceededError'
+        });
+
+        expect(await testApp.prisma.screenshot.count()).toBe(limit);
+        expect(testApp.screenshotStorage.blobs.size).toBe(0);
+      });
+
+      test(`accepts the last upload of the limit, not counting older ones`, async () => {
+        const creator = await createCreator(testApp.prisma);
+
+        await createScreenshot(testApp.prisma, creator, {
+          createdAt: dfns.subHours(new Date(), 25)
+        });
+
+        await allFulfilled(
+          Array.from({ length: limit - 1 }, () => createScreenshot(testApp.prisma, creator))
+        );
+
+        const response = await upload(modHeaders(creator));
+
+        expect(response.statusCode).toBe(201);
+        expect(await testApp.prisma.screenshot.count()).toBe(limit + 1);
+      });
+    });
+
+    /**
+     * Sends an upload the way the mod encodes it: the fields in order, then the screenshot file.
+     */
+    async function upload(
+      headers: Readonly<Record<string, string>>,
+      fields = modUploadFields,
+      screenshot: Blob | null = testImage
+    ): Promise<Awaited<ReturnType<TestApp['app']['inject']>>> {
+      const form = new FormData();
+
+      for (const [name, value] of Object.entries(fields)) {
+        form.append(name, value);
+      }
+
+      if (screenshot) {
+        // The mod names its JPEG this way.
+        form.append('screenshot', screenshot, 'screenshot.png');
+      }
+
+      // Encodes the form as a multipart body with its boundary.
+      const request = new Request('http://localhost', { method: 'POST', body: form });
+
+      return testApp.app.inject({
+        method: 'POST',
+        url: '/api/v1/screenshots',
+        headers: { ...headers, 'content-type': nn(request.headers.get('content-type')) },
+        payload: Buffer.from(await request.arrayBuffer())
+      });
+    }
+
+    async function expectNothingStored(): Promise<void> {
+      expect(await testApp.prisma.screenshot.count()).toBe(0);
+      expect(testApp.screenshotStorage.blobs.size).toBe(0);
+    }
+  });
+
   // The mod reads __favorited from the weighted route, the viewer from the others.
   test.each([
-    { account: 'the fan', favorited: true },
+    { account: 'the same account', favorited: true },
     { account: 'another account on the same hardware ID', favorited: true },
     { account: 'another account on the same IP', favorited: true },
     { account: 'an unrelated account', favorited: false }
@@ -1266,6 +1726,167 @@ describe('ScreenshotController', () => {
   );
 });
 
+describe('validateCityName', () => {
+  test.each([
+    'Tokyo Bay',
+    'Paris, Texas',
+    `L'Isle-d'Abeau`,
+    'Val d’Isère',
+    'Санкт-Петербург',
+    '東京',
+    '北京、上海',
+    // One character suffices in Chinese.
+    '京',
+    '亚历山大·港',
+    'Ville•Nord',
+    '2049',
+    'x'.repeat(35),
+    // Counted in characters, not UTF-16 code units.
+    '𠮷'.repeat(35)
+  ])(`accepts "%s"`, name => {
+    expect(validateCityName(name)).toBe(name);
+  });
+
+  test.each([
+    '',
+    'x'.repeat(36),
+    'Tokyo!',
+    'Tokyo_Bay',
+    'Tokyo\tBay',
+    'Tokyo 🗼',
+    '   ',
+    ',,,',
+    '-'
+  ])(`rejects "%s"`, name => {
+    expect(() => validateCityName(name)).toThrow(
+      `City name "${name}" is invalid, it must contain only letters, numbers, spaces, ` +
+        `hyphens, apostrophes, commas, and middle dots, with at least one letter or number, ` +
+        `and be between 1 and 35 characters long.`
+    );
+  });
+
+  test(`trims surrounding whitespace`, () => {
+    expect(validateCityName('  Tokyo Bay \n')).toBe('Tokyo Bay');
+  });
+});
+
+describe('validateMilestone', () => {
+  test.each([
+    { milestone: '0', parsed: 0 },
+    { milestone: '20', parsed: 20 },
+    { milestone: '12.7', parsed: 12 }
+  ])(`parses "$milestone" as $parsed`, ({ milestone, parsed }) => {
+    expect(validateMilestone(milestone)).toBe(parsed);
+  });
+
+  test.each(['-1', '21', 'twelve'])(`rejects "%s"`, milestone => {
+    expect(() => validateMilestone(milestone)).toThrow(
+      `Invalid milestone, it must be a positive integer between 0 and 20.`
+    );
+  });
+});
+
+describe('validatePopulation', () => {
+  test.each([
+    { population: '0', parsed: 0 },
+    { population: '5000000', parsed: 5_000_000 },
+    { population: '154321.9', parsed: 154_321 }
+  ])(`parses "$population" as $parsed`, ({ population, parsed }) => {
+    expect(validatePopulation(population)).toBe(parsed);
+  });
+
+  test.each(['-1', '5000001', 'many'])(`rejects "%s"`, population => {
+    expect(() => validatePopulation(population)).toThrow(
+      `Invalid population number, it must be a positive integer.`
+    );
+  });
+});
+
+describe('validateDescription', () => {
+  test.each([undefined, ''])(`treats %p as no description`, description => {
+    expect(validateDescription(description)).toBeUndefined();
+  });
+
+  test(`accepts 4000 characters`, () => {
+    expect(validateDescription('x'.repeat(4000))).toBe('x'.repeat(4000));
+  });
+
+  test(`rejects 4001 characters`, () => {
+    expect(() => validateDescription('x'.repeat(4001))).toThrow(
+      `Description must be at most 4000 characters long.`
+    );
+  });
+});
+
+describe('validateModIds', () => {
+  test.each([
+    { csv: undefined, modIds: [] },
+    { csv: '', modIds: [] },
+    { csv: '87755', modIds: [87_755] },
+    { csv: '74604,87755,74604', modIds: [74_604, 87_755] },
+    { csv: ' 74604 , 87755 ', modIds: [74_604, 87_755] },
+    { csv: '87755.9', modIds: [87_755] }
+  ])(`parses $csv as $modIds, deduplicated`, ({ csv, modIds }) => {
+    expect<readonly number[]>(Array.from(validateModIds(csv))).toEqual(modIds);
+  });
+
+  test.each(['0', '-87755', 'hall-of-fame', '74604,', '74604;87755'])(`rejects "%s"`, csv => {
+    expect(() => validateModIds(csv)).toThrow(
+      `Mod IDs must be positive integers and separated by a comma.`
+    );
+  });
+});
+
+describe('validateRenderSettings', () => {
+  test.each([
+    { json: undefined, settings: {} },
+    { json: '', settings: {} },
+    { json: '{}', settings: {} },
+    { json: '{"aperture":2.4,"exposure":-1}', settings: { aperture: 2.4, exposure: -1 } }
+  ])(`parses $json as $settings`, ({ json, settings }) => {
+    expect(validateRenderSettings(json)).toEqual(settings);
+  });
+
+  test.each([
+    { json: '[2.4]', reason: 'expected a JSON object' },
+    { json: 'null', reason: 'expected a JSON object' },
+    { json: '2.4', reason: 'expected a JSON object' },
+    {
+      json: '{"aperture":"2.4"}',
+      reason: 'expected a number value for the key "aperture", got ""2.4""'
+    },
+    { json: '{"aperture":', reason: 'JSON Parse error: Unexpected EOF' }
+  ])(`rejects $json: $reason`, ({ json, reason }) => {
+    expect(() => validateRenderSettings(json)).toThrow(
+      `Invalid JSON for render settings field (${reason}).`
+    );
+  });
+});
+
+describe('validateMetadata', () => {
+  test.each([undefined, ''])(`treats %p as empty metadata`, json => {
+    expect(validateMetadata(json)).toEqual({});
+  });
+
+  test(`accepts any JSON object`, () => {
+    expect(validateMetadata('{"platform":"WindowsPlayer","gpu":{"vram":[8]}}')).toEqual({
+      platform: 'WindowsPlayer',
+      gpu: { vram: [8] }
+    });
+  });
+
+  test.each([
+    { json: '["WindowsPlayer"]', reason: 'expected a JSON object' },
+    { json: 'null', reason: 'expected a JSON object' },
+    { json: '"WindowsPlayer"', reason: 'expected a JSON object' },
+    { json: '{"platform":', reason: 'JSON Parse error: Unexpected EOF' }
+  ])(`rejects $json: $reason`, ({ json, reason }) => {
+    expect(() => validateMetadata(json)).toThrow(
+      `Invalid JSON for the metadata field (${reason}).`
+    );
+  });
+});
+
 /**
  * The Screenshot as the weighted route serves it to a requester who has not liked it.
  */
@@ -1283,4 +1904,23 @@ function weightedPayload(
 
 function paradoxModUrl(modId: number): string {
   return `https://api.paradox-interactive.com/mods?modId=${modId}&os=Windows`;
+}
+
+/**
+ * Answers the Paradox Mods lookup of `modId` with a mod named after its ID, unless overridden.
+ */
+function stubParadoxMod(modId: number, overrides: Readonly<Record<string, JsonValue>> = {}): void {
+  fetchStub.respondWithJson(paradoxModUrl(modId), {
+    modDetail: {
+      modId: String(modId),
+      author: 'toverux',
+      displayName: `Mod ${modId}`,
+      shortDescription: 'Adds a few things to the game.',
+      displayImagePath: `https://mods.paradoxplaza.com/thumbnails/${modId}.jpg`,
+      tags: ['Code Mod'],
+      subscriptions: 1000,
+      latestUpdate: '2026-08-30T14:00:00Z',
+      ...overrides
+    }
+  });
 }

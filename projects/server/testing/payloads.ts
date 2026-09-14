@@ -46,6 +46,14 @@ export function expectedScreenshotPayload(
     paradoxModIds: screenshot.paradoxModIds,
     shareRenderSettings: screenshot.shareRenderSettings,
     renderSettings: screenshot.renderSettings,
+    // Factories date a screenshot now, after every capability arrived.
+    capabilities: [
+      'description',
+      'shareParadoxModIds',
+      'paradoxModIds',
+      'shareRenderSettings',
+      'renderSettings'
+    ],
     createdAt: screenshot.createdAt.toISOString(),
     createdAtFormatted: expect.any(String),
     createdAtFormattedDistance: expect.any(String),

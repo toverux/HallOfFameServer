@@ -74,6 +74,20 @@ export class ScreenshotService implements OnApplicationBootstrap {
    */
   private static readonly ingestScreenshotTransactionTimeout = 60_000;
 
+  /**
+   * The date each serialized field started holding what the mod captured, rather than a default:
+   * the day the mod release capturing it reached players.
+   * These round up from the release tags, as publishing to Paradox Mods follows them by hand.
+   * A Screenshot created earlier lacks the field in its `capabilities`.
+   */
+  private static readonly capabilitiesSince = {
+    description: new Date('2026-01-16T00:00:00Z'),
+    shareParadoxModIds: new Date('2026-01-16T00:00:00Z'),
+    paradoxModIds: new Date('2025-04-14T00:00:00Z'),
+    shareRenderSettings: new Date('2026-01-16T00:00:00Z'),
+    renderSettings: new Date('2025-04-14T00:00:00Z')
+  } as const satisfies Readonly<Record<string, Date>>;
+
   @Inject(PrismaService)
   private readonly prisma!: PrismaService;
 
@@ -698,6 +712,9 @@ export class ScreenshotService implements OnApplicationBootstrap {
         viewer?.id == screenshot.creatorId || screenshot.shareRenderSettings
           ? (screenshot.renderSettings as JsonObject)
           : {},
+      capabilities: Object.entries(ScreenshotService.capabilitiesSince)
+        .filter(([, since]) => screenshot.createdAt >= since)
+        .map(([field]) => field),
       createdAt: screenshot.createdAt.toISOString(),
       createdAtFormatted: dfns.format(createdAtAdjusted, 'Pp', {
         locale: dfnsLocale

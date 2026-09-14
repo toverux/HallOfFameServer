@@ -396,6 +396,38 @@ describe('ScreenshotController', () => {
       }
     );
 
+    // Mod 1.10.0 reached players on 2025-04-14, capturing the mods and render settings.
+    // Mod 2026.0.0 reached them on 2026-01-16, adding the description and both share choices.
+    test.each([
+      { createdAt: '2025-04-13T23:59:59.999Z', capabilities: [] },
+      { createdAt: '2025-04-14T00:00:00.000Z', capabilities: ['paradoxModIds', 'renderSettings'] },
+      { createdAt: '2026-01-15T23:59:59.999Z', capabilities: ['paradoxModIds', 'renderSettings'] },
+      {
+        createdAt: '2026-01-16T00:00:00.000Z',
+        capabilities: [
+          'description',
+          'shareParadoxModIds',
+          'paradoxModIds',
+          'shareRenderSettings',
+          'renderSettings'
+        ]
+      }
+    ])(`lists the fields the mod captured at $createdAt`, async ({ createdAt, capabilities }) => {
+      const creator = await createCreator(testApp.prisma);
+
+      const screenshot = await createScreenshot(testApp.prisma, creator, {
+        createdAt: new Date(createdAt)
+      });
+
+      const response = await testApp.app.inject({
+        method: 'GET',
+        url: `/api/v1/screenshots/${screenshot.id}`
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json<{ capabilities: unknown }>().capabilities).toEqual(capabilities);
+    });
+
     describe('localized dates', () => {
       afterEach(() => {
         setSystemTime();

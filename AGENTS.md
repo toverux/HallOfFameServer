@@ -77,6 +77,7 @@ TypeScript, one root `tsconfig.json` covering the whole repo, `.agents/hooks` in
 - `mise fix`: Apply the auto-fixes in place (oxlint `--fix`, then oxfmt).
 - `mise fix:oxlint`, `mise fix:oxfmt`: The individual fixers.
 - `docker build -t halloffameserver . --target release --progress=plain`: Check that the Docker build works; the full build's final stage runs `db push` and `migrate` against the dev MongoDB, reachable only with `--network=host`.
+- To exercise a migration against real data, clone the collections it touches from the dev database (a production copy) into a scratch database on the same server with `$out: { db, coll }`, run the runner there with `mise exec -- env HOF_DATABASE_URL=mongodb://localhost/<scratch> bun projects/server/cli/main.ts migrate`, then drop the scratch database; the dev copy stays untouched.
 
 Run `mise tasks` to see the full shortcut list; append arguments freely, mise passes them through (ex. `mise some:task --some-arg`).
 Do NOT use npx to run commands; prefer mise shortcuts, or bun/bunx when no shortcut exists.

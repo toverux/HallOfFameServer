@@ -5,3 +5,5 @@ preload = [
   "./projects/server/testing/preload-database.ts",
   "./projects/server/testing/preload-fetch.ts"
 ]
+# Live tests call real APIs under their own config, run by `mise test:openai`.
+pathIgnorePatterns = ["**/*.live.test.ts"]

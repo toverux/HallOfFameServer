@@ -74,3 +74,11 @@ No cron runs, and the app logs only errors, so a passing run prints nothing.
 Test files lint like production code, plus oxlint's `jest` plugin, warnings denied.
 Setup runs in hooks (`jest/require-hook`); module-level `const`s are fine.
 Relax another rule for tests only when a real test hits it: an override in `oxlint.config.ts` with its reason when it holds for tests in general, otherwise a one-line suppression with its reason (`// oxlint-disable-next-line no-await-in-loop - sequential factory numbering`).
+
+## Live tests
+
+A `*.live.test.ts` file calls the real OpenAI API, outside `bun test`, whose `bunfig.toml` ignores the suffix: `mise test:openai` passes the files by path.
+It runs under `bunfig.live.toml`, whose one preload, `preload-live.ts`, replaces the three in `bunfig.toml`, requires the real key, and raises the timeout for reasoning models: no database, no fetch stub, no fakes.
+Its tests run concurrently, so each one stands alone.
+It goes through the service, built with `Test.createTestingModule()` and the production `openAiProvider`, because it pins the API's side of the contract rather than our wiring.
+Pick inputs with one certain answer and assert on what that answer always holds (a locale, a script, a form the prompt demands), so a failure means the request or the prompt broke.

@@ -1,0 +1,3 @@
+[test]
+# Replaces the offline suite's preloads, whose inert environment and fetch stub block real API calls.
+preload = ["./projects/server/testing/preload-live.ts"]

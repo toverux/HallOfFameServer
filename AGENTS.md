@@ -88,10 +88,12 @@ Always run the appropriate check commands and `mise test:agents` after changes, 
 
 - `mise test`: Run the test suite (`bun test`, server and shared code); arguments pass through, ex. a file path or `--test-name-pattern`.
 - `mise test:agents`: The same, printing only failures.
+- `mise test:openai`: Run the live tests (`*.live.test.ts`), which call the real OpenAI API with the `.env.local` key; each run costs money.
 
-Both start the dev MongoDB (`mise dev:db:start`), which the suite requires: each run gets its own throwaway database, emptied before every test.
+The first two start the dev MongoDB (`mise dev:db:start`), which the suite requires: each run gets its own throwaway database, emptied before every test.
 Test files sit next to their subject as `*.test.ts` and import `describe`, `test`, `expect`, and friends explicitly from `bun:test`; the single root tsconfig would leak test globals into production code.
 A test goes through the HTTP interface first, the way the mod and the viewer reach the server.
+The suite fakes OpenAI, so after changing `ai-translator.service.ts` or the `openai` version in `bun.lock`, propose running `mise test:openai` at the end of the session and wait for approval.
 
 Load the `hof-server-testing` skill before writing or changing a test, a factory, a fake, or the `fetch` stub.
 

@@ -1,4 +1,5 @@
 # Test material stays out of the image.
 **/*.test.ts
+/bunfig.live.toml
 /projects/server/testing
 /projects/server/http-tests

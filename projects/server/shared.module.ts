@@ -1,19 +1,13 @@
 import { type DynamicModule, Module } from '@nestjs/common';
 import OpenAi from 'openai';
-import { config } from './config';
+import { openAiProvider } from './openai-provider';
 import { services } from './services';
 
 /**
  * Module used by both the Server and the CLI.
  */
 @Module({
-  providers: [
-    ...services,
-    {
-      provide: OpenAi,
-      useFactory: () => new OpenAi({ apiKey: config.openAi.apiKey })
-    }
-  ],
+  providers: [...services, openAiProvider],
   exports: [...services, OpenAi]
 })
 export class SharedModule {

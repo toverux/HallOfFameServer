@@ -112,6 +112,11 @@ description = "Runs the server test suite, output optimized for AI agents (failu
 depends = ["build:prisma:generate", "dev:db:start"]
 run = "bun test --only-failures"
 
+[tasks."test:openai"]
+description = "Runs the live tests against the real OpenAI API, billed to the .env.local key."
+# bunfig.toml ignores *.live.test.ts, so the files are passed by path.
+run = "bun --config=bunfig.live.toml test --concurrent $(find ./projects -name '*.live.test.ts')"
+
 # FIX TASKS
 # =========
 

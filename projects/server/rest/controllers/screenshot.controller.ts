@@ -543,7 +543,7 @@ export class ScreenshotController {
    * - `cityPopulation` (required): The population of the city.
    * - `mapName`: Name of the omap that was used to create this game.
    * - `showcasedModId`: The ID of a mod that is showcased in the screenshot.
-   * - `description`: A short description for the screenshot.
+   * - `description`: A short description for the screenshot, without link or image markdown.
    * - `shareParadoxModIds`: Whether to share the mods used in the screenshot.
    * - `modIds`: A comma-separated list of Paradox Mod IDs.
    * - `shareRenderSettings`: Whether to share the photo mode settings for the screenshots.
@@ -697,6 +697,17 @@ const maxPopulation = 5_000_000;
  */
 const maxDescriptionLength = 4000;
 
+/**
+ * Matches link markdown, `[text](target)`, and image markdown, `![alt](url)`, as the game's
+ * markdown renderer recognizes them.
+ * It also matches one spanning line breaks, which the game never renders, as a safety margin.
+ * A description cannot contain either: an image makes every viewer's client fetch the author's
+ * URL, and a link renders as a focusable element that does nothing.
+ * The text holds no brackets and the parentheses must follow the closing bracket directly, so
+ * brackets and parentheses in ordinary prose do not match.
+ */
+const markdownLinkRegex = /!?\[[^[\]]*\]\([^)]*\)/u;
+
 export function validateCityName(name: string): string {
   const trimmedName = name.trim();
 
@@ -741,6 +752,18 @@ export function validateDescription(description: string | undefined): string | u
   if (trimmedDescription.length > maxDescriptionLength) {
     throw new InvalidPayloadError(
       `Description must be at most ${maxDescriptionLength} characters long.`
+    );
+  }
+
+  const markdownLink = markdownLinkRegex.exec(trimmedDescription);
+
+  if (markdownLink) {
+    const [syntax] = markdownLink;
+
+    const kind = syntax.startsWith('!') ? 'image' : 'link';
+
+    throw new InvalidPayloadError(
+      `Description cannot contain ${kind} markdown, found "${syntax}".`
     );
   }
 

@@ -1471,6 +1471,33 @@ describe('ScreenshotController', () => {
       await expectNothingStored();
     });
 
+    test.each([
+      {
+        markdown: 'image',
+        description: `Dusk. ![Skyline](https://example.com/skyline.png)`,
+        message: `Description cannot contain image markdown, found "![Skyline](https://example.com/skyline.png)".`
+      },
+      {
+        markdown: 'link',
+        description: `See [my city](https://example.com) for more.`,
+        message: `Description cannot contain link markdown, found "[my city](https://example.com)".`
+      }
+    ])(`returns 400 for $markdown markdown in a description`, async ({ description, message }) => {
+      const creator = await createCreator(testApp.prisma);
+
+      const response = await upload(modHeaders(creator), { ...modUploadFields, description });
+
+      expect(response.statusCode).toBe(400);
+
+      expect(response.json<unknown>()).toEqual({
+        statusCode: 400,
+        message,
+        error: 'InvalidPayloadError'
+      });
+
+      await expectNothingStored();
+    });
+
     test.each(
       ['cityName', 'cityMilestone', 'cityPopulation'].flatMap(field => [
         {
@@ -1793,6 +1820,16 @@ describe('ScreenshotController', () => {
         body: { description: 'x'.repeat(4001) },
         message: `Description must be at most 4000 characters long.`,
         error: 'InvalidPayloadError'
+      },
+      {
+        body: { description: `Dusk. ![Skyline](https://example.com/skyline.png)` },
+        message: `Description cannot contain image markdown, found "![Skyline](https://example.com/skyline.png)".`,
+        error: 'InvalidPayloadError'
+      },
+      {
+        body: { description: `See [my city](https://example.com) for more.` },
+        message: `Description cannot contain link markdown, found "[my city](https://example.com)".`,
+        error: 'InvalidPayloadError'
       }
     ])(`rejects $body as the upload does`, async ({ body, message, error }) => {
       const creator = await createCreator(testApp.prisma);
@@ -1898,6 +1935,30 @@ describe('ScreenshotController', () => {
       expect(
         await testApp.prisma.screenshot.findUniqueOrThrow({ where: { id: screenshot.id } })
       ).toMatchObject({ description: `Sunset over the bay.`, needsTranslation: true });
+    });
+
+    test(`keeps a stored description it now rejects when the edit omits it`, async () => {
+      const creator = await createCreator(testApp.prisma);
+
+      const screenshot = await createScreenshot(testApp.prisma, creator, {
+        description: `See [my city](https://example.com) for more.`
+      });
+
+      const response = await testApp.app.inject({
+        method: 'PUT',
+        url: `/api/v1/screenshots/${screenshot.id}`,
+        headers: modHeaders(creator),
+        payload: { shareRenderSettings: false }
+      });
+
+      expect(response.statusCode).toBe(200);
+
+      expect(
+        await testApp.prisma.screenshot.findUniqueOrThrow({ where: { id: screenshot.id } })
+      ).toMatchObject({
+        description: `See [my city](https://example.com) for more.`,
+        shareRenderSettings: false
+      });
     });
   });
 
@@ -2053,6 +2114,41 @@ describe('validateDescription', () => {
     expect(() => validateDescription('x'.repeat(4001))).toThrow(
       `Description must be at most 4000 characters long.`
     );
+  });
+
+  test.each([
+    `**Bold** skyline, a * stray asterisk, and 2 * 3 = 6.`,
+    `- Harbor district\n- Old town -- rebuilt after the flood`,
+    `Full album at https://example.com/skyline.png`,
+    `Tokyo [Japan] (2026)`,
+    `Downtown (the old part) and the harbor [sic]`,
+    `(see [the harbor])`,
+    `Wow! [Really]`,
+    `[unclosed](https://example.com`
+  ])(`accepts "%s"`, description => {
+    expect(validateDescription(description)).toBe(description);
+  });
+
+  test.each([
+    {
+      description: `![Skyline](https://example.com/skyline.png)`,
+      message: `Description cannot contain image markdown, found "![Skyline](https://example.com/skyline.png)".`
+    },
+    {
+      description: `Dusk ![](https://example.com/skyline.png) over the bay.`,
+      message: `Description cannot contain image markdown, found "![](https://example.com/skyline.png)".`
+    },
+    {
+      description: `See [my city](https://example.com) for more.`,
+      message: `Description cannot contain link markdown, found "[my city](https://example.com)".`
+    },
+    {
+      // With no space between the brackets and the parentheses, the game renders a link.
+      description: `Tokyo [Japan](2026)`,
+      message: `Description cannot contain link markdown, found "[Japan](2026)".`
+    }
+  ])(`rejects "$description"`, ({ description, message }) => {
+    expect(() => validateDescription(description)).toThrow(message);
   });
 });
 

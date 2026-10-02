@@ -7,7 +7,9 @@ bun = "1.3.14"
 node = "26"
 
 [env]
-_.file = [".env", ".env.local"]
+# Not .env: mise overrides the process environment, so it would shadow the deployment's variables
+# (Coolify's build args and runtime env). Bun and Prisma load .env themselves, without overriding.
+_.file = [".env.local"]
 _.path = ["{{config_root}}/node_modules/.bin"]
 
 # Use "mise t" to list tasks or "mise r" to interactively select one to run!

@@ -3,3 +3,7 @@
 /bunfig.live.toml
 /projects/server/testing
 /projects/server/http-tests
+
+# Coolify writes its generated compose file into the build context,
+# where the format check of `mise build` would fail on it.
+/docker-compose.yaml

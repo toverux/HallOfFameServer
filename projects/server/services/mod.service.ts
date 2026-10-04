@@ -20,7 +20,6 @@ import { z } from 'zod';
 import type { Mod, Prisma } from '#prisma-lib/client';
 import type { ParadoxModId } from '../../shared/utils/branded-types';
 import type { JsonObject, JsonValue } from '../../shared/utils/json';
-import { nn } from '../../shared/utils/type-assertion';
 import { PrismaService } from './prisma.service';
 
 @Injectable()
@@ -167,8 +166,10 @@ export class ModService {
   }
 
   /**
-   * Runs every hour to fetch the latest mod details from Paradox's API and update the database.
-   * We update only (at most) 50 mods at a time to be nice on Paradox's servers.
+   * Runs every hour to refresh from Paradox's API the mods synced the longest ago.
+   * A mod is rewritten whether or not its author updated it, as its subscribers count moves anyway.
+   * We sync only (at most) 50 mods at a time to be nice on Paradox's servers,
+   * so the whole collection takes (number of mods / 50) hours to go around.
    * Mod details do not need to be updated very often, this is not critical info.
    *
    * Impl. note: If we start storing too many mods in the future, and this becomes too slow to
@@ -178,48 +179,37 @@ export class ModService {
   @Cron('0 * * * *')
   public async syncModDetailsCron(): Promise<void> {
     try {
-      // Find the 50 mods that have the most ancient sync date and that have been updated more than
-      // a day ago.
-      const modsToCheck = await this.prisma.mod.findMany({
+      const staleMods = await this.prisma.mod.findMany({
         where: {
           isRetired: false,
-          knownLastUpdatedAt: { lte: dateFns.subDays(new Date(), 1) }
+          lastSyncedAt: { lte: dateFns.subDays(new Date(), 1) }
         },
-        orderBy: { knownLastUpdatedAt: 'asc' },
+        orderBy: { lastSyncedAt: 'asc' },
         take: 50,
-        select: { paradoxModId: true, knownLastUpdatedAt: true }
+        select: { paradoxModId: true }
       });
 
-      if (!modsToCheck.length) {
-        return this.logger.verbose(`No mods to check for updates.`);
+      if (!staleMods.length) {
+        return this.logger.verbose(`No mods to sync.`);
       }
 
-      this.logger.log(`Checking mod details freshness for ${modsToCheck.length} mods...`);
+      this.logger.log(`Syncing mod details for ${staleMods.length} mods...`);
 
-      // Make a query for each mod.
+      const staleModIds = staleMods.map(mod => mod.paradoxModId as ParadoxModId);
+
       const modResults = await this.fetchModsDetails(
-        modsToCheck.map(mod => mod.paradoxModId as ParadoxModId),
+        staleModIds,
         modId => `Failed to update mod details for known mod ${modId}.`
       );
 
-      // Keep mods that have been updated since the last sync.
-      const updatedModDetails = modResults
-        .map(result => ({
-          result,
-          mod: nn(modsToCheck.find(mod => mod.paradoxModId == result.modId))
-        }))
-        .filter(
-          ({ result, mod }) =>
-            result.kind == 'retired' || result.details.latestUpdate > mod.knownLastUpdatedAt
-        );
-
-      if (!updatedModDetails.length) {
-        return this.logger.verbose(`No mods need to be updated.`);
-      }
-
-      // Save the updated mods details.
-      await this.prisma.$transaction(
-        updatedModDetails.map(({ result }) =>
+      await this.prisma.$transaction([
+        // A mod whose fetch failed is stamped too: it waits for its next turn,
+        // where keeping its sync date would hold it at the head of the queue.
+        this.prisma.mod.updateMany({
+          where: { paradoxModId: { in: staleModIds } },
+          data: { lastSyncedAt: new Date() }
+        }),
+        ...modResults.map(result =>
           this.prisma.mod.update({
             where: { paradoxModId: result.modId },
             data:
@@ -231,20 +221,18 @@ export class ModService {
                     thumbnailUrl: result.details.displayImagePath,
                     tags: result.details.tags,
                     subscribersCount: result.details.subscriptions,
-                    knownLastUpdatedAt: result.details.latestUpdate,
-                    lastSyncedAt: new Date()
+                    knownLastUpdatedAt: result.details.latestUpdate
                   }
                 : {
                     isRetired: true,
-                    retiredReason: result.reason,
-                    lastSyncedAt: new Date()
+                    retiredReason: result.reason
                   }
           })
         )
-      );
+      ]);
 
       this.logger.log(
-        `Saved updated mod details for ${updatedModDetails.length} of ${modsToCheck.length} mods.`
+        `Saved synced mod details for ${modResults.length} of ${staleMods.length} mods.`
       );
     } catch (error) {
       this.logger.error(`Failed CRON update of mod details.`, error);

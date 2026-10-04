@@ -351,9 +351,8 @@ model Mod {
   clicks             Int      @default(0)
   /// Last update date of the mod page on Paradox Mods.
   /// This is not necessarily an update of the mod itself, it can be name/description/etc changes.
-  /// If that date is more recent than `updatedAt`, we want to update.
   knownLastUpdatedAt DateTime
-  /// Last time this document was updated from Paradox's API.
+  /// Last time an update of this document from Paradox's API was attempted.
   /// Note that this is not a Prisma `@updatedAt` column as we can update the document (ex. clicks)
   /// without wanting to bump the date.
   lastSyncedAt       DateTime @default(now())

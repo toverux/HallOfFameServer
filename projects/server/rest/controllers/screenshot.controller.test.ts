@@ -401,12 +401,12 @@ describe('ScreenshotController', () => {
       }
     );
 
-    // Mod 1.10.0 reached players on 2025-04-14, capturing the mods and render settings.
+    // Mod 1.10.0 reached players on 2025-03-30, capturing the mods and render settings.
     // Mod 2026.0.0 reached them on 2026-01-16, adding the description and both share choices.
     // The mod release recording the render conditions reaches them on 2026-10-04.
     test.each([
-      { createdAt: '2025-04-13T23:59:59.999Z', capabilities: [] },
-      { createdAt: '2025-04-14T00:00:00.000Z', capabilities: ['paradoxModIds', 'renderSettings'] },
+      { createdAt: '2025-03-29T23:59:59.999Z', capabilities: [] },
+      { createdAt: '2025-03-30T00:00:00.000Z', capabilities: ['paradoxModIds', 'renderSettings'] },
       { createdAt: '2026-01-15T23:59:59.999Z', capabilities: ['paradoxModIds', 'renderSettings'] },
       {
         createdAt: '2026-01-16T00:00:00.000Z',

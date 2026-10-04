@@ -77,15 +77,16 @@ export class ScreenshotService implements OnApplicationBootstrap {
   /**
    * The date each serialized field started holding what the mod captured, rather than a default:
    * the day the mod release capturing it reached players.
-   * These round up from the release tags, as publishing to Paradox Mods follows them by hand.
+   * Read each from the first uploads carrying it: a release can reach players before its tag.
    * A Screenshot created earlier lacks the field in its `capabilities`.
    */
   private static readonly capabilitiesSince = {
     description: new Date('2026-01-16T00:00:00Z'),
     shareParadoxModIds: new Date('2026-01-16T00:00:00Z'),
-    paradoxModIds: new Date('2025-04-14T00:00:00Z'),
+    // This one and `renderSettings` come with mod 1.10.0, which reached players ahead of its tag.
+    paradoxModIds: new Date('2025-03-30T00:00:00Z'),
     shareRenderSettings: new Date('2026-01-16T00:00:00Z'),
-    renderSettings: new Date('2025-04-14T00:00:00Z'),
+    renderSettings: new Date('2025-03-30T00:00:00Z'),
     // Placeholder until the mod release recording the conditions: set it to the day it reaches
     // players. An earlier date only makes screenshots without conditions claim the capability,
     // which clients treat like an empty map.

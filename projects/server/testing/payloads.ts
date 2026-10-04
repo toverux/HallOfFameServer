@@ -17,9 +17,9 @@ type Payload = Record<string, unknown>;
 const capabilitiesSince: Readonly<Record<string, string>> = {
   description: '2026-01-16T00:00:00Z',
   shareParadoxModIds: '2026-01-16T00:00:00Z',
-  paradoxModIds: '2025-04-14T00:00:00Z',
+  paradoxModIds: '2025-03-30T00:00:00Z',
   shareRenderSettings: '2026-01-16T00:00:00Z',
-  renderSettings: '2025-04-14T00:00:00Z',
+  renderSettings: '2025-03-30T00:00:00Z',
   renderConditions: '2026-10-04T00:00:00Z'
 };
 

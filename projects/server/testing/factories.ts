@@ -80,6 +80,7 @@ export function createScreenshot(
       paradoxModIds: [],
       shareRenderSettings: true,
       renderSettings: {},
+      renderConditions: {},
       metadata: {},
       ...overrides
     }

@@ -85,7 +85,11 @@ export class ScreenshotService implements OnApplicationBootstrap {
     shareParadoxModIds: new Date('2026-01-16T00:00:00Z'),
     paradoxModIds: new Date('2025-04-14T00:00:00Z'),
     shareRenderSettings: new Date('2026-01-16T00:00:00Z'),
-    renderSettings: new Date('2025-04-14T00:00:00Z')
+    renderSettings: new Date('2025-04-14T00:00:00Z'),
+    // Placeholder until the mod release recording the conditions: set it to the day it reaches
+    // players. An earlier date only makes screenshots without conditions claim the capability,
+    // which clients treat like an empty map.
+    renderConditions: new Date('2026-10-04T00:00:00Z')
   } as const satisfies Readonly<Record<string, Date>>;
 
   @Inject(PrismaService)
@@ -173,6 +177,7 @@ export class ScreenshotService implements OnApplicationBootstrap {
     paradoxModIds: ReadonlySet<ParadoxModId>;
     shareRenderSettings: boolean | undefined;
     renderSettings: Record<string, number>;
+    renderConditions: Record<string, number | string | boolean>;
     metadata: JsonObject;
     createdAt: Date;
     file: Buffer;
@@ -275,6 +280,7 @@ export class ScreenshotService implements OnApplicationBootstrap {
           paradoxModIds: Array.from(data.paradoxModIds),
           shareRenderSettings: data.shareRenderSettings ?? true,
           renderSettings: data.renderSettings,
+          renderConditions: data.renderConditions,
           metadata: data.metadata,
           isReported: healthcheck // Make sure health check uploads are never shown
         }
@@ -681,6 +687,10 @@ export class ScreenshotService implements OnApplicationBootstrap {
       screenshot.createdAt
     );
 
+    // The render conditions follow the render settings' share choice.
+    const isRenderSettingsVisible =
+      viewer?.id == screenshot.creatorId || screenshot.shareRenderSettings;
+
     return {
       id: screenshot.id,
       isApproved: screenshot.isApproved,
@@ -708,10 +718,8 @@ export class ScreenshotService implements OnApplicationBootstrap {
           ? screenshot.paradoxModIds
           : [],
       shareRenderSettings: screenshot.shareRenderSettings,
-      renderSettings:
-        viewer?.id == screenshot.creatorId || screenshot.shareRenderSettings
-          ? (screenshot.renderSettings as JsonObject)
-          : {},
+      renderSettings: isRenderSettingsVisible ? (screenshot.renderSettings as JsonObject) : {},
+      renderConditions: isRenderSettingsVisible ? (screenshot.renderConditions as JsonObject) : {},
       capabilities: Object.entries(ScreenshotService.capabilitiesSince)
         .filter(([, since]) => screenshot.createdAt >= since)
         .map(([field]) => field),

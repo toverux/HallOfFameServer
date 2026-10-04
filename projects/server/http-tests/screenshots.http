@@ -189,6 +189,11 @@ Content-Disposition: form-data; name="renderSettings"
 { "aperture": 2.4 }
 
 --WebAppBoundary
+Content-Disposition: form-data; name="renderConditions"
+
+{ "timeOfDay": 18.5, "season": "Autumn", "raining": true }
+
+--WebAppBoundary
 Content-Disposition: form-data; name="metadata"
 
 {

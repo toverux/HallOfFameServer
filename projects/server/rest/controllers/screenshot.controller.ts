@@ -544,10 +544,11 @@ export class ScreenshotController {
    * - `mapName`: Name of the omap that was used to create this game.
    * - `showcasedModId`: The ID of a mod that is showcased in the screenshot.
    * - `description`: A short description for the screenshot, without link or image markdown.
-   * - `shareParadoxModIds`: Whether to share the mods used in the screenshot.
+   * - `shareModIds`: Whether to share the mods used in the screenshot.
    * - `modIds`: A comma-separated list of Paradox Mod IDs.
-   * - `shareRenderSettings`: Whether to share the photo mode settings for the screenshots.
+   * - `shareRenderSettings`: Whether to share the photo mode settings and conditions of the shot.
    * - `renderSettings`: A JSON string containing the render settings for the screenshot.
+   * - `renderConditions`: A JSON string containing the scene and light conditions of the shot.
    * - `metadata`: A JSON string containing additional metadata about the screenshot that is not
    * exploited by the application.
    * - `screenshot` (required): The screenshot file, a JPEG.
@@ -566,8 +567,9 @@ export class ScreenshotController {
     const multipart = await req.file({
       isPartAFile: fieldName => fieldName == 'screenshot',
       limits: {
-        // Number of fields we expect to receive at most.
-        fields: 11,
+        // Number of fields we expect to receive at most, raised with each new upload field.
+        // Exceeding it fails the upload with a 500 "Premature close", not a 400.
+        fields: 12,
         files: 1,
         fileSize: config.screenshots.maxFileSizeBytes
       }
@@ -608,6 +610,10 @@ export class ScreenshotController {
       this.getMultipartString(multipart, 'renderSettings', false)
     );
 
+    const renderConditions = validateRenderConditions(
+      this.getMultipartString(multipart, 'renderConditions', false)
+    );
+
     const metadata = validateMetadata(this.getMultipartString(multipart, 'metadata', false));
 
     try {
@@ -625,6 +631,7 @@ export class ScreenshotController {
         paradoxModIds,
         shareRenderSettings,
         renderSettings,
+        renderConditions,
         metadata,
         createdAt: new Date(),
         file,
@@ -696,6 +703,12 @@ const maxPopulation = 5_000_000;
  * Maximum accepted screenshot description length.
  */
 const maxDescriptionLength = 4000;
+
+/**
+ * Maximum accepted length of the render conditions JSON.
+ * It leaves the mod room to record more conditions in later versions without a server release.
+ */
+const maxRenderConditionsLength = 16_384;
 
 /**
  * Matches link markdown, `[text](target)`, and image markdown, `![alt](url)`, as the game's
@@ -792,6 +805,28 @@ export function validateRenderSettings(settingsJson: string | undefined): Record
   return parseJsonObjectField(settingsJson, 'render settings field', (value, key) => {
     if (typeof value != 'number') {
       throw new TypeError(`expected a number value for the key "${key}", got "${inspect(value)}"`);
+    }
+
+    return value;
+  });
+}
+
+export function validateRenderConditions(
+  conditionsJson: string | undefined
+): Record<string, number | string | boolean> {
+  if (conditionsJson && conditionsJson.length > maxRenderConditionsLength) {
+    throw new InvalidPayloadError(
+      `Render conditions field must be at most ${maxRenderConditionsLength} characters long.`
+    );
+  }
+
+  return parseJsonObjectField(conditionsJson, 'render conditions field', (value, key) => {
+    if (typeof value != 'number' && typeof value != 'string' && typeof value != 'boolean') {
+      throw new TypeError(
+        oneLine`
+        expected a number, string, or boolean value for the key "${key}",
+        got "${inspect(value)}"`
+      );
     }
 
     return value;

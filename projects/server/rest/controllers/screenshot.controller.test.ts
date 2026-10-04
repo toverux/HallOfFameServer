@@ -33,6 +33,7 @@ import {
   validateMilestone,
   validateModIds,
   validatePopulation,
+  validateRenderConditions,
   validateRenderSettings
 } from './screenshot.controller';
 
@@ -70,6 +71,7 @@ const modUploadFields: Readonly<Record<string, string>> = {
   modIds: '74604,87755',
   shareRenderSettings: 'true',
   renderSettings: '{"aperture":2.4,"focusDistance":120.5}',
+  renderConditions: '{"timeOfDay":18.5,"season":"Autumn","raining":true}',
   metadata: JSON.stringify(modMetadata),
   mapName: 'Lakeland',
   showcasedModId: '87755',
@@ -332,39 +334,41 @@ describe('ScreenshotController', () => {
 
     const renderSettings = { aperture: 2.4 };
 
+    const renderConditions = { timeOfDay: 18.5, season: 'Autumn', raining: true };
+
     test.each([
       {
         requester: 'the owner',
         shareParadoxModIds: false,
         shareRenderSettings: false,
-        expected: { paradoxModIds: modIds, renderSettings }
+        expected: { paradoxModIds: modIds, renderSettings, renderConditions }
       },
       {
         requester: 'another creator',
         shareParadoxModIds: false,
         shareRenderSettings: false,
-        expected: { paradoxModIds: [], renderSettings: {} }
+        expected: { paradoxModIds: [], renderSettings: {}, renderConditions: {} }
       },
       {
         requester: 'an anonymous visitor',
         shareParadoxModIds: false,
         shareRenderSettings: false,
-        expected: { paradoxModIds: [], renderSettings: {} }
+        expected: { paradoxModIds: [], renderSettings: {}, renderConditions: {} }
       },
       {
         requester: 'another creator',
         shareParadoxModIds: true,
         shareRenderSettings: false,
-        expected: { paradoxModIds: modIds, renderSettings: {} }
+        expected: { paradoxModIds: modIds, renderSettings: {}, renderConditions: {} }
       },
       {
         requester: 'an anonymous visitor',
         shareParadoxModIds: false,
         shareRenderSettings: true,
-        expected: { paradoxModIds: [], renderSettings }
+        expected: { paradoxModIds: [], renderSettings, renderConditions }
       }
     ] as const)(
-      `shows $requester the mods and render settings the owner shared: $expected`,
+      `shows $requester the mods, render settings and conditions the owner shared: $expected`,
       async ({ requester, shareParadoxModIds, shareRenderSettings, expected }) => {
         const creator = await createCreator(testApp.prisma);
         const other = await createCreator(testApp.prisma);
@@ -373,7 +377,8 @@ describe('ScreenshotController', () => {
           shareParadoxModIds,
           paradoxModIds: modIds,
           shareRenderSettings,
-          renderSettings
+          renderSettings,
+          renderConditions
         });
 
         const headers = {
@@ -398,6 +403,7 @@ describe('ScreenshotController', () => {
 
     // Mod 1.10.0 reached players on 2025-04-14, capturing the mods and render settings.
     // Mod 2026.0.0 reached them on 2026-01-16, adding the description and both share choices.
+    // The mod release recording the render conditions reaches them on 2026-10-04.
     test.each([
       { createdAt: '2025-04-13T23:59:59.999Z', capabilities: [] },
       { createdAt: '2025-04-14T00:00:00.000Z', capabilities: ['paradoxModIds', 'renderSettings'] },
@@ -410,6 +416,27 @@ describe('ScreenshotController', () => {
           'paradoxModIds',
           'shareRenderSettings',
           'renderSettings'
+        ]
+      },
+      {
+        createdAt: '2026-10-03T23:59:59.999Z',
+        capabilities: [
+          'description',
+          'shareParadoxModIds',
+          'paradoxModIds',
+          'shareRenderSettings',
+          'renderSettings'
+        ]
+      },
+      {
+        createdAt: '2026-10-04T00:00:00.000Z',
+        capabilities: [
+          'description',
+          'shareParadoxModIds',
+          'paradoxModIds',
+          'shareRenderSettings',
+          'renderSettings',
+          'renderConditions'
         ]
       }
     ])(`lists the fields the mod captured at $createdAt`, async ({ createdAt, capabilities }) => {
@@ -1280,6 +1307,7 @@ describe('ScreenshotController', () => {
         paradoxModIds: [74_604, 87_755],
         shareRenderSettings: true,
         renderSettings: { aperture: 2.4, focusDistance: 120.5 },
+        renderConditions: { timeOfDay: 18.5, season: 'Autumn', raining: true },
         metadata: modMetadata,
         isReported: false,
         imageUrlThumbnail: `${blobNameBase}-thumbnail.jpg`,
@@ -1402,6 +1430,7 @@ describe('ScreenshotController', () => {
         paradoxModIds: [],
         shareRenderSettings: false,
         renderSettings: {},
+        renderConditions: {},
         metadata: {}
       });
 
@@ -1447,6 +1476,20 @@ describe('ScreenshotController', () => {
         value: '[]',
         error: 'InvalidPayloadError',
         message: `Invalid JSON for render settings field (expected a JSON object).`
+      },
+      {
+        field: 'renderConditions',
+        value: '{"cameraPosition":[12,40,-3]}',
+        error: 'InvalidPayloadError',
+        message:
+          `Invalid JSON for render conditions field (expected a number, string, or boolean ` +
+          `value for the key "cameraPosition", got "[ 12, 40, -3 ]").`
+      },
+      {
+        field: 'renderConditions',
+        value: JSON.stringify({ season: 'x'.repeat(16_384) }),
+        error: 'InvalidPayloadError',
+        message: `Render conditions field must be at most 16384 characters long.`
       },
       {
         field: 'metadata',
@@ -2196,6 +2239,50 @@ describe('validateRenderSettings', () => {
   ])(`rejects $json: $reason`, ({ json, reason }) => {
     expect(() => validateRenderSettings(json)).toThrow(
       `Invalid JSON for render settings field (${reason}).`
+    );
+  });
+});
+
+describe('validateRenderConditions', () => {
+  test.each([
+    { json: undefined, conditions: {} },
+    { json: '', conditions: {} },
+    { json: '{}', conditions: {} },
+    {
+      json: '{"timeOfDay":18.5,"season":"Autumn","raining":false}',
+      conditions: { timeOfDay: 18.5, season: 'Autumn', raining: false }
+    }
+  ])(`parses $json as $conditions`, ({ json, conditions }) => {
+    expect(validateRenderConditions(json)).toEqual(conditions);
+  });
+
+  // `{"season":""}` is 13 characters long.
+  test(`accepts a field of up to 16384 characters`, () => {
+    const season = 'x'.repeat(16_384 - 13);
+
+    expect(validateRenderConditions(JSON.stringify({ season }))).toEqual({ season });
+
+    expect(() => validateRenderConditions(JSON.stringify({ season: `${season}x` }))).toThrow(
+      `Render conditions field must be at most 16384 characters long.`
+    );
+  });
+
+  test.each([
+    { json: '["Autumn"]', reason: 'expected a JSON object' },
+    { json: 'null', reason: 'expected a JSON object' },
+    {
+      json: '{"season":null}',
+      reason: 'expected a number, string, or boolean value for the key "season", got "null"'
+    },
+    {
+      json: '{"sun":{"elevation":12}}',
+      reason:
+        'expected a number, string, or boolean value for the key "sun", got "{ elevation: 12, }"'
+    },
+    { json: '{"season":', reason: 'JSON Parse error: Unexpected EOF' }
+  ])(`rejects $json: $reason`, ({ json, reason }) => {
+    expect(() => validateRenderConditions(json)).toThrow(
+      `Invalid JSON for render conditions field (${reason}).`
     );
   });
 });

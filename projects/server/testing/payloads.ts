@@ -11,6 +11,19 @@ import { config } from '../config';
 type Payload = Record<string, unknown>;
 
 /**
+ * The day the mod release capturing each field reached players.
+ * Listed in the order `capabilities` lists them.
+ */
+const capabilitiesSince: Readonly<Record<string, string>> = {
+  description: '2026-01-16T00:00:00Z',
+  shareParadoxModIds: '2026-01-16T00:00:00Z',
+  paradoxModIds: '2025-04-14T00:00:00Z',
+  shareRenderSettings: '2026-01-16T00:00:00Z',
+  renderSettings: '2025-04-14T00:00:00Z',
+  renderConditions: '2026-10-04T00:00:00Z'
+};
+
+/**
  * The Screenshot as `ScreenshotService.serialize` returns it, shared by every screenshot route.
  * Relations (`showcasedMod`, `favorites`, `views`) and the route's own `__` fields go in
  * `overrides`, when the route sends them.
@@ -46,14 +59,10 @@ export function expectedScreenshotPayload(
     paradoxModIds: screenshot.paradoxModIds,
     shareRenderSettings: screenshot.shareRenderSettings,
     renderSettings: screenshot.renderSettings,
-    // Factories date a screenshot now, after every capability arrived.
-    capabilities: [
-      'description',
-      'shareParadoxModIds',
-      'paradoxModIds',
-      'shareRenderSettings',
-      'renderSettings'
-    ],
+    renderConditions: screenshot.renderConditions,
+    capabilities: Object.entries(capabilitiesSince)
+      .filter(([, since]) => screenshot.createdAt >= new Date(since))
+      .map(([field]) => field),
     createdAt: screenshot.createdAt.toISOString(),
     createdAtFormatted: expect.any(String),
     createdAtFormattedDistance: expect.any(String),

@@ -214,6 +214,7 @@ export class ImportCityCommand extends CommandRunner {
         paradoxModIds: new Set<ParadoxModId>(),
         shareRenderSettings: true,
         renderSettings: {},
+        renderConditions: {},
         metadata: {},
         createdAt: cityInfo.date,
         file: Buffer.from(fileBytes),

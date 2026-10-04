@@ -192,12 +192,16 @@ model Screenshot {
   shareParadoxModIds      Boolean
   /// Paradox Mods IDs of the active mods when the screenshot was taken.
   paradoxModIds           Int[]
-  /// Whether `renderSettings` is made available to other users.
+  /// Whether `renderSettings` and `renderConditions` are made available to other users.
   shareRenderSettings     Boolean
   /// Rendering settings used to take a screenshot.
   /// Each setting that has a non-default value is recorded here, otherwise it is simply not present.
   /// It is a map of "setting code => float value" and validated by application code.
   renderSettings          Json
+  /// Scene and light the screenshot was taken in, shared along with `renderSettings`.
+  /// It is a map of "condition name => number, string, or boolean" chosen by the mod.
+  /// The server validates it loosely by shape and size, knowing no condition by name.
+  renderConditions        Json
   /// Schema-less JSON object of metadata sent by the client.
   /// Used for analytical/debugging purposes; not used by business logic.
   metadata                Json

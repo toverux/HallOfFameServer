@@ -124,7 +124,8 @@ export function createView(
 }
 
 /**
- * Creates a Mod as the first lookup on Paradox Mods caches it.
+ * Creates a Mod as cached before the Paradox state and hints were stored:
+ * the synced fields set, the state and hints absent.
  */
 export function createMod(
   prisma: PrismaService,

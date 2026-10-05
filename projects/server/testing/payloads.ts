@@ -118,7 +118,13 @@ export function expectedViewPayload(view: View, creator?: Creator): Payload {
   };
 }
 
-export function expectedModPayload(mod: Mod): Payload {
+/**
+ * The Mod as `ModService.serialize` returns it.
+ * The wire state defaults to "published", that of a mod seeded without a state;
+ * a test seeding another state passes the one it expects in `overrides`.
+ * Formatted fields match any string when set; the localization tests pin them.
+ */
+export function expectedModPayload(mod: Mod, overrides: Readonly<Payload> = {}): Payload {
   return {
     id: mod.id,
     paradoxModId: mod.paradoxModId,
@@ -128,7 +134,15 @@ export function expectedModPayload(mod: Mod): Payload {
     thumbnailUrl: mod.thumbnailUrl,
     tags: mod.tags,
     subscribersCount: mod.subscribersCount,
-    knownLastUpdatedAt: mod.knownLastUpdatedAt.toISOString()
+    knownLastUpdatedAt: mod.knownLastUpdatedAt.toISOString(),
+    state: 'published',
+    requiredGameVersion: mod.requiredGameVersion,
+    sizeBytes: mod.sizeBytes == null ? null : Number(mod.sizeBytes),
+    sizeFormatted: mod.sizeBytes == null ? null : expect.any(String),
+    knownLastReleasedAt: mod.knownLastReleasedAt?.toISOString() ?? null,
+    knownLastReleasedAtFormattedDistance:
+      mod.knownLastReleasedAt == null ? null : expect.any(String),
+    ...overrides
   };
 }
 

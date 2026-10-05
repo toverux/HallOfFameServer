@@ -133,7 +133,8 @@ export class ModerateShowcasedModsCommand extends CommandRunner {
       await page.evaluate(data => (globalThis as unknown as HofWindow).setScreenshotData(data), {
         ...screenshot,
         imageUrl: this.screenshotStorage.getScreenshotUrl(screenshot.imageUrlFHD),
-        showcasedMod
+        // Sent to the page as JSON, which has no BigInt; the page does not show the size.
+        showcasedMod: { ...showcasedMod, sizeBytes: null }
       } satisfies ModeratedScreenshot);
 
       setPageStatus(`Ready.`);

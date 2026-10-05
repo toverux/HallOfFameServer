@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, setSystemTime, spyOn, test } from 'bun:test';
 import { Logger } from '@nestjs/common';
+import * as sentry from '@sentry/bun';
 import * as Bun from 'bun';
 import * as dfns from 'date-fns';
 import sharp from 'sharp';
 import type { Creator, Screenshot } from '#prisma-lib/client';
 import { allFulfilled } from '../../../shared/utils/all-fulfilled';
-import type { JsonValue } from '../../../shared/utils/json';
+import type { JsonObject, JsonValue } from '../../../shared/utils/json';
 import { nn } from '../../../shared/utils/type-assertion';
 import { config } from '../../config';
 import type { PrismaService } from '../../services';
@@ -511,6 +512,39 @@ describe('ScreenshotController', () => {
           })
         );
       });
+
+      test(`formats the showcased mod's size and last release`, async () => {
+        const creator = await createCreator(testApp.prisma);
+
+        const mod = await createMod(testApp.prisma, {
+          state: 'removedByUser',
+          requiredGameVersion: '1.1.12*',
+          sizeBytes: 7_327_503_033n,
+          knownLastReleasedAt: new Date('2026-08-30T13:52:10Z')
+        });
+
+        const screenshot = await createScreenshot(testApp.prisma, creator, {
+          showcasedModId: mod.paradoxModId
+        });
+
+        setSystemTime(new Date('2026-09-12T10:00:00Z'));
+
+        const response = await testApp.app.inject({
+          method: 'GET',
+          url: `/api/v1/screenshots/${screenshot.id}`,
+          headers: { 'accept-language': 'fr-FR' }
+        });
+
+        expect(response.json<{ showcasedMod: unknown }>().showcasedMod).toEqual(
+          expectedModPayload(mod, {
+            state: 'removed',
+            sizeBytes: 7_327_503_033,
+            sizeFormatted: '7,3\u202FGo',
+            knownLastReleasedAt: '2026-08-30T13:52:10.000Z',
+            knownLastReleasedAtFormattedDistance: 'il y a 13 jours'
+          })
+        );
+      });
     });
   });
 
@@ -544,7 +578,13 @@ describe('ScreenshotController', () => {
 
   // Also proves the static route wins over /:id/:type.
   describe('GET /api/v1/screenshots/:id/playset', () => {
+    afterEach(() => {
+      setSystemTime();
+    });
+
     test(`returns found mods, skips banned and missing ones, and caches all`, async () => {
+      setSystemTime(new Date('2026-09-12T10:00:00Z'));
+
       const cachedMod = await createMod(testApp.prisma, {
         paradoxModId: 74_604,
         subscribersCount: 1000
@@ -597,7 +637,13 @@ describe('ScreenshotController', () => {
           thumbnailUrl: 'https://mods.paradoxplaza.com/thumbnails/hall-of-fame.jpg',
           tags: ['Code Mod'],
           subscribersCount: 25_000,
-          knownLastUpdatedAt: '2026-08-30T14:00:00.000Z'
+          knownLastUpdatedAt: '2026-08-30T14:00:00.000Z',
+          state: 'published',
+          requiredGameVersion: '1.6.*',
+          sizeBytes: 996_437,
+          sizeFormatted: '996.4 kB',
+          knownLastReleasedAt: '2026-08-30T13:52:10.000Z',
+          knownLastReleasedAtFormattedDistance: '13 days ago'
         },
         expectedModPayload(cachedMod)
       ]);
@@ -615,6 +661,306 @@ describe('ScreenshotController', () => {
 
       expect(again.json<unknown>()).toEqual(response.json<unknown>());
       expect(fetchStub.requests).toHaveLength(3);
+    });
+
+    test(`takes the last release from the newest changelog entry, read as UTC`, async () => {
+      const screenshot = await createScreenshot(
+        testApp.prisma,
+        await createCreator(testApp.prisma),
+        { paradoxModIds: [87_755] }
+      );
+
+      stubParadoxMod(87_755, {
+        changelog: [
+          { modVersion: 3, released: '2026-08-30 13:52:10' },
+          { modVersion: 2, released: '2024-08-16 23:22:50' }
+        ]
+      });
+
+      // A zone-less date read as local time would shift by the process timezone.
+      // oxlint-disable node/no-process-env - the timezone is only set through the environment
+      const timezone = process.env.TZ;
+
+      process.env.TZ = 'Asia/Tokyo';
+
+      try {
+        const response = await testApp.app.inject({
+          method: 'GET',
+          url: `/api/v1/screenshots/${screenshot.id}/playset`
+        });
+
+        expect(response.json<unknown>()).toEqual([
+          expect.objectContaining({ knownLastReleasedAt: '2026-08-30T13:52:10.000Z' })
+        ]);
+      } finally {
+        process.env.TZ = nn(timezone);
+      }
+      // oxlint-enable node/no-process-env
+    });
+
+    test(`takes the creation date as the last release of a mod without changelog`, async () => {
+      const screenshot = await createScreenshot(
+        testApp.prisma,
+        await createCreator(testApp.prisma),
+        { paradoxModIds: [87_755] }
+      );
+
+      stubParadoxMod(87_755, { creationDate: '2024-08-16T04:50:51.000Z', changelog: [] });
+
+      const response = await testApp.app.inject({
+        method: 'GET',
+        url: `/api/v1/screenshots/${screenshot.id}/playset`
+      });
+
+      expect(response.json<unknown>()).toEqual([
+        expect.objectContaining({ knownLastReleasedAt: '2024-08-16T04:50:51.000Z' })
+      ]);
+    });
+
+    test.each([
+      { language: 'en-US', size: '512', formatted: '512 byte', distance: '13 days ago' },
+      { language: 'en-US', size: '670237', formatted: '670.2 kB', distance: '13 days ago' },
+      { language: 'en-US', size: '950000', formatted: '950 kB', distance: '13 days ago' },
+      // Rounds to 1,000 kB, so it moves to the next unit.
+      { language: 'en-US', size: '999950', formatted: '1 MB', distance: '13 days ago' },
+      {
+        language: 'fr-FR',
+        size: '7327503033',
+        formatted: '7,3\u202FGo',
+        distance: 'il y a 13 jours'
+      },
+      { language: 'ru-RU', size: '7327503033', formatted: '7,3 ГБ', distance: '13 дней назад' }
+    ])(
+      `formats a size of $size bytes and the last release for $language`,
+      async ({ language, size, formatted, distance }) => {
+        setSystemTime(new Date('2026-09-12T10:00:00Z'));
+
+        const screenshot = await createScreenshot(
+          testApp.prisma,
+          await createCreator(testApp.prisma),
+          { paradoxModIds: [87_755] }
+        );
+
+        stubParadoxMod(87_755, { metadata: { size_in_memory: size } });
+
+        const response = await testApp.app.inject({
+          method: 'GET',
+          url: `/api/v1/screenshots/${screenshot.id}/playset`,
+          headers: { 'accept-language': language }
+        });
+
+        expect(response.json<unknown>()).toEqual([
+          expect.objectContaining({
+            sizeBytes: Number(size),
+            sizeFormatted: formatted,
+            knownLastReleasedAtFormattedDistance: distance
+          })
+        ]);
+      }
+    );
+
+    test(`maps Paradox Mods states, and lists published mods first`, async () => {
+      // Stored before states were: counts as published.
+      await createMod(testApp.prisma, { paradoxModId: 74_604, subscribersCount: 10 });
+
+      const screenshot = await createScreenshot(
+        testApp.prisma,
+        await createCreator(testApp.prisma),
+        { paradoxModIds: [74_604, 90_001, 90_002, 90_003, 90_004, 90_005] }
+      );
+
+      stubParadoxMod(90_001, { state: 'removedByUser', subscriptions: 50_000 });
+      stubParadoxMod(90_002, { state: 'autoBlocked', subscriptions: 40_000 });
+      stubParadoxMod(90_003, { state: 'disabledByManager', subscriptions: 30_000 });
+      stubParadoxMod(90_004, { state: 'underReview', subscriptions: 20_000 });
+      stubParadoxMod(90_005, { state: 'published', subscriptions: 100 });
+
+      const captureMessage = spyOn(sentry, 'captureMessage').mockReturnValue('');
+
+      try {
+        const response = await testApp.app.inject({
+          method: 'GET',
+          url: `/api/v1/screenshots/${screenshot.id}/playset`
+        });
+
+        expect(
+          response.json<Array<{ paradoxModId: number; state: string }>>().map(mod => ({
+            paradoxModId: mod.paradoxModId,
+            state: mod.state
+          }))
+        ).toEqual([
+          { paradoxModId: 90_005, state: 'published' },
+          { paradoxModId: 74_604, state: 'published' },
+          { paradoxModId: 90_001, state: 'removed' },
+          { paradoxModId: 90_002, state: 'blocked' },
+          { paradoxModId: 90_003, state: 'blocked' },
+          { paradoxModId: 90_004, state: 'unknown' }
+        ]);
+
+        expect(captureMessage.mock.calls).toEqual([
+          [
+            expect.any(String),
+            expect.objectContaining({
+              level: 'warning',
+              fingerprint: ['paradox-mod-unknown-state', 'underReview']
+            })
+          ]
+        ]);
+
+        // Served from the database, the unknown state is not reported again.
+        await testApp.app.inject({
+          method: 'GET',
+          url: `/api/v1/screenshots/${screenshot.id}/playset`
+        });
+
+        expect(captureMessage).toHaveBeenCalledTimes(1);
+      } finally {
+        captureMessage.mockRestore();
+      }
+    });
+
+    const noRequiredVersion = { requiredGameVersion: null };
+
+    const noSize = { sizeBytes: null, sizeFormatted: null };
+
+    const noLastRelease = { knownLastReleasedAt: null, knownLastReleasedAtFormattedDistance: null };
+
+    test.each<{ field: string; overrides: Record<string, JsonValue>; nulled: JsonObject }>([
+      { field: 'requiredVersion', overrides: { requiredVersion: 16 }, nulled: noRequiredVersion },
+      { field: 'requiredVersion', overrides: { requiredVersion: null }, nulled: noRequiredVersion },
+      { field: 'requiredVersion', overrides: { requiredVersion: ' ' }, nulled: noRequiredVersion },
+      {
+        field: 'metadata.size_in_memory',
+        overrides: { metadata: { size_in_memory: '' } },
+        nulled: noSize
+      },
+      {
+        field: 'metadata.size_in_memory',
+        overrides: { metadata: { size_in_memory: '7.3' } },
+        nulled: noSize
+      },
+      {
+        field: 'metadata.size_in_memory',
+        overrides: { metadata: { size_in_memory: 'big' } },
+        nulled: noSize
+      },
+      { field: 'metadata.size_in_memory', overrides: { metadata: {} }, nulled: noSize },
+      { field: 'changelog', overrides: { changelog: 'none' }, nulled: noLastRelease },
+      {
+        field: 'changelog[].released',
+        overrides: { changelog: [{ released: '30/08/2026' }] },
+        nulled: noLastRelease
+      },
+      {
+        field: 'creationDate',
+        overrides: { changelog: [], creationDate: 'yesterday' },
+        nulled: noLastRelease
+      }
+    ])(
+      `leaves out a missing or malformed $field, and reports it`,
+      async ({ field, overrides, nulled }) => {
+        const screenshot = await createScreenshot(
+          testApp.prisma,
+          await createCreator(testApp.prisma),
+          { paradoxModIds: [87_755] }
+        );
+
+        stubParadoxMod(87_755, overrides);
+
+        const captureMessage = spyOn(sentry, 'captureMessage').mockReturnValue('');
+
+        try {
+          const response = await testApp.app.inject({
+            method: 'GET',
+            url: `/api/v1/screenshots/${screenshot.id}/playset`
+          });
+
+          expect(response.json<unknown>()).toEqual([
+            expect.objectContaining({
+              paradoxModId: 87_755,
+              requiredGameVersion: '1.6.*',
+              sizeBytes: 996_437,
+              sizeFormatted: '996.4 kB',
+              knownLastReleasedAt: '2026-08-30T13:52:10.000Z',
+              knownLastReleasedAtFormattedDistance: expect.any(String),
+              ...nulled
+            })
+          ]);
+
+          expect(captureMessage.mock.calls).toEqual([
+            [
+              expect.any(String),
+              expect.objectContaining({
+                level: 'warning',
+                fingerprint: ['paradox-mod-malformed-field', field]
+              })
+            ]
+          ]);
+        } finally {
+          captureMessage.mockRestore();
+        }
+      }
+    );
+
+    test(`leaves out a mod whose details lack a state, without retrying`, async () => {
+      const screenshot = await createScreenshot(
+        testApp.prisma,
+        await createCreator(testApp.prisma),
+        { paradoxModIds: [87_755] }
+      );
+
+      stubParadoxMod(87_755, { state: undefined });
+
+      // Silences the failure logged for the mod.
+      const logError = spyOn(Logger.prototype, 'error').mockReturnValue(void 0);
+
+      const response = await testApp.app.inject({
+        method: 'GET',
+        url: `/api/v1/screenshots/${screenshot.id}/playset`
+      });
+
+      logError.mockRestore();
+
+      expect(response.json<unknown>()).toEqual([]);
+      expect(fetchStub.requests).toEqual([paradoxModUrl(87_755)]);
+    });
+
+    test(`retries a mod Paradox Mods intermittently cannot find, without retiring it`, async () => {
+      const screenshot = await createScreenshot(
+        testApp.prisma,
+        await createCreator(testApp.prisma),
+        { paradoxModIds: [87_755] }
+      );
+
+      fetchStub.respondWithJson(
+        paradoxModUrl(87_755),
+        { errorCode: 'bad-input', errorMessage: 'Game could not be found.' },
+        { status: 400 }
+      );
+
+      // Silences the failure logged once the retries are exhausted.
+      const logError = spyOn(Logger.prototype, 'error').mockReturnValue(void 0);
+
+      const response = await testApp.app.inject({
+        method: 'GET',
+        url: `/api/v1/screenshots/${screenshot.id}/playset`
+      });
+
+      logError.mockRestore();
+
+      expect(response.json<unknown>()).toEqual([]);
+
+      // The first attempt and three retries.
+      expect(fetchStub.requests).toEqual(Array.from({ length: 4 }, () => paradoxModUrl(87_755)));
+
+      stubParadoxMod(87_755);
+
+      const again = await testApp.app.inject({
+        method: 'GET',
+        url: `/api/v1/screenshots/${screenshot.id}/playset`
+      });
+
+      expect(again.json<unknown>()).toEqual([expect.objectContaining({ paradoxModId: 87_755 })]);
     });
 
     test(`retries a failing Paradox Mods lookup, then leaves the mod out`, async () => {
@@ -2332,19 +2678,37 @@ function paradoxModUrl(modId: number): string {
 
 /**
  * Answers the Paradox Mods lookup of `modId` with a mod named after its ID, unless overridden.
+ * An `undefined` override leaves the field out.
  */
-function stubParadoxMod(modId: number, overrides: Readonly<Record<string, JsonValue>> = {}): void {
+function stubParadoxMod(
+  modId: number,
+  overrides: Readonly<Record<string, JsonValue | undefined>> = {}
+): void {
+  const modDetail: Record<string, JsonValue | undefined> = {
+    modId: String(modId),
+    author: 'toverux',
+    displayName: `Mod ${modId}`,
+    shortDescription: `Adds a few things to the game.`,
+    displayImagePath: `https://mods.paradoxplaza.com/thumbnails/${modId}.jpg`,
+    tags: ['Code Mod'],
+    subscriptions: 1000,
+    latestUpdate: '2026-08-30T14:00:00Z',
+    state: 'published',
+    requiredVersion: '1.6.*',
+    creationDate: '2024-08-16T04:50:51.000Z',
+    metadata: { relevance_score: 0, size_in_memory: '996437' },
+    changelog: [
+      { modVersion: 2, released: '2024-08-16 23:22:50', userModVersion: '1.0.1' },
+      { modVersion: 3, released: '2026-08-30 13:52:10', userModVersion: '1.1.0' }
+    ],
+    ...overrides
+  };
+
   fetchStub.respondWithJson(paradoxModUrl(modId), {
-    modDetail: {
-      modId: String(modId),
-      author: 'toverux',
-      displayName: `Mod ${modId}`,
-      shortDescription: `Adds a few things to the game.`,
-      displayImagePath: `https://mods.paradoxplaza.com/thumbnails/${modId}.jpg`,
-      tags: ['Code Mod'],
-      subscriptions: 1000,
-      latestUpdate: '2026-08-30T14:00:00Z',
-      ...overrides
-    }
+    modDetail: Object.fromEntries(
+      Object.entries(modDetail).filter(
+        (field): field is [string, JsonValue] => field[1] !== undefined
+      )
+    )
   });
 }

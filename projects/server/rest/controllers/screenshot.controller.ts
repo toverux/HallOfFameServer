@@ -35,6 +35,7 @@ import { ZodParsePipe } from '../../pipes';
 import {
   CreatorAuthenticationService,
   type CreatorIdentifier,
+  DateFnsLocalizationService,
   FavoriteService,
   ModService,
   PrismaService,
@@ -59,6 +60,9 @@ export class ScreenshotController {
 
   @Inject(PrismaService)
   private readonly prisma!: PrismaService;
+
+  @Inject(DateFnsLocalizationService)
+  private readonly dateFnsLocalization!: DateFnsLocalizationService;
 
   @Inject(ModService)
   private readonly modService!: ModService;
@@ -280,7 +284,10 @@ export class ScreenshotController {
    * Returns the list of mods used in that screenshot.
    */
   @Get(':id/playset')
-  public async getPlayset(@Param('id') id: Screenshot['id']): Promise<JsonObject[]> {
+  public async getPlayset(
+    @Req() req: FastifyRequest,
+    @Param('id') id: Screenshot['id']
+  ): Promise<JsonObject[]> {
     const screenshot = await this.prisma.screenshot.findUnique({ where: { id } });
 
     if (!screenshot) {
@@ -293,7 +300,9 @@ export class ScreenshotController {
 
     const mods = await this.modService.getMods(new Set(screenshot.paradoxModIds as ParadoxModId[]));
 
-    return mods.map(mod => this.modService.serialize(mod));
+    const dfnsLocale = this.dateFnsLocalization.getLocaleForRequest(req);
+
+    return mods.map(mod => this.modService.serialize(mod, dfnsLocale));
   }
 
   /**

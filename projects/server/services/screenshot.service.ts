@@ -744,7 +744,7 @@ export class ScreenshotService implements OnApplicationBootstrap {
           ? // oxlint-disable-next-line unicorn/no-useless-undefined - required
             optionallySerialized(undefined)
           : screenshot.showcasedMod
-            ? this.modService.serialize(screenshot.showcasedMod)
+            ? this.modService.serialize(screenshot.showcasedMod, dfnsLocale)
             : null,
       favorites: optionallySerialized(
         screenshot.favorites?.map(favorite => this.favoriteService.serialize(favorite))

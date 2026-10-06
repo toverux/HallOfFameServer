@@ -539,7 +539,7 @@ describe('ScreenshotController', () => {
           expectedModPayload(mod, {
             state: 'removed',
             sizeBytes: 7_327_503_033,
-            sizeFormatted: '7,3\u202FGo',
+            sizeFormatted: '7\u202FGo',
             knownLastReleasedAt: '2026-08-30T13:52:10.000Z',
             knownLastReleasedAtFormattedDistance: 'il y a 13 jours'
           })
@@ -641,7 +641,7 @@ describe('ScreenshotController', () => {
           state: 'published',
           requiredGameVersion: '1.6.*',
           sizeBytes: 996_437,
-          sizeFormatted: '996.4 kB',
+          sizeFormatted: '996 kB',
           knownLastReleasedAt: '2026-08-30T13:52:10.000Z',
           knownLastReleasedAtFormattedDistance: '13 days ago'
         },
@@ -717,19 +717,40 @@ describe('ScreenshotController', () => {
       ]);
     });
 
+    test(`rounds the last release distance to one unit, without "almost" or "over"`, async () => {
+      setSystemTime(new Date('2026-09-12T10:00:00Z'));
+
+      const screenshot = await createScreenshot(
+        testApp.prisma,
+        await createCreator(testApp.prisma),
+        { paradoxModIds: [87_755] }
+      );
+
+      stubParadoxMod(87_755, { changelog: [{ released: '2024-11-12 10:00:00' }] });
+
+      const response = await testApp.app.inject({
+        method: 'GET',
+        url: `/api/v1/screenshots/${screenshot.id}/playset`
+      });
+
+      expect(response.json<unknown>()).toEqual([
+        expect.objectContaining({ knownLastReleasedAtFormattedDistance: '2 years ago' })
+      ]);
+    });
+
     test.each([
-      { language: 'en-US', size: '512', formatted: '512 byte', distance: '13 days ago' },
-      { language: 'en-US', size: '670237', formatted: '670.2 kB', distance: '13 days ago' },
+      { language: 'en-US', size: '512', formatted: '512 bytes', distance: '13 days ago' },
+      { language: 'en-US', size: '670237', formatted: '670 kB', distance: '13 days ago' },
       { language: 'en-US', size: '950000', formatted: '950 kB', distance: '13 days ago' },
       // Rounds to 1,000 kB, so it moves to the next unit.
-      { language: 'en-US', size: '999950', formatted: '1 MB', distance: '13 days ago' },
+      { language: 'en-US', size: '999500', formatted: '1 MB', distance: '13 days ago' },
       {
         language: 'fr-FR',
         size: '7327503033',
-        formatted: '7,3\u202FGo',
+        formatted: '7\u202FGo',
         distance: 'il y a 13 jours'
       },
-      { language: 'ru-RU', size: '7327503033', formatted: '7,3 ГБ', distance: '13 дней назад' }
+      { language: 'ru-RU', size: '7327503033', formatted: '7 ГБ', distance: '13 дней назад' }
     ])(
       `formats a size of $size bytes and the last release for $language`,
       async ({ language, size, formatted, distance }) => {
@@ -880,7 +901,7 @@ describe('ScreenshotController', () => {
               paradoxModId: 87_755,
               requiredGameVersion: '1.6.*',
               sizeBytes: 996_437,
-              sizeFormatted: '996.4 kB',
+              sizeFormatted: '996 kB',
               knownLastReleasedAt: '2026-08-30T13:52:10.000Z',
               knownLastReleasedAtFormattedDistance: expect.any(String),
               ...nulled

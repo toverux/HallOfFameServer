@@ -243,7 +243,7 @@ export class ModService {
       knownLastReleasedAtFormattedDistance:
         mod.knownLastReleasedAt == null
           ? null
-          : dateFns.formatDistanceToNow(mod.knownLastReleasedAt, { locale, addSuffix: true })
+          : dateFns.formatDistanceToNowStrict(mod.knownLastReleasedAt, { locale, addSuffix: true })
     };
   }
 
@@ -633,28 +633,25 @@ export class ModService {
 
   /**
    * Formats a size in the largest decimal unit that keeps it at least 1,
-   * with at most one fraction digit: "670.2 kB", or "7,3 Go" in French.
-   * A size rounding to 1000 of a unit moves to the next one, so 999,950 bytes read "1 MB".
+   * rounded to a whole number: "670 kB", or "7 Go" in French.
+   * A size rounding to 1000 of a unit moves to the next one, so 999,500 bytes read "1 MB".
    */
   private static formatSize(bytes: number, locale: dateFns.Locale): string {
     const units = ['byte', 'kilobyte', 'megabyte', 'gigabyte'] as const;
 
-    const fractionDigits = 1;
-
-    // Rounds as displayed, to pick the unit.
-    const rounded = (exponent: number): number =>
-      Number((bytes / 1000 ** exponent).toFixed(fractionDigits));
-
     let exponent = 0;
 
-    while (exponent < units.length - 1 && rounded(exponent) >= 1000) {
+    // Rounds as displayed, to pick the unit.
+    while (exponent < units.length - 1 && Math.round(bytes / 1000 ** exponent) >= 1000) {
       exponent++;
     }
 
     return new Intl.NumberFormat(locale.code, {
       style: 'unit',
       unit: units[exponent],
-      maximumFractionDigits: fractionDigits
+      // The short byte unit has no plural in English ("512 byte").
+      unitDisplay: exponent == 0 ? 'long' : 'short',
+      maximumFractionDigits: 0
     }).format(bytes / 1000 ** exponent);
   }
 }

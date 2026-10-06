@@ -12,6 +12,6 @@ run = [
   "mongodump --uri \"{{env.HOF_DATABASE_URL}}\" --gzip --archive=halloffame.mongoarchive",
   "mongorestore --gzip --archive=halloffame.mongoarchive --uri \"mongodb://localhost/halloffame?replicaSet=rs0\" --nsInclude='default.*' --nsFrom='default.*' --nsTo='halloffame.*' --drop",
   "rm -rf halloffame.mongoarchive",
-  "mise exec bun -- bun prisma db push",
+  "mise exec bun -- bun prisma db push --skip-generate",
   "mise run:cli migrate"
 ]

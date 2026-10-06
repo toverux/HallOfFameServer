@@ -155,7 +155,12 @@ run = "bun ng build"
 
 [tasks."build:prisma:generate"]
 description = "Generates the gitignored Prisma client and types."
-sources = ["prisma/run-prisma-generate.ts", "prisma/schema.prisma"]
+sources = [
+  "prisma/run-prisma-generate.ts",
+  "prisma/schema.prisma",
+  # Reruns when a bare `prisma generate` (`db push` runs one) overwrote the patched output.
+  "prisma/lib/pothos-prisma-types.ts"
+]
 raw = true
 run = "bun prisma/run-prisma-generate.ts"
 

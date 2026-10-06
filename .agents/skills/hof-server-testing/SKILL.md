@@ -68,6 +68,7 @@ No cron runs, and the app logs only errors, so a passing run prints nothing.
 - An error body is the JSON the mod parses: assert all of `{ statusCode, message, error }`.
 - Write `expect(promise).resolves` and `.rejects` without `await`: in Bun they block until the promise settles.
   They refuse a Prisma query, which is a thenable rather than a Promise: await the query and assert on its value.
+- Give every `test.each` row as many columns as the callback has parameters: Bun reads a parameter past the row's length as `done`, and the test times out.
 
 ## Lint
 

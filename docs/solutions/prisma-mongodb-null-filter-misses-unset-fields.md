@@ -3,7 +3,8 @@ date: 2026-10-05
 area: prisma
 symptoms:
   - 'a where clause on null skips documents created before the field existed'
-tags: [prisma, mongodb, null, optional-fields, filters]
+tags: [prisma, mongodb, null, optional-fields, composite-types, filters]
+updated: 2026-10-06
 ---
 
 # Prisma on MongoDB tells a null field from an absent one
@@ -24,6 +25,8 @@ Match both forms, as the mod sync cron does for `state` (`projects/server/servic
 ```ts
 OR: [{ state: { isSet: false } }, { state: null }, { state: 'published' }];
 ```
+
+On an optional composite, `{ field: { isSet: true } }` matches a stored null and a stored value but not an absent field, as the Skyve sync's unset does (`projects/server/services/skyve.service.ts:159`).
 
 ## Prevention
 

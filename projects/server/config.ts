@@ -53,6 +53,10 @@ export const config = {
     dsn: getString('HOF_SENTRY_DSN')
   },
 
+  skyve: {
+    apiKey: getString('HOF_SKYVE_API_KEY')
+  },
+
   screenshots: {
     maxFileSizeBytes: getNumber('HOF_SCREENSHOTS_MAX_FILE_SIZE_MB') * 1000 * 1000,
     jpegQuality: getNumber('HOF_SCREENSHOTS_JPEG_QUALITY'),

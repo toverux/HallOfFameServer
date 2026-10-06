@@ -643,7 +643,8 @@ describe('ScreenshotController', () => {
           sizeBytes: 996_437,
           sizeFormatted: '996 kB',
           knownLastReleasedAt: '2026-08-30T13:52:10.000Z',
-          knownLastReleasedAtFormattedDistance: '13 days ago'
+          knownLastReleasedAtFormattedDistance: '13 days ago',
+          skyve: null
         },
         expectedModPayload(cachedMod)
       ]);

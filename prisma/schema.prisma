@@ -369,12 +369,27 @@ model Mod {
   /// Release date of the mod's latest version on Paradox Mods,
   /// unlike `knownLastUpdatedAt`, which also moves on page edits.
   knownLastReleasedAt DateTime?
+  /// Skyve's compatibility verdict on the mod, refreshed daily by `SkyveService`.
+  /// Absent or null when Skyve has not reviewed the mod.
+  skyve               SkyveCompatibility?
   /// Last time an update of this document from Paradox's API was attempted.
   /// Note that this is not a Prisma `@updatedAt` column as we can update the document (ex. clicks)
   /// without wanting to bump the date.
   lastSyncedAt        DateTime  @default(now())
 
   @@map("mods")
+}
+
+/// A Skyve reviewer's compatibility verdict on a Mod, as Skyve's API serves it.
+type SkyveCompatibility {
+  /// Skyve's stability value, in camelCase (ex. "stable", "brokenFromPatch").
+  stability           String
+  /// The reviewer's note, in English.
+  note                String?
+  /// When the reviewer last reviewed the mod.
+  reviewedAt          DateTime?
+  /// Game version the mod was reviewed on (ex. "1.3.6f1").
+  reviewedGameVersion String?
 }
 
 /// A record of a database migration that has been executed.

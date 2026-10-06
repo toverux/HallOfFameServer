@@ -15,6 +15,7 @@ import { ScreenshotSimilarityDetectorService } from './screenshot-similarity-det
 import { ScreenshotStatsService } from './screenshot-stats.service';
 import { ScreenshotStorageService } from './screenshot-storage.service';
 import { ScreenshotService } from './screenshot.service';
+import { SkyveService } from './skyve.service';
 import { ViewService } from './view.service';
 
 export * from './ai-translator.service';
@@ -33,6 +34,7 @@ export * from './screenshot-processing.service';
 export * from './screenshot-similarity-detector.service';
 export * from './screenshot-stats.service';
 export * from './screenshot-storage.service';
+export * from './skyve.service';
 export * from './view.service';
 
 export const services: Provider[] = [
@@ -52,5 +54,6 @@ export const services: Provider[] = [
   ScreenshotSimilarityDetectorService,
   ScreenshotStatsService,
   ScreenshotStorageService,
+  SkyveService,
   ViewService
 ];

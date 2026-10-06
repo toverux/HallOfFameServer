@@ -25,6 +25,7 @@ Object.assign(
       'DefaultEndpointsProtocol=http;AccountName=inert;AccountKey=aW5lcnQ=;BlobEndpoint=http://127.0.0.1:1/inert;',
     HOF_AZURE_CDN: 'https://cdn.halloffame.invalid',
     HOF_OPENAI_API_KEY: 'sk-inert',
+    HOF_SKYVE_API_KEY: 'skyve-inert',
     HOF_SENTRY_DSN: 'disabled'
   }
 );

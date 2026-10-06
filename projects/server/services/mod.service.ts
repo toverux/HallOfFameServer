@@ -243,7 +243,16 @@ export class ModService {
       knownLastReleasedAtFormattedDistance:
         mod.knownLastReleasedAt == null
           ? null
-          : dateFns.formatDistanceToNowStrict(mod.knownLastReleasedAt, { locale, addSuffix: true })
+          : dateFns.formatDistanceToNowStrict(mod.knownLastReleasedAt, { locale, addSuffix: true }),
+      // Labelled as Skyve's, a condition of re-serving it.
+      skyve: mod.skyve
+        ? {
+            stability: mod.skyve.stability,
+            note: mod.skyve.note,
+            reviewedAt: mod.skyve.reviewedAt?.toISOString() ?? null,
+            reviewedGameVersion: mod.skyve.reviewedGameVersion
+          }
+        : null
     };
   }
 

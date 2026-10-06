@@ -142,6 +142,10 @@ export function expectedModPayload(mod: Mod, overrides: Readonly<Payload> = {}):
     knownLastReleasedAt: mod.knownLastReleasedAt?.toISOString() ?? null,
     knownLastReleasedAtFormattedDistance:
       mod.knownLastReleasedAt == null ? null : expect.any(String),
+    skyve: mod.skyve && {
+      ...mod.skyve,
+      reviewedAt: mod.skyve.reviewedAt?.toISOString() ?? null
+    },
     ...overrides
   };
 }

@@ -16,6 +16,18 @@ describe('fetchStub', () => {
     expect(fetchStub.requests).toEqual([modUrl]);
   });
 
+  test(`records each request's headers, in order`, async () => {
+    fetchStub.respondWithJson(modUrl, {});
+
+    await fetch(modUrl, { headers: { API_KEY: 'first' } });
+    await fetch(modUrl);
+
+    expect(fetchStub.sentRequests.map(request => request.headers.get('API_KEY'))).toEqual([
+      'first',
+      null
+    ]);
+  });
+
   test(`answers a stubbed URL however it is written`, async () => {
     fetchStub.respondWithJson('https://example.com', {});
 

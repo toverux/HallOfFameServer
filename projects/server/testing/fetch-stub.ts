@@ -9,9 +9,9 @@ import type { JsonValue } from '../../shared/utils/json';
  */
 class FetchStub {
   /**
-   * Every requested URL, expected or not, in order.
+   * Every request, expected or not, in order.
    */
-  public readonly requests: string[] = [];
+  public readonly sentRequests: Request[] = [];
 
   private readonly responses = new Map<string, () => Response>();
 
@@ -23,7 +23,7 @@ class FetchStub {
   ): Promise<Response> => {
     const request = new Request(input, init);
 
-    this.requests.push(request.url);
+    this.sentRequests.push(request);
 
     const response = this.responses.get(request.url);
 
@@ -48,8 +48,15 @@ class FetchStub {
     this.responses.set(new Request(url).url, () => Response.json(body, init));
   }
 
+  /**
+   * Every requested URL, expected or not, in order.
+   */
+  public get requests(): string[] {
+    return this.sentRequests.map(request => request.url);
+  }
+
   public reset(): void {
-    this.requests.length = 0;
+    this.sentRequests.length = 0;
     this.responses.clear();
     this.unexpectedRequests.length = 0;
   }

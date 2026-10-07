@@ -57,13 +57,21 @@ export class SkyveService {
     .transform(value => value || null)
     .nullable();
 
+  /**
+   * A note, its line breaks as line feeds: Skyve's end their lines with a carriage return, which
+   * the mod's Cohtml UI breaks no line on.
+   */
+  private static readonly note = SkyveService.optionalString.transform(value =>
+    value == null ? null : value.replaceAll(/\r\n?/gu, '\n')
+  );
+
   private static readonly entrySchema = z.looseObject({
     id: z.int(),
     stability: z
       .int()
       .transform(value => SkyveService.stabilities[value])
       .pipe(z.enum(SkyveService.stabilities)),
-    note: SkyveService.optionalString,
+    note: SkyveService.note,
     // Sent without a zone, as UTC, with a varying number of fractional digits.
     // Skyve's placeholder for a mod never reviewed is the year 1.
     reviewDate: z.iso

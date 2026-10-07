@@ -225,6 +225,24 @@ describe('SkyveService', () => {
         })
       ]);
     });
+
+    test(`serves a note's line breaks as line feeds`, async () => {
+      const mod = await createMod(testApp.prisma);
+
+      fetchStub.respondWithJson(skyveUrl, [
+        skyveEntry(mod.paradoxModId, {
+          note: 'Known issue:\r\nSome cranes are rotated.\r\n\r\nFixed in 1.4.\rUse the beta.'
+        })
+      ]);
+
+      await skyveService.syncCompatibilityData();
+
+      expect(await servePlayset([mod])).toMatchObject([
+        {
+          skyve: { note: 'Known issue:\nSome cranes are rotated.\n\nFixed in 1.4.\nUse the beta.' }
+        }
+      ]);
+    });
   });
 
   describe('syncCompatibilityDataCron()', () => {

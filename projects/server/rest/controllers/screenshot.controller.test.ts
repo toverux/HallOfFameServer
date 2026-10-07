@@ -513,14 +513,20 @@ describe('ScreenshotController', () => {
         );
       });
 
-      test(`formats the showcased mod's size and last release`, async () => {
+      test(`formats the showcased mod's size, last release and Skyve review`, async () => {
         const creator = await createCreator(testApp.prisma);
 
         const mod = await createMod(testApp.prisma, {
           state: 'removedByUser',
           requiredGameVersion: '1.1.12*',
           sizeBytes: 7_327_503_033n,
-          knownLastReleasedAt: new Date('2026-08-30T13:52:10Z')
+          knownLastReleasedAt: new Date('2026-08-30T13:52:10Z'),
+          skyve: {
+            stability: 'stable',
+            note: null,
+            reviewedAt: new Date('2026-06-02T08:30:00Z'),
+            reviewedGameVersion: '1.6.2f1'
+          }
         });
 
         const screenshot = await createScreenshot(testApp.prisma, creator, {
@@ -541,7 +547,14 @@ describe('ScreenshotController', () => {
             sizeBytes: 7_327_503_033,
             sizeFormatted: '7\u202FGo',
             knownLastReleasedAt: '2026-08-30T13:52:10.000Z',
-            knownLastReleasedAtFormattedDistance: 'il y a 13 jours'
+            knownLastReleasedAtFormattedDistance: 'il y a 13 jours',
+            skyve: {
+              stability: 'stable',
+              note: null,
+              reviewedAt: '2026-06-02T08:30:00.000Z',
+              reviewedAtFormattedDistance: 'il y a 3 mois',
+              reviewedGameVersion: '1.6.2f1'
+            }
           })
         );
       });

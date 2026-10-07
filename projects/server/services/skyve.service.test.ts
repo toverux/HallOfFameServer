@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, setSystemTime, spyOn, test } from 'bun:test';
 import { Logger } from '@nestjs/common';
 import * as sentry from '@sentry/bun';
 import type { Mod } from '#prisma-lib/client';
@@ -34,6 +34,8 @@ describe('SkyveService', () => {
   });
 
   afterEach(async () => {
+    setSystemTime();
+
     await testApp.app.close();
   });
 
@@ -52,12 +54,16 @@ describe('SkyveService', () => {
 
       await skyveService.syncCompatibilityData();
 
+      // 13 months on, which reads "1 year ago" rather than "about 1 year ago".
+      setSystemTime(new Date('2026-12-12T10:00:00Z'));
+
       expect(await servePlayset([mod])).toEqual([
         expectedModPayload(mod, {
           skyve: {
             stability: 'brokenFromPatch',
             note: 'Broken since the 1.3 patch.',
             reviewedAt: '2025-11-13T19:48:07.210Z',
+            reviewedAtFormattedDistance: '1 year ago',
             reviewedGameVersion: '1.3.6f1'
           }
         })
@@ -191,13 +197,20 @@ describe('SkyveService', () => {
 
       expect(await servePlayset(Object.values(mods))).toEqual([
         expectedModPayload(mods.blanks, {
-          skyve: { stability: 'stable', note: null, reviewedAt: null, reviewedGameVersion: null }
+          skyve: {
+            stability: 'stable',
+            note: null,
+            reviewedAt: null,
+            reviewedAtFormattedDistance: null,
+            reviewedGameVersion: null
+          }
         }),
         expectedModPayload(mods.nulls, {
           skyve: {
             stability: 'stable',
             note: null,
             reviewedAt: '2026-08-30T14:00:00.123Z',
+            reviewedAtFormattedDistance: expect.any(String),
             reviewedGameVersion: null
           }
         }),
@@ -206,6 +219,7 @@ describe('SkyveService', () => {
             stability: 'stable',
             note: 'Use the beta branch.',
             reviewedAt: '2024-03-26T08:54:39.320Z',
+            reviewedAtFormattedDistance: expect.any(String),
             reviewedGameVersion: '1.6.2f1'
           }
         })

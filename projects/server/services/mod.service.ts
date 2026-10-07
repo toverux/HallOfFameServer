@@ -250,6 +250,13 @@ export class ModService {
             stability: mod.skyve.stability,
             note: mod.skyve.note,
             reviewedAt: mod.skyve.reviewedAt?.toISOString() ?? null,
+            reviewedAtFormattedDistance:
+              mod.skyve.reviewedAt == null
+                ? null
+                : dateFns.formatDistanceToNowStrict(mod.skyve.reviewedAt, {
+                    locale,
+                    addSuffix: true
+                  }),
             reviewedGameVersion: mod.skyve.reviewedGameVersion
           }
         : null

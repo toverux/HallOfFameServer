@@ -59,13 +59,16 @@ describe('CreatorService', () => {
           ips: [identifiers.ip1]
         });
 
+        // The name's translation runs in the background, then clears the flag.
+        await testingModule.get(BackgroundTasksService).settled();
+
         expect(
           creatorService.authenticateCreator({
             kind: 'simple',
             creatorId: identifiers.unusedCreatorId,
             ip: identifiers.ip1
           })
-        ).resolves.toEqual(creator);
+        ).resolves.toEqual({ ...creator, needsTranslation: false });
       }
     );
 

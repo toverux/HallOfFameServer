@@ -3,8 +3,8 @@ date: 2026-10-05
 area: prisma
 symptoms:
   - 'a where clause on null skips documents created before the field existed'
-tags: [prisma, mongodb, null, optional-fields, composite-types, filters]
-updated: 2026-10-06
+tags: [prisma, mongodb, null, optional-fields, composite-types, scalar-lists, filters, migrations]
+updated: 2026-10-09
 ---
 
 # Prisma on MongoDB tells a null field from an absent one
@@ -17,6 +17,8 @@ A Prisma filter meant to match "no value" then silently skips those documents, a
 ## Root cause
 
 Unlike a raw MongoDB query, Prisma's MongoDB connector (6.19) matches `{ field: null }` only against a stored null, and `{ field: { notIn: [...] } }` matches a stored null but skips an absent field.
+
+Reads are safer: an absent scalar list reads as `[]`, so a new required `String[]` field needs no backfill migration, while its filters still need the care below.
 
 ## Fix
 

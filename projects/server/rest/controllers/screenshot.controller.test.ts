@@ -648,6 +648,9 @@ describe('ScreenshotController', () => {
           authorName: 'toverux',
           shortDescription: `Share your cities.\nBrowse everyone else’s.`,
           thumbnailUrl: 'https://mods.paradoxplaza.com/thumbnails/hall-of-fame.jpg',
+          previewUrls: [
+            'https://modscontent.paradox-interactive.com/87755/content/screenshots/screenshot_01.png'
+          ],
           tags: ['Code Mod'],
           subscribersCount: 25_000,
           knownLastUpdatedAt: '2026-08-30T14:00:00.000Z',
@@ -860,6 +863,8 @@ describe('ScreenshotController', () => {
 
     const noLastRelease = { knownLastReleasedAt: null, knownLastReleasedAtFormattedDistance: null };
 
+    const noPreviews = { previewUrls: [] };
+
     test.each<{ field: string; overrides: Record<string, JsonValue>; nulled: JsonObject }>([
       { field: 'requiredVersion', overrides: { requiredVersion: 16 }, nulled: noRequiredVersion },
       { field: 'requiredVersion', overrides: { requiredVersion: null }, nulled: noRequiredVersion },
@@ -890,7 +895,9 @@ describe('ScreenshotController', () => {
         field: 'creationDate',
         overrides: { changelog: [], creationDate: 'yesterday' },
         nulled: noLastRelease
-      }
+      },
+      { field: 'screenshots', overrides: { screenshots: null }, nulled: noPreviews },
+      { field: 'screenshots', overrides: { screenshots: [{ thumb: 'a.png' }] }, nulled: noPreviews }
     ])(
       `leaves out a missing or malformed $field, and reports it`,
       async ({ field, overrides, nulled }) => {
@@ -913,6 +920,9 @@ describe('ScreenshotController', () => {
           expect(response.json<unknown>()).toEqual([
             expect.objectContaining({
               paradoxModId: 87_755,
+              previewUrls: [
+                'https://modscontent.paradox-interactive.com/87755/content/screenshots/screenshot_01.png'
+              ],
               requiredGameVersion: '1.6.*',
               sizeBytes: 996_437,
               sizeFormatted: '996 kB',
@@ -2725,6 +2735,12 @@ function stubParadoxMod(
     displayName: `Mod ${modId}`,
     shortDescription: `Adds a few things to the game.`,
     displayImagePath: `https://mods.paradoxplaza.com/thumbnails/${modId}.jpg`,
+    screenshots: [
+      {
+        image: `https://modscontent.paradox-interactive.com/${modId}/content/screenshots/screenshot_01.png`,
+        thumbnail: `https://modscontent.paradox-interactive.com/${modId}/content/screenshots/screenshot_01_thumb.png`
+      }
+    ],
     tags: ['Code Mod'],
     subscriptions: 1000,
     latestUpdate: '2026-08-30T14:00:00Z',

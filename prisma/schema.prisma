@@ -348,6 +348,8 @@ model Mod {
   shortDescription    String
   /// Thumbnail URL.
   thumbnailUrl        String
+  /// Full-size URLs of the mod's preview images, in Paradox Mods' order; empty when it has none.
+  previewUrls         String[]
   /// Mod tags (ex. "Code Mod", "Building", "European", etc).
   tags                String[]
   /// Number of subscribers to this mod.

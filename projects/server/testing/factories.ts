@@ -142,6 +142,9 @@ export function createMod(
       authorName: `Modder ${sequence}`,
       shortDescription: `Adds a few things to the game.`,
       thumbnailUrl: `https://mods.paradoxplaza.com/thumbnails/mod-${sequence}.jpg`,
+      previewUrls: [
+        `https://modscontent.paradox-interactive.com/mod-${sequence}/content/screenshots/screenshot_01.png`
+      ],
       tags: ['Code Mod'],
       subscribersCount: 1000,
       knownLastUpdatedAt: new Date('2026-01-15T10:00:00Z'),

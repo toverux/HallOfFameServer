@@ -132,6 +132,7 @@ export function expectedModPayload(mod: Mod, overrides: Readonly<Payload> = {}):
     authorName: mod.authorName,
     shortDescription: mod.shortDescription,
     thumbnailUrl: mod.thumbnailUrl,
+    previewUrls: mod.previewUrls,
     tags: mod.tags,
     subscribersCount: mod.subscribersCount,
     knownLastUpdatedAt: mod.knownLastUpdatedAt.toISOString(),

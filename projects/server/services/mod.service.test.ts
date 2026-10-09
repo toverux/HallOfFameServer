@@ -276,6 +276,7 @@ function stubParadoxMod(mod: Mod, overrides: Readonly<Record<string, JsonValue>>
       displayName: mod.name,
       shortDescription: mod.shortDescription,
       displayImagePath: mod.thumbnailUrl,
+      screenshots: mod.previewUrls.map(image => ({ image })),
       tags: mod.tags,
       subscriptions: mod.subscribersCount,
       latestUpdate: mod.knownLastUpdatedAt.toISOString(),

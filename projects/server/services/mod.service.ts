@@ -36,6 +36,7 @@ type SyncedModFields = Pick<
   | 'authorName'
   | 'shortDescription'
   | 'thumbnailUrl'
+  | 'previewUrls'
   | 'tags'
   | 'subscribersCount'
   | 'knownLastUpdatedAt'
@@ -129,6 +130,10 @@ export class ModService {
    */
   private static readonly paradoxModHintSchemas = {
     'requiredVersion': z.string().trim().min(1),
+    // Each preview also has a `thumbnail`, too small for the mod's UI.
+    'screenshots': z
+      .array(z.looseObject({ image: z.string() }))
+      .transform(screenshots => screenshots.map(screenshot => screenshot.image)),
     // Sent as a numeric string, and may exceed int32.
     'metadata.size_in_memory': z.string().regex(/^\d+$/u).transform(BigInt),
     'creationDate': z.iso.datetime().transform(value => new Date(value)),
@@ -203,6 +208,7 @@ export class ModService {
               authorName: 'Unknown',
               shortDescription: 'Unknown',
               thumbnailUrl: 'Unknown',
+              previewUrls: [],
               tags: [],
               subscribersCount: 0,
               knownLastUpdatedAt: new Date(0)
@@ -231,6 +237,7 @@ export class ModService {
       authorName: mod.authorName,
       shortDescription: mod.shortDescription,
       thumbnailUrl: mod.thumbnailUrl,
+      previewUrls: mod.previewUrls,
       tags: mod.tags,
       subscribersCount: mod.subscribersCount,
       knownLastUpdatedAt: mod.knownLastUpdatedAt.toISOString(),
@@ -536,6 +543,7 @@ export class ModService {
         authorName: details.author,
         shortDescription: details.shortDescription,
         thumbnailUrl: details.displayImagePath,
+        previewUrls: this.parseHint(modId, 'screenshots', details.screenshots) ?? [],
         tags: details.tags,
         subscribersCount: details.subscriptions,
         knownLastUpdatedAt: details.latestUpdate,

@@ -1,11 +1,5 @@
 import assert from 'node:assert/strict';
-import {
-  ForbiddenException,
-  Inject,
-  Injectable,
-  Logger,
-  type OnApplicationBootstrap
-} from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, Logger } from '@nestjs/common';
 import { oneLine } from 'common-tags';
 import * as dfns from 'date-fns';
 import type { FastifyRequest } from 'fastify';
@@ -35,6 +29,7 @@ import { ModService } from './mod.service';
 import { PrismaService } from './prisma.service';
 import { ScreenshotProcessingService } from './screenshot-processing.service';
 import { ScreenshotSimilarityDetectorService } from './screenshot-similarity-detector.service';
+import { ScreenshotStatsService } from './screenshot-stats.service';
 import { ScreenshotStorageService } from './screenshot-storage.service';
 import { ViewService } from './view.service';
 
@@ -66,7 +61,7 @@ interface JsonOid extends Prisma.InputJsonObject {
 }
 
 @Injectable()
-export class ScreenshotService implements OnApplicationBootstrap {
+export class ScreenshotService {
   private static readonly sampleSizeForDeterministicAlgorithms = 100;
 
   /**
@@ -126,6 +121,9 @@ export class ScreenshotService implements OnApplicationBootstrap {
   @Inject(ScreenshotStorageService)
   private readonly screenshotStorage!: ScreenshotStorageService;
 
+  @Inject(ScreenshotStatsService)
+  private readonly screenshotStats!: ScreenshotStatsService;
+
   private readonly logger = new Logger(ScreenshotService.name);
 
   private readonly randomScreenshotFunctions: RandomScreenshotFunctions = {
@@ -136,21 +134,6 @@ export class ScreenshotService implements OnApplicationBootstrap {
     archeologist: this.getScreenshotArcheologist.bind(this),
     supporter: this.getScreenshotSupporter.bind(this)
   };
-
-  private popularScreenshotsFavoritingPercentageThreshold = 0;
-
-  public async onApplicationBootstrap(): Promise<void> {
-    this.popularScreenshotsFavoritingPercentageThreshold =
-      await this.getPopularFavoritingPercentageThreshold();
-
-    this.logger.log(
-      oneLine`
-      Popular screenshots favoriting percentage threshold:
-      ${this.popularScreenshotsFavoritingPercentageThreshold}%
-      (percentile=${config.screenshots.popularScreenshotsPercentile},
-      min favorites=${config.screenshots.popularScreenshotsMinFavorites}).`
-    );
-  }
 
   /**
    * Ingests a screenshot and its metadata into the Hall of Fame.
@@ -377,7 +360,8 @@ export class ScreenshotService implements OnApplicationBootstrap {
             cityNameLocale: needsTranslation ? null : Prisma.skip,
             cityNameLatinized: needsTranslation ? null : Prisma.skip,
             cityNameTranslated: needsTranslation ? null : Prisma.skip,
-            // A newly showcased mod awaits moderation, an unchanged one keeps its outcome.
+            // A changed or cleared showcased mod resets its validation, an unchanged one keeps its
+            // moderation outcome.
             isShowcasedModValidated:
               data.showcasedModId == Prisma.skip ||
               data.showcasedModId == originalScreenshot.showcasedModId
@@ -698,6 +682,7 @@ export class ScreenshotService implements OnApplicationBootstrap {
       isReported: screenshot.isReported,
       favoritesCount: screenshot.favoritesCount,
       favoritingPercentage: screenshot.favoritingPercentage,
+      rank: this.screenshotStats.getRank(screenshot),
       viewsCount: screenshot.viewsCount,
       uniqueViewsCount: screenshot.uniqueViewsCount,
       viewerUrl: `${config.http.baseUrl}/api/v1/screenshots/${screenshot.id}/viewer`,
@@ -751,41 +736,6 @@ export class ScreenshotService implements OnApplicationBootstrap {
       ),
       views: optionallySerialized(screenshot.views?.map(view => this.viewService.serialize(view)))
     };
-  }
-
-  /**
-   * Calculates the favoriting percentage threshold for determining popular screenshots
-   * based on a specified percentile ({@link config.screenshots.popularScreenshotsPercentile}) and
-   * a minimum favorites count ({@link config.screenshots.popularScreenshotsMinFavorites}).
-   */
-  private async getPopularFavoritingPercentageThreshold(): Promise<number> {
-    const [result] = (await this.prisma.screenshot.aggregateRaw({
-      pipeline: [
-        {
-          $match: {
-            favoritesCount: { $gte: config.screenshots.popularScreenshotsMinFavorites }
-          }
-        },
-        {
-          $group: {
-            _id: null,
-            // oxlint-disable-next-line id-length
-            p: {
-              $percentile: {
-                input: '$favoritingPercentage',
-                // oxlint-disable-next-line id-length
-                p: [config.screenshots.popularScreenshotsPercentile],
-                method: 'approximate'
-              }
-            }
-          }
-        },
-        { $project: { median: { $arrayElemAt: ['$p', 0] } } }
-      ]
-    })) as unknown as ReadonlyArray<{ median: number }>;
-
-    // No result if there is no match (empty or new database).
-    return result?.median ?? 0;
   }
 
   /**
@@ -856,9 +806,9 @@ export class ScreenshotService implements OnApplicationBootstrap {
 
   /**
    * Retrieves a screenshot that has a high favoriting percentage:
-   * - ≥ 10 favorites
+   * - ≥ {@link config.screenshots.popularScreenshotsMinFavorites} favorites
    * - ≥ X% favoriting percentage (X being dynamically determined, see
-   * {@link getPopularFavoritingPercentageThreshold})
+   * {@link ScreenshotStatsService.popularFavoritingPercentageThreshold})
    */
   private getScreenshotPopular(nin: readonly JsonOid[]): Promise<ScreenshotWithCreator | null> {
     // Uses [isReported, favoritesCount, favoritingPercentage] compound index for matching, test
@@ -869,7 +819,7 @@ export class ScreenshotService implements OnApplicationBootstrap {
           _id: { $nin: nin },
           isReported: false,
           favoritesCount: { $gte: config.screenshots.popularScreenshotsMinFavorites },
-          favoritingPercentage: { $gte: this.popularScreenshotsFavoritingPercentageThreshold }
+          favoritingPercentage: { $gte: this.screenshotStats.popularFavoritingPercentageThreshold }
         }
       },
       { $sample: { size: 1 } }

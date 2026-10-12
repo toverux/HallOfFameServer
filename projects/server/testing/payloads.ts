@@ -40,6 +40,8 @@ export function expectedScreenshotPayload(
     isReported: screenshot.isReported,
     favoritesCount: screenshot.favoritesCount,
     favoritingPercentage: screenshot.favoritingPercentage,
+    // Unranked, as below the minimum likes, the factory default.
+    rank: null,
     viewsCount: screenshot.viewsCount,
     uniqueViewsCount: screenshot.uniqueViewsCount,
     viewerUrl: `${config.http.baseUrl}/api/v1/screenshots/${screenshot.id}/viewer`,

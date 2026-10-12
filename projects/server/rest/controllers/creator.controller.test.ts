@@ -220,7 +220,9 @@ describe('CreatorController', () => {
         screenshotsCount: 2,
         viewsCount: 15,
         uniqueViewsCount: 10,
-        favoritesCount: 3
+        favoritesCount: 3,
+        rankMinUniqueViewsCount: 30,
+        rankMinFavoritesCount: 3
       });
 
       // Anonymously, as the viewer asks.
@@ -238,7 +240,9 @@ describe('CreatorController', () => {
         screenshotsCount: 1,
         viewsCount: 7,
         uniqueViewsCount: 7,
-        favoritesCount: 3
+        favoritesCount: 3,
+        rankMinUniqueViewsCount: 30,
+        rankMinFavoritesCount: 3
       });
     });
 
@@ -259,7 +263,9 @@ describe('CreatorController', () => {
         screenshotsCount: 0,
         viewsCount: 0,
         uniqueViewsCount: 0,
-        favoritesCount: 0
+        favoritesCount: 0,
+        rankMinUniqueViewsCount: 30,
+        rankMinFavoritesCount: 3
       });
     });
   });

@@ -227,6 +227,76 @@ describe('ScreenshotController', () => {
       ]);
     });
 
+    test(`ranks each screenshot by its exact like rate against the rates of the ranked ones`, async () => {
+      const { rankMinUniqueViews: minViews, rankMinFavorites: minFavorites } = config.screenshots;
+
+      const others = await createCreator(testApp.prisma);
+
+      // Percentiles 25, 50, 75 and 97 of these rates: 20%, 40%, 60% and 80%.
+      for (const favoritesCount of [10, 10, 20, 20, 40, 40, 60, 60, 80, 80]) {
+        // oxlint-disable-next-line no-await-in-loop - sequential factory numbering
+        await createScreenshot(testApp.prisma, others, { favoritesCount, uniqueViewsCount: 100 });
+      }
+
+      // Under a floor, so their rates move no cut point.
+      await createScreenshot(testApp.prisma, others, {
+        favoritesCount: minViews - 1,
+        uniqueViewsCount: minViews - 1
+      });
+
+      await createScreenshot(testApp.prisma, others, {
+        favoritesCount: minFavorites - 1,
+        uniqueViewsCount: 100
+      });
+
+      // The cut points are computed when the app starts.
+      await testApp.app.close();
+
+      testApp = await createTestApp();
+
+      const creator = await createCreator(testApp.prisma);
+
+      const expectedRanks = [
+        { favoritesCount: minViews - 1, uniqueViewsCount: minViews - 1, rank: null },
+        { favoritesCount: minFavorites - 1, uniqueViewsCount: 100, rank: null },
+        { favoritesCount: minFavorites, uniqueViewsCount: minViews, rank: 'bronze' },
+        // 19.5%, which the stored like rate rounds up to the silver cut point.
+        { favoritesCount: 39, uniqueViewsCount: 200, rank: 'bronze' },
+        { favoritesCount: 20, uniqueViewsCount: 100, rank: 'silver' },
+        { favoritesCount: 39, uniqueViewsCount: 100, rank: 'silver' },
+        { favoritesCount: 40, uniqueViewsCount: 100, rank: 'gold' },
+        { favoritesCount: 59, uniqueViewsCount: 100, rank: 'gold' },
+        { favoritesCount: 60, uniqueViewsCount: 100, rank: 'platinum' },
+        { favoritesCount: 79, uniqueViewsCount: 100, rank: 'platinum' },
+        { favoritesCount: 80, uniqueViewsCount: 100, rank: 'diamond' }
+      ];
+
+      const expectedPayloads: unknown[] = [];
+
+      for (const { favoritesCount, uniqueViewsCount, rank } of expectedRanks) {
+        // oxlint-disable-next-line no-await-in-loop - sequential factory numbering
+        const screenshot = await createScreenshot(testApp.prisma, creator, {
+          favoritesCount,
+          uniqueViewsCount,
+          favoritingPercentage: Math.round((favoritesCount / uniqueViewsCount) * 100)
+        });
+
+        expectedPayloads.push(
+          expectedScreenshotPayload(screenshot, creator, { rank, __favorited: false })
+        );
+      }
+
+      const response = await testApp.app.inject({
+        method: 'GET',
+        url: '/api/v1/screenshots?creatorId=me',
+        headers: modHeaders(creator)
+      });
+
+      expect(response.statusCode).toBe(200);
+
+      expect(response.json<unknown>()).toEqual(expectedPayloads);
+    });
+
     test(`returns 400 for favorites or views without a creator filter`, async () => {
       const response = await testApp.app.inject({
         method: 'GET',
@@ -2326,6 +2396,39 @@ describe('ScreenshotController', () => {
       expect(
         await testApp.prisma.screenshot.findUniqueOrThrow({ where: { id: screenshot.id } })
       ).toMatchObject({ showcasedModId: 87_755, isShowcasedModValidated: false });
+    });
+
+    test.each([null, ''])(`clears the showcased mod sent as %p`, async showcasedModId => {
+      const creator = await createCreator(testApp.prisma);
+
+      const screenshot = await createScreenshot(testApp.prisma, creator, {
+        showcasedModId: 87_755,
+        isShowcasedModValidated: true
+      });
+
+      const response = await testApp.app.inject({
+        method: 'PUT',
+        url: `/api/v1/screenshots/${screenshot.id}`,
+        headers: modHeaders(creator),
+        payload: { showcasedModId }
+      });
+
+      expect(response.statusCode).toBe(200);
+
+      const updated = await testApp.prisma.screenshot.findUniqueOrThrow({
+        where: { id: screenshot.id }
+      });
+
+      expect(updated).toEqual({
+        ...screenshot,
+        showcasedModId: null,
+        isShowcasedModValidated: false
+      });
+
+      // The update response leaves out the creator.
+      expect(response.json<unknown>()).toEqual(
+        expectedScreenshotPayload(updated, creator, { creator: undefined })
+      );
     });
 
     test(`keeps the moderation outcome of a showcased mod sent again`, async () => {

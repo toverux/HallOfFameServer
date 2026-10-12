@@ -19,6 +19,7 @@ import { allFulfilled } from '../../../shared/utils/all-fulfilled';
 import type { JsonObject } from '../../../shared/utils/json';
 import { viewerBaseUrl } from '../../common/constants';
 import { NotFoundByIdError } from '../../common/standard-error';
+import { config } from '../../config';
 import { CreatorAuthorizationGuard } from '../../guards';
 import { ZodParsePipe } from '../../pipes';
 import {
@@ -132,7 +133,10 @@ export class CreatorController {
       screenshotsCount,
       viewsCount,
       uniqueViewsCount,
-      favoritesCount
+      favoritesCount,
+      // What a screenshot needs to be ranked, see ScreenshotStatsService.getRank.
+      rankMinUniqueViewsCount: config.screenshots.rankMinUniqueViews,
+      rankMinFavoritesCount: config.screenshots.rankMinFavorites
     };
   }
 

@@ -52,7 +52,7 @@ export class ScreenshotController {
    */
   private static readonly updateScreenshotBodySchema = z.strictObject({
     cityName: z.string().optional(),
-    showcasedModId: z.string().optional(),
+    showcasedModId: z.string().nullable().optional(),
     description: z.string().optional(),
     shareParadoxModIds: z.boolean().optional(),
     shareRenderSettings: z.boolean().optional()
@@ -423,7 +423,7 @@ export class ScreenshotController {
    * Update a screenshot by ID.
    * Only these properties can be updated:
    * - {@link Screenshot.cityName}
-   * - {@link Screenshot.showcasedModId}
+   * - {@link Screenshot.showcasedModId}, cleared by null or an empty string
    * - {@link Screenshot.description}
    * - {@link Screenshot.shareParadoxModIds}
    * - {@link Screenshot.shareRenderSettings}
@@ -455,11 +455,14 @@ export class ScreenshotController {
     }
 
     const cityName = body.cityName == null ? undefined : validateCityName(body.cityName);
-    const showcasedModId = Array.from(validateModIds(body.showcasedModId)).at(0);
+    const showcasedModId =
+      body.showcasedModId === undefined
+        ? Prisma.skip
+        : (Array.from(validateModIds(body.showcasedModId ?? undefined)).at(0) ?? null);
 
     const updatedScreenshot = await this.screenshotService.updateScreenshot(screenshotId, {
       cityName: cityName ?? Prisma.skip,
-      showcasedModId: showcasedModId ?? Prisma.skip,
+      showcasedModId,
       // An empty description clears it, as an upload without one.
       description:
         body.description == null ? Prisma.skip : (validateDescription(body.description) ?? null),

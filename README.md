@@ -54,8 +54,11 @@ override locally in `.env.local`.
 ### Dump & Restore Database
 
 1. Create the `.env.remote` file.
-2. Add `HOF_DATABASE_URL=XXX` which is the connection string to the remote database.
-3. Run `mise --env remote import-database`
+2. Add `HOF_REMOTE_SSH=user@host`, the SSH login of the server running the database. The database
+   only listens on that server's loopback, port 5432, and the task reaches it through an SSH tunnel.
+3. Add `HOF_DATABASE_URL=XXX`, the connection string to the remote database through that tunnel:
+   `mongodb://user:password@127.0.0.1:27019/default?authSource=default&directConnection=true`.
+4. Run `mise --env remote import-database`
 
 ### Updating Dependencies & Toolchain
 

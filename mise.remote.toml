@@ -9,7 +9,15 @@ _.file = ['.env', '.env.local', '.env.remote']
 description = "Dumps the remote database and restores it locally, then syncs Prisma schema and runs migrations."
 run = [
   "mise dev:db:start",
-  "mongodump --uri \"{{env.HOF_DATABASE_URL}}\" --gzip --archive=halloffame.mongoarchive",
+  # The remote database only listens on its server's loopback: dump it through an SSH tunnel to
+  # HOF_REMOTE_SSH, which HOF_DATABASE_URL targets as 127.0.0.1:27019.
+  """
+  set -e
+  socket="${TMPDIR:-/tmp}/hof-remote-db-$$.sock"
+  ssh -fNM -S "$socket" -o ExitOnForwardFailure=yes -L 27019:127.0.0.1:5432 "$HOF_REMOTE_SSH"
+  trap 'ssh -S "$socket" -O exit "$HOF_REMOTE_SSH" 2>/dev/null' EXIT
+  mongodump --uri "$HOF_DATABASE_URL" --gzip --archive=halloffame.mongoarchive
+  """,
   "mongorestore --gzip --archive=halloffame.mongoarchive --uri \"mongodb://localhost/halloffame?replicaSet=rs0\" --nsInclude='default.*' --nsFrom='default.*' --nsTo='halloffame.*' --drop",
   "rm -rf halloffame.mongoarchive",
   "mise exec bun -- bun prisma db push --skip-generate",

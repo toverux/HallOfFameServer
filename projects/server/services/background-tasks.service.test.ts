@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test';
 import { Logger } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
+import * as sentry from '@sentry/bun';
 import * as Bun from 'bun';
 import { createServiceTestingModule } from '../testing/testing-module';
 import { BackgroundTasksService } from './background-tasks.service';
@@ -38,10 +39,11 @@ describe('BackgroundTasksService', () => {
     expect(done).toEqual(['translation', 'mod cache warmup']);
   });
 
-  test(`logs a failing task instead of throwing`, async () => {
+  test(`logs and reports a failing task instead of throwing`, async () => {
     const error = new Error(`The translator is unavailable.`);
 
     const logError = spyOn(Logger.prototype, 'error').mockReturnValue(void 0);
+    const captureException = spyOn(sentry, 'captureException').mockReturnValue('');
 
     try {
       backgroundTasks.run(`Failed to translate "東京".`, () => Promise.reject(error));
@@ -49,8 +51,10 @@ describe('BackgroundTasksService', () => {
       await backgroundTasks.settled();
 
       expect(logError).toHaveBeenCalledWith(`Failed to translate "東京".`, error);
+      expect(captureException).toHaveBeenCalledWith(error);
     } finally {
       logError.mockRestore();
+      captureException.mockRestore();
     }
   });
 

@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { oneLine } from 'common-tags';
 import * as uuid from 'uuid';
-import type { Creator } from '#prisma-lib/client';
+import { type Creator, Prisma } from '#prisma-lib/client';
 import type { CreatorId, HardwareId, IpAddress } from '../../shared/utils/branded-types';
 import type { JsonObject } from '../../shared/utils/json';
 import { unreachable } from '../../shared/utils/type-assertion';
@@ -309,6 +309,30 @@ export class CreatorService {
         () => this.updateCreatorNameTranslation(creatorToTranslate)
       );
     }
+  }
+
+  /**
+   * Records in the background that the Creator played with the mod today (UTC):
+   * the request does not wait for it, and a failure never fails the request.
+   */
+  public recordActivity(creatorId: Creator['id'], modVersion: string | undefined): void {
+    const now = new Date();
+    const day = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+
+    this.backgroundTasks.run(`Failed to record the activity of creator #${creatorId}.`, () =>
+      this.prisma.creatorActivity.upsert({
+        select: { id: true },
+        where: { creatorId_day: { creatorId, day } },
+        create: {
+          creatorId,
+          day,
+          firstSeenAt: now,
+          lastSeenAt: now,
+          modVersion: modVersion ?? Prisma.skip
+        },
+        update: { lastSeenAt: now, modVersion: modVersion ?? Prisma.skip }
+      })
+    );
   }
 
   /**

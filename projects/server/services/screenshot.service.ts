@@ -10,6 +10,7 @@ import {
   type Mod,
   Prisma,
   type Screenshot,
+  type ScreenshotAlgorithm,
   type View
 } from '#prisma-lib/client';
 import type { ParadoxModId } from '../../shared/utils/branded-types';
@@ -33,13 +34,10 @@ import { ScreenshotStatsService } from './screenshot-stats.service';
 import { ScreenshotStorageService } from './screenshot-storage.service';
 import { ViewService } from './view.service';
 
-type RandomScreenshotAlgorithm =
-  | 'random'
-  | 'popular'
-  | 'trending'
-  | 'recent'
-  | 'archeologist'
-  | 'supporter';
+/**
+ * The algorithms a weighted pick chooses between, by the weights the requester sends.
+ */
+type RandomScreenshotAlgorithm = Exclude<ScreenshotAlgorithm, 'random_default' | 'newcomer'>;
 
 type RandomScreenshotWeights = Readonly<Record<RandomScreenshotAlgorithm, number>>;
 
@@ -53,7 +51,7 @@ type RandomScreenshotFunctions = Readonly<
 type ScreenshotWithCreator = Screenshot & { creator: Creator };
 
 type ScreenshotWithAlgo = ScreenshotWithCreator & {
-  __algorithm: RandomScreenshotAlgorithm | 'random_default';
+  __algorithm: ScreenshotAlgorithm;
 };
 
 interface JsonOid extends Prisma.InputJsonObject {
@@ -638,6 +636,11 @@ export class ScreenshotService {
 
     // At this point we have a screenshot or the database is empty.
     assert.ok(screenshot, `Not a single screenshot found. Empty database?`);
+
+    if (creatorId) {
+      // oxlint-disable-next-line no-underscore-dangle
+      this.viewService.rememberPick(creatorId, screenshot.id, screenshot.__algorithm);
+    }
 
     this.logger.verbose(
       // oxlint-disable-next-line no-underscore-dangle

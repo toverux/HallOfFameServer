@@ -77,6 +77,8 @@ model Creator {
   /// JSON object containing miscellaneous information we want to attach to users, mostly for
   /// debugging/analytics purposes.
   metadata              Json
+  // A relation added here must also be handled by `creator merge` (creator-merge.command.ts):
+  // its final delete of the duplicate cascades to every record left on it.
   /// One to many relationship with posted Screenshots.
   screenshots           Screenshot[]      @relation("screenshots")
   /// One to many relationship with reported Screenshots.
@@ -87,6 +89,8 @@ model Creator {
   favorites             Favorite[]
   /// One to many relationship with Views, the screenshots the Creator has seen.
   viewedScreenshots     View[]
+  /// One to many relationship with CreatorActivities, the days the Creator played with the mod.
+  activities            CreatorActivity[]
 
   @@index([creatorName])
   @@index([creatorNameSlug])
@@ -98,6 +102,25 @@ model Creator {
 enum CreatorIdProvider {
   local
   paradox
+}
+
+/// A day a Creator played with the mod, recorded on each `PUT /creators/me`.
+/// The mod also sends that request when settings change,
+/// so the server sees requests, not launches, and keeps no launch count.
+model CreatorActivity {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  creatorId   String   @db.ObjectId
+  creator     Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  /// UTC midnight of the day.
+  day         DateTime
+  firstSeenAt DateTime
+  lastSeenAt  DateTime
+  /// Mod version the Creator last reported that day, absent if it reported none.
+  modVersion  String?
+
+  @@unique([creatorId, day])
+  @@index([day]) // for daily actives
+  @@map("creator_activities")
 }
 
 /// A social link for a Creator.
@@ -309,6 +332,9 @@ model View {
   screenshot   Screenshot @relation(fields: [screenshotId], references: [id], onDelete: Cascade)
   creatorId    String     @db.ObjectId
   creator      Creator    @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  /// Algorithm that served the Screenshot to the Creator, internal to the server.
+  /// Absent when the server no longer remembered the pick, and on views recorded before it did.
+  algorithm    ScreenshotAlgorithm?
 
   @@index([screenshotId])
   @@index([creatorId])
@@ -316,6 +342,20 @@ model View {
   // in a while.
   @@index([creatorId, viewedAt])
   @@map("views")
+}
+
+/// Algorithm that picks a screenshot for `GET /screenshots/weighted`.
+enum ScreenshotAlgorithm {
+  random
+  popular
+  trending
+  recent
+  archeologist
+  supporter
+  /// Fallback when no weighted algorithm found a screenshot.
+  random_default
+  /// Proven screenshots served to a newcomer, ignoring their weights.
+  newcomer
 }
 
 /// A mod from Paradox Mods.

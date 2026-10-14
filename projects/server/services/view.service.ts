@@ -1,7 +1,13 @@
 import { Inject, Injectable } from '@nestjs/common';
 import * as dateFns from 'date-fns';
 import { LRUCache } from 'lru-cache';
-import type { Creator, Screenshot, View } from '#prisma-lib/client';
+import {
+  type Creator,
+  Prisma,
+  type Screenshot,
+  type ScreenshotAlgorithm,
+  type View
+} from '#prisma-lib/client';
 import { hours } from '../../shared/utils/duration';
 import { type JsonObject, optionallySerialized } from '../../shared/utils/json';
 import { CreatorService } from './creator.service';
@@ -31,6 +37,21 @@ export class ViewService {
     // Allow a max of 100 creator entries in the cache.
     max: 100,
     // Cache entries for 2 hours (more if key recency is updated).
+    ttl: hours(2)
+  });
+
+  /**
+   * Algorithm that served each screenshot recently picked for a Creator,
+   * kept until the Creator records its view, keyed by Creator ID and screenshot ID.
+   * A view whose pick was forgotten (restart, eviction, expiry) stays unlabelled, not mislabelled.
+   */
+  private readonly pickedAlgorithms = new LRUCache<
+    `${Creator['id']}:${Screenshot['id']}`,
+    ScreenshotAlgorithm
+  >({
+    // The mod prefetches one pick ahead, so this holds a few entries per player browsing.
+    max: 5000,
+    // A view follows its pick within the slideshow's interval, far below this.
     ttl: hours(2)
   });
 
@@ -77,13 +98,29 @@ export class ViewService {
   }
 
   /**
+   * Remembers which algorithm served a screenshot to the Creator.
+   */
+  public rememberPick(
+    creatorId: Creator['id'],
+    screenshotId: Screenshot['id'],
+    algorithm: ScreenshotAlgorithm
+  ): void {
+    this.pickedAlgorithms.set(`${creatorId}:${screenshotId}`, algorithm);
+  }
+
+  /**
    * Marks a screenshot as viewed, creates a new {@link View} record.
    * The view count properties will be updated with the background job.
    */
   public async markViewed(screenshotId: Screenshot['id'], creatorId: Creator['id']): Promise<View> {
+    const pickKey = `${creatorId}:${screenshotId}` as const;
+    const algorithm = this.pickedAlgorithms.get(pickKey);
+
+    this.pickedAlgorithms.delete(pickKey);
+
     // Create the View record.
     const view = await this.prisma.view.create({
-      data: { screenshotId, creatorId }
+      data: { screenshotId, creatorId, algorithm: algorithm ?? Prisma.skip }
     });
 
     // Add the view to the Creator's cached views, even while they load: once the View exists, a

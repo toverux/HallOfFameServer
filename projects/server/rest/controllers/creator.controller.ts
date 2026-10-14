@@ -75,6 +75,14 @@ export class CreatorController {
   ): Promise<JsonObject> {
     const creator = CreatorAuthenticationService.getAuthenticatedCreator(req);
 
+    // The mod sends this request at each game load, so it records the day's activity.
+    const modVersion = body.metadata?.modVersion;
+
+    this.creatorService.recordActivity(
+      creator.id,
+      typeof modVersion == 'string' ? modVersion : undefined
+    );
+
     const updated = await this.prisma.creator.update({
       where: { id: creator.id },
       data: {

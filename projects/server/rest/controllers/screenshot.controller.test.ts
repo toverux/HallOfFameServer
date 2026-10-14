@@ -1527,6 +1527,100 @@ describe('ScreenshotController', () => {
         await testApp.prisma.screenshot.findUniqueOrThrow({ where: { id: screenshot.id } })
       ).toMatchObject({ viewsCount: 1 });
     });
+
+    describe('algorithm', () => {
+      test(`labels the view a pick served with its algorithm, and no later view`, async () => {
+        const player = await createCreator(testApp.prisma);
+
+        const screenshot = await createScreenshot(
+          testApp.prisma,
+          await createCreator(testApp.prisma)
+        );
+
+        await pick(player, 'random=1');
+        await postView(player, screenshot);
+
+        // The second view comes from no pick, as when the mod shows a screenshot again.
+        await postView(player, screenshot);
+
+        expect(await testApp.prisma.view.findMany({ select: { algorithm: true } })).toEqual([
+          { algorithm: 'random' },
+          { algorithm: null }
+        ]);
+      });
+
+      // The mod prefetches the next pick before posting the view of the current one.
+      test(`records each pick's algorithm when views come in another order`, async () => {
+        const { popularScreenshotsMinFavorites, recencyThresholdDays } = config.screenshots;
+
+        const player = await createCreator(testApp.prisma);
+        const creator = await createCreator(testApp.prisma);
+
+        const popular = await createScreenshot(testApp.prisma, creator, {
+          createdAt: dfns.subDays(new Date(), recencyThresholdDays + 1),
+          favoritesCount: popularScreenshotsMinFavorites,
+          favoritingPercentage: 50
+        });
+
+        const recent = await createScreenshot(testApp.prisma, creator);
+
+        expect(await pick(player, 'popular=1')).toMatchObject({ id: popular.id });
+        expect(await pick(player, 'recent=1')).toMatchObject({ id: recent.id });
+
+        await postView(player, recent);
+        await postView(player, popular);
+
+        expect(
+          await testApp.prisma.view.findMany({ select: { screenshotId: true, algorithm: true } })
+        ).toEqual([
+          { screenshotId: recent.id, algorithm: 'recent' },
+          { screenshotId: popular.id, algorithm: 'popular' }
+        ]);
+      });
+
+      test(`remembers no anonymous pick`, async () => {
+        const player = await createCreator(testApp.prisma);
+
+        const screenshot = await createScreenshot(
+          testApp.prisma,
+          await createCreator(testApp.prisma)
+        );
+
+        const response = await testApp.app.inject({
+          method: 'GET',
+          url: '/api/v1/screenshots/weighted?random=1'
+        });
+
+        expect(response.json<unknown>()).toMatchObject({ id: screenshot.id });
+
+        await postView(player, screenshot);
+
+        expect(await testApp.prisma.view.findFirstOrThrow()).toMatchObject({ algorithm: null });
+      });
+
+      async function pick(player: Creator, query: string): Promise<JsonObject> {
+        const response = await testApp.app.inject({
+          method: 'GET',
+          url: `/api/v1/screenshots/weighted?${query}`,
+          headers: modHeaders(player)
+        });
+
+        expect(response.statusCode).toBe(200);
+
+        return response.json<JsonObject>();
+      }
+
+      function postView(
+        player: Creator,
+        screenshot: Pick<Screenshot, 'id'>
+      ): ReturnType<TestApp['app']['inject']> {
+        return testApp.app.inject({
+          method: 'POST',
+          url: `/api/v1/screenshots/${screenshot.id}/views`,
+          headers: modHeaders(player)
+        });
+      }
+    });
   });
 
   describe('POST /api/v1/screenshots/:id/favorites', () => {

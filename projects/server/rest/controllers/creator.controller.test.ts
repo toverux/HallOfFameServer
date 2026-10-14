@@ -1,4 +1,16 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  mock,
+  setSystemTime,
+  spyOn,
+  test
+} from 'bun:test';
+import { Logger } from '@nestjs/common';
+import type { Creator } from '#prisma-lib/client';
+import type { JsonObject } from '../../../shared/utils/json';
 import { config } from '../../config';
 import { createCreator, createScreenshot, createView } from '../../testing/factories';
 import { createTestApp, modHeaders, type TestApp } from '../../testing/test-app';
@@ -172,6 +184,167 @@ describe('CreatorController', () => {
 
       expect(updated.locale).toBe('fr-FR');
       expect(updated.metadata).toEqual({ ...metadata, retiredSetting: true });
+    });
+
+    describe('activity', () => {
+      afterEach(() => {
+        setSystemTime();
+      });
+
+      test(`records the day's activity`, async () => {
+        const creator = await createCreator(testApp.prisma);
+
+        setSystemTime(new Date('2026-10-14T08:30:00Z'));
+
+        const response = await updateMyself(creator, { modVersion: '2026.1.0' });
+
+        expect(response.statusCode).toBe(200);
+
+        await testApp.backgroundTasks.settled();
+
+        expect(await testApp.prisma.creatorActivity.findMany()).toEqual([
+          {
+            id: expect.any(String),
+            creatorId: creator.id,
+            day: new Date('2026-10-14T00:00:00Z'),
+            firstSeenAt: new Date('2026-10-14T08:30:00Z'),
+            lastSeenAt: new Date('2026-10-14T08:30:00Z'),
+            modVersion: '2026.1.0'
+          }
+        ]);
+      });
+
+      // Only a string replaces the mod version, so a later call without one keeps the earlier.
+      test.each([
+        { metadata: { modVersion: '2026.1.1' }, modVersion: '2026.1.1' },
+        { metadata: { modVersion: 2026 }, modVersion: '2026.1.0' },
+        { metadata: {}, modVersion: '2026.1.0' }
+      ])(
+        `updates last seen on a later call the same day with $metadata`,
+        async ({ metadata, modVersion }) => {
+          const creator = await createCreator(testApp.prisma);
+
+          setSystemTime(new Date('2026-10-14T08:30:00Z'));
+
+          await updateMyself(creator, { modVersion: '2026.1.0' });
+
+          setSystemTime(new Date('2026-10-14T23:59:00Z'));
+
+          await updateMyself(creator, metadata);
+
+          await testApp.backgroundTasks.settled();
+
+          expect(await testApp.prisma.creatorActivity.findMany()).toMatchObject([
+            {
+              day: new Date('2026-10-14T00:00:00Z'),
+              firstSeenAt: new Date('2026-10-14T08:30:00Z'),
+              lastSeenAt: new Date('2026-10-14T23:59:00Z'),
+              modVersion
+            }
+          ]);
+        }
+      );
+
+      test(`leaves the mod version absent when none was reported`, async () => {
+        const creator = await createCreator(testApp.prisma);
+
+        await updateMyself(creator, { modVersion: null });
+
+        await testApp.backgroundTasks.settled();
+
+        expect(await testApp.prisma.creatorActivity.findMany()).toMatchObject([
+          { modVersion: null }
+        ]);
+      });
+
+      test(`starts a new record on another UTC day`, async () => {
+        const creator = await createCreator(testApp.prisma);
+
+        setSystemTime(new Date('2026-10-14T23:59:00Z'));
+
+        await updateMyself(creator, { modVersion: '2026.1.0' });
+
+        setSystemTime(new Date('2026-10-15T00:01:00Z'));
+
+        await updateMyself(creator, { modVersion: '2026.1.0' });
+
+        await testApp.backgroundTasks.settled();
+
+        const activities = await testApp.prisma.creatorActivity.findMany({
+          orderBy: { day: 'asc' }
+        });
+
+        expect(activities).toMatchObject([
+          {
+            day: new Date('2026-10-14T00:00:00Z'),
+            firstSeenAt: new Date('2026-10-14T23:59:00Z'),
+            lastSeenAt: new Date('2026-10-14T23:59:00Z')
+          },
+          {
+            day: new Date('2026-10-15T00:00:00Z'),
+            firstSeenAt: new Date('2026-10-15T00:01:00Z'),
+            lastSeenAt: new Date('2026-10-15T00:01:00Z')
+          }
+        ]);
+      });
+
+      // As when the mod syncs its settings while it loads.
+      test(`records concurrent calls on a single record`, async () => {
+        const creator = await createCreator(testApp.prisma);
+
+        const responses = await Promise.all([
+          updateMyself(creator, { modVersion: '2026.1.0' }),
+          updateMyself(creator, { modVersion: '2026.1.0' })
+        ]);
+
+        await testApp.backgroundTasks.settled();
+
+        expect(responses.map(response => response.statusCode)).toEqual([200, 200]);
+        expect(await testApp.prisma.creatorActivity.count()).toBe(1);
+      });
+
+      test(`answers as usual when recording the activity fails`, async () => {
+        const creator = await createCreator(testApp.prisma);
+
+        const upsert = mock(() => Promise.reject(new Error(`Database unavailable.`)));
+
+        // A spyOn on the delegate's upsert never takes effect: Prisma's model delegates are
+        // proxies that ignore own properties, so the test replaces the delegate on the client.
+        Object.defineProperty(testApp.prisma, 'creatorActivity', { value: { upsert } });
+
+        // Silences the failure logged for the activity.
+        const logError = spyOn(Logger.prototype, 'error').mockReturnValue(void 0);
+
+        try {
+          const response = await updateMyself(creator, { modVersion: '2026.1.0' });
+
+          await testApp.backgroundTasks.settled();
+
+          const me = await testApp.app.inject({
+            method: 'GET',
+            url: '/api/v1/creators/me',
+            headers: modHeaders(creator)
+          });
+
+          expect(response.statusCode).toBe(200);
+          expect(response.json<unknown>()).toEqual(me.json<unknown>());
+          expect(upsert).toHaveBeenCalledTimes(1);
+        } finally {
+          logError.mockRestore();
+        }
+      });
+
+      function updateMyself(
+        creator: Creator,
+        metadata: JsonObject
+      ): ReturnType<TestApp['app']['inject']> {
+        return testApp.app.inject({
+          method: 'PUT',
+          url: '/api/v1/creators/me',
+          headers: modHeaders(creator),
+          payload: { metadata }
+        });
+      }
     });
   });
 

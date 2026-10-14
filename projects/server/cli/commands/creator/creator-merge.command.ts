@@ -70,6 +70,22 @@ export class CreatorMergeCommand extends CommandRunner {
 
     iconsole.info(chalk.bold(`Updated ${updatedViews} views.`));
 
+    // A day both creators played keeps the target's record, the cascade deletes the duplicate's.
+    const targetActivities = await prisma.creatorActivity.findMany({
+      select: { day: true },
+      where: { creatorId: targetCreator.id }
+    });
+
+    const { count: updatedActivities } = await prisma.creatorActivity.updateMany({
+      where: {
+        creatorId: duplicateCreator.id,
+        day: { notIn: targetActivities.map(activity => activity.day) }
+      },
+      data: { creatorId: targetCreator.id }
+    });
+
+    iconsole.info(chalk.bold(`Updated ${updatedActivities} activity days.`));
+
     await prisma.creator.delete({
       where: { id: duplicateCreator.id }
     });

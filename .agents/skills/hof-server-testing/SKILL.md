@@ -51,6 +51,7 @@ No cron runs, and the app logs only errors, so a passing run prints nothing.
   Stub each expected URL with `fetchStub.respondWithJson()` before the request: any other request fails the test.
 - Bun's `spyOn` and `mock` serve one-offs: a call assertion, a forced rejection, a silenced logger.
   Restore a spy on a shared object (`Logger.prototype`) with `mockRestore()` even when the test fails: in a `finally`, or before the first assertion.
+- A `spyOn` on a Prisma model delegate's method never takes effect: force a query to fail by replacing the delegate on the per-test client, `Object.defineProperty(testApp.prisma, 'creatorActivity', { value: { upsert } })`.
 
 ## HTTP tests
 

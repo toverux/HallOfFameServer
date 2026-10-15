@@ -38,7 +38,7 @@ export class ScreenshotStatsService implements OnApplicationBootstrap {
    * The percentile of the exact like rate at which each rank above bronze starts.
    * Listed from the highest rank, the order in which {@link getRank} tries them.
    */
-  private static readonly rankPercentiles = [
+  public static readonly rankPercentiles = [
     { rank: 'diamond', percentile: 0.97 },
     { rank: 'platinum', percentile: 0.75 },
     { rank: 'gold', percentile: 0.5 },
@@ -49,7 +49,7 @@ export class ScreenshotStatsService implements OnApplicationBootstrap {
    * The MongoDB filter on the floors of {@link getRank},
    * matching the screenshots that can be ranked.
    */
-  private static readonly rankableFilter: Prisma.InputJsonObject = {
+  public static readonly rankableFilter: Prisma.InputJsonObject = {
     uniqueViewsCount: { $gte: config.screenshots.rankMinUniqueViews },
     favoritesCount: { $gte: config.screenshots.rankMinFavorites }
   };
@@ -58,7 +58,7 @@ export class ScreenshotStatsService implements OnApplicationBootstrap {
    * The MongoDB expression of a screenshot's exact like rate (percentage).
    * Same operations in the same order as {@link getRank}, for equal floats.
    */
-  private static readonly likeRateExpression: Prisma.InputJsonObject = {
+  public static readonly likeRateExpression: Prisma.InputJsonObject = {
     $divide: [{ $multiply: ['$favoritesCount', 100] }, '$uniqueViewsCount']
   };
 
@@ -348,7 +348,7 @@ interface PercentileFacetResult {
  * A `$facet` pipeline computing the given percentiles of {@link input}
  * over the screenshots matching {@link match}, as one {@link PercentileFacetResult}.
  */
-function percentileFacet(
+export function percentileFacet(
   match: Prisma.InputJsonObject,
   input: Prisma.InputJsonValue,
   percentiles: readonly number[]

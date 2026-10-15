@@ -54,6 +54,7 @@ TypeScript, one root `tsconfig.json` covering the whole repo, `.agents/hooks` in
 - `projects/server/rest` – REST API controllers
 - `projects/server/graphql` – GraphQL resolvers and schema
 - `projects/server/cli` – Command-line interface tools
+- `projects/server/dashboards` – Metabase dashboards as versioned MongoDB pipelines, one module per card, tested against seeded data
 - `projects/server/services` – Business logic services
 - `projects/server/testing` – Shared test infrastructure: preloads, factories, fakes, the `fetch` stub, the testing-module and test app builders
 - `projects/server/http-tests` – HTTP request files for manual testing with JetBrains HTTP Client, not part of the test suite
@@ -63,6 +64,7 @@ TypeScript, one root `tsconfig.json` covering the whole repo, `.agents/hooks` in
 - `.agents/skills` – Project skills, exposed to Claude Code through symlinks in `.claude/skills`
 - `.github/workflows` – CI
 - `docs/adr` – Architecture decision records; read before re-deciding something already settled.
+- `docs/agents/dependency-updates.md` – Dependency ledger: skipped upgrades and workarounds for a dependency's bug, each with what lifts it; read before upgrading a dependency.
 - `docs/solutions` – Problem-shaped learnings captured by the `/compound` skill (root cause, gotcha, "what didn't work"); search it before diagnosing or re-deciding.
 
 ## Commands

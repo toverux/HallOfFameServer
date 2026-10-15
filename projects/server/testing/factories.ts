@@ -3,7 +3,16 @@
  * Tests override only the fields they care about, and pass related records in.
  */
 
-import type { Ban, Creator, Favorite, Mod, Prisma, Screenshot, View } from '#prisma-lib/client';
+import type {
+  Ban,
+  Creator,
+  CreatorActivity,
+  Favorite,
+  Mod,
+  Prisma,
+  Screenshot,
+  View
+} from '#prisma-lib/client';
 import { nn } from '../../shared/utils/type-assertion';
 import { CreatorService } from '../services/creator.service';
 import type { PrismaService } from '../services/prisma.service';
@@ -47,6 +56,31 @@ export function createCreator(
       ips: [`203.0.113.${sequence}`],
       socials: [],
       metadata: {},
+      ...overrides
+    }
+  });
+}
+
+/**
+ * Records that the given Creator played with the mod on a day, as a game load does.
+ * The day and the first time seen derive from the last time seen unless overridden too.
+ */
+export function createCreatorActivity(
+  prisma: PrismaService,
+  creator: Pick<Creator, 'id'>,
+  overrides: Partial<Prisma.CreatorActivityUncheckedCreateInput> = {}
+): Promise<CreatorActivity> {
+  const { lastSeenAt = new Date('2026-10-14T18:00:00Z') } = overrides;
+
+  const seenAt = new Date(lastSeenAt);
+
+  return prisma.creatorActivity.create({
+    data: {
+      creatorId: creator.id,
+      day: new Date(Date.UTC(seenAt.getUTCFullYear(), seenAt.getUTCMonth(), seenAt.getUTCDate())),
+      firstSeenAt: seenAt,
+      lastSeenAt: seenAt,
+      modVersion: '2026.5.0',
       ...overrides
     }
   });

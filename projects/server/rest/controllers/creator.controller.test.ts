@@ -234,7 +234,11 @@ describe('CreatorController', () => {
 
           await testApp.backgroundTasks.settled();
 
-          expect(await testApp.prisma.creatorActivity.findMany()).toMatchObject([
+          expect(
+            await testApp.prisma.creatorActivity.findMany({
+              select: { day: true, firstSeenAt: true, lastSeenAt: true, modVersion: true }
+            })
+          ).toEqual([
             {
               day: new Date('2026-10-14T00:00:00Z'),
               firstSeenAt: new Date('2026-10-14T08:30:00Z'),
@@ -271,10 +275,11 @@ describe('CreatorController', () => {
         await testApp.backgroundTasks.settled();
 
         const activities = await testApp.prisma.creatorActivity.findMany({
+          select: { day: true, firstSeenAt: true, lastSeenAt: true },
           orderBy: { day: 'asc' }
         });
 
-        expect(activities).toMatchObject([
+        expect(activities).toEqual([
           {
             day: new Date('2026-10-14T00:00:00Z'),
             firstSeenAt: new Date('2026-10-14T23:59:00Z'),

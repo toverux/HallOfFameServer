@@ -55,7 +55,20 @@ describe('ModService', () => {
 
       await modService.syncModDetailsCron();
 
-      expect(await prisma.mod.findUniqueOrThrow({ where: { id: mod.id } })).toMatchObject({
+      expect(
+        await prisma.mod.findUniqueOrThrow({
+          select: {
+            subscribersCount: true,
+            knownLastUpdatedAt: true,
+            state: true,
+            requiredGameVersion: true,
+            sizeBytes: true,
+            knownLastReleasedAt: true,
+            lastSyncedAt: true
+          },
+          where: { id: mod.id }
+        })
+      ).toEqual({
         subscribersCount: 2500,
         knownLastUpdatedAt: mod.knownLastUpdatedAt,
         state: 'removedByUser',
@@ -197,25 +210,32 @@ describe('ModService', () => {
       const byId = (mod: Mod): Promise<Mod> =>
         prisma.mod.findUniqueOrThrow({ where: { id: mod.id } });
 
-      expect(await byId(live)).toMatchObject({
-        subscribersCount: 2500,
-        state: 'published',
-        lastSyncedAt: now
-      });
+      const [liveMod, falselyRetiredMod, nowRemovedMod] = [
+        await byId(live),
+        await byId(falselyRetired),
+        await byId(nowRemoved)
+      ];
 
-      expect(await byId(falselyRetired)).toMatchObject({
+      expect(liveMod).toMatchObject({ subscribersCount: 2500, state: 'published' });
+
+      expect(falselyRetiredMod).toMatchObject({
         isRetired: false,
         retiredReason: null,
         name: 'Hall of Fame',
-        state: 'published',
-        lastSyncedAt: now
+        state: 'published'
       });
 
-      expect(await byId(nowRemoved)).toMatchObject({
+      expect(nowRemovedMod).toMatchObject({
         isRetired: true,
-        retiredReason: 'This mod version is banned',
-        lastSyncedAt: now
+        retiredReason: 'This mod version is banned'
       });
+
+      // Apart, as Bun's toMatchObject passes on any two dates.
+      expect([liveMod, falselyRetiredMod, nowRemovedMod].map(mod => mod.lastSyncedAt)).toEqual([
+        now,
+        now,
+        now
+      ]);
 
       expect(await byId(banned)).toEqual(banned);
       expect(await byId(removed)).toEqual(removed);

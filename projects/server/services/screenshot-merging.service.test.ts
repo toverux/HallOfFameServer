@@ -162,9 +162,12 @@ describe('ScreenshotMergingService', () => {
 
     expect(result).toMatchObject({ mergedFavoritesCount: 1, deletedFavoritesCount: 1 });
 
-    expect(await prisma.favorite.findMany({ where: { screenshotId: target.id } })).toMatchObject([
-      { favoritedAt: earlier }
-    ]);
+    expect(
+      await prisma.favorite.findMany({
+        select: { favoritedAt: true },
+        where: { screenshotId: target.id }
+      })
+    ).toEqual([{ favoritedAt: earlier }]);
   });
 
   test(`keeps one view per creator, dated from the earliest`, async () => {

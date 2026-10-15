@@ -2081,7 +2081,6 @@ describe('ScreenshotController', () => {
         creatorId: creator.id,
         hwid: nn(creator.hwids[0]),
         ip: nn(creator.ips[0]),
-        createdAt: new Date('2026-09-12T10:00:00Z'),
         cityName: 'Tokyo Bay',
         cityMilestone: 12,
         cityPopulation: 154_321,
@@ -2099,6 +2098,9 @@ describe('ScreenshotController', () => {
         imageUrlFHD: `${blobNameBase}-fhd.jpg`,
         imageUrl4K: `${blobNameBase}-4k.jpg`
       });
+
+      // Apart, as Bun's toMatchObject passes on any two dates.
+      expect(screenshot.createdAt).toEqual(new Date('2026-09-12T10:00:00Z'));
 
       expect(response.json<unknown>()).toEqual(expectedScreenshotPayload(screenshot, creator));
 

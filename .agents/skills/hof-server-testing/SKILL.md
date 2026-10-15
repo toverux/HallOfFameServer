@@ -65,6 +65,7 @@ No cron runs, and the app logs only errors, so a passing run prints nothing.
 ## Assertions
 
 - Assert a body against an explicit expected shape with `toEqual`, written inline rather than as a snapshot, so a wire-format change shows up in review as an edited expectation.
+- Assert a `Date` with `toEqual`: Bun's `toMatchObject` passes on any two Dates (`docs/agents/dependency-updates.md`).
 - Build a serialized record's expected shape with `payloads.ts`, passing the route's own fields as overrides.
 - An error body is the JSON the mod parses: assert all of `{ statusCode, message, error }`.
 - Write `expect(promise).resolves` and `.rejects` without `await`: in Bun they block until the promise settles.

@@ -64,6 +64,7 @@ export const config = {
     popularScreenshotsPercentile: getNumber('HOF_SCREENSHOTS_POPULAR_PERCENTILE'),
     rankMinUniqueViews: getNumber('HOF_SCREENSHOTS_RANK_MIN_UNIQUE_VIEWS'),
     rankMinFavorites: getNumber('HOF_SCREENSHOTS_RANK_MIN_FAVORITES'),
+    newcomerViews: getNumber('HOF_SCREENSHOTS_NEWCOMER_VIEWS'),
     recencyThresholdDays: getNumber('HOF_SCREENSHOTS_RECENCY_THRESHOLD_DAYS'),
     limitPer24h: getNumber('HOF_SCREENSHOTS_LIMIT_PER_24H')
   },

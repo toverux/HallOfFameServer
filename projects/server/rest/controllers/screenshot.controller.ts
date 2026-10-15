@@ -311,6 +311,8 @@ export class ScreenshotController {
    * weight can be assigned to favor one method over others.
    * See {@link ScreenshotService} for the description of the algorithms.
    * By default, all weights are zero and "random" is used.
+   * A logged-in newcomer's weights are ignored while an unseen Gold-or-better screenshot exists,
+   * see {@link ScreenshotService.getWeightedRandomScreenshot}.
    *
    * @param req The request object.
    * @param random Weight for the "random" algorithm, see

@@ -45,6 +45,23 @@ export class ScreenshotStatsService implements OnApplicationBootstrap {
     { rank: 'silver', percentile: 0.25 }
   ] as const satisfies ReadonlyArray<{ rank: keyof RankCutPoints; percentile: number }>;
 
+  /**
+   * The MongoDB filter on the floors of {@link getRank},
+   * matching the screenshots that can be ranked.
+   */
+  private static readonly rankableFilter: Prisma.InputJsonObject = {
+    uniqueViewsCount: { $gte: config.screenshots.rankMinUniqueViews },
+    favoritesCount: { $gte: config.screenshots.rankMinFavorites }
+  };
+
+  /**
+   * The MongoDB expression of a screenshot's exact like rate (percentage).
+   * Same operations in the same order as {@link getRank}, for equal floats.
+   */
+  private static readonly likeRateExpression: Prisma.InputJsonObject = {
+    $divide: [{ $multiply: ['$favoritesCount', 100] }, '$uniqueViewsCount']
+  };
+
   @Inject(PrismaService)
   private readonly prisma!: PrismaService;
 
@@ -95,7 +112,7 @@ export class ScreenshotStatsService implements OnApplicationBootstrap {
       return null;
     }
 
-    // Same operations in the same order as the cut points aggregation, for equal floats.
+    // Same operations in the same order as likeRateExpression, for equal floats.
     const likeRate = (favoritesCount * 100) / uniqueViewsCount;
 
     const tier = ScreenshotStatsService.rankPercentiles.find(
@@ -103,6 +120,21 @@ export class ScreenshotStatsService implements OnApplicationBootstrap {
     );
 
     return tier?.rank ?? 'bronze';
+  }
+
+  /**
+   * Aggregation stages keeping the screenshots ranked {@link rank} or better, see {@link getRank}.
+   * A caller's own `$match` may precede them.
+   */
+  public rankedAtLeastStages(rank: keyof RankCutPoints): readonly Prisma.InputJsonObject[] {
+    return [
+      { $match: ScreenshotStatsService.rankableFilter },
+      // A stage of its own, so the division only sees screenshots past the floors, never zero
+      // unique views: MongoDB merges a $match on an $expr into the $match before it, and may
+      // evaluate the $expr first.
+      { $addFields: { likeRate: ScreenshotStatsService.likeRateExpression } },
+      { $match: { likeRate: { $gte: this.cutPoints[rank] } } }
+    ];
   }
 
   /**
@@ -265,19 +297,15 @@ export class ScreenshotStatsService implements OnApplicationBootstrap {
    * in one aggregation, each over its own population.
    */
   private async refreshThresholds(): Promise<void> {
-    const { rankPercentiles } = ScreenshotStatsService;
+    const { rankPercentiles, rankableFilter, likeRateExpression } = ScreenshotStatsService;
 
     const [result] = (await this.prisma.screenshot.aggregateRaw({
       pipeline: [
         {
           $facet: {
             ranks: percentileFacet(
-              {
-                uniqueViewsCount: { $gte: config.screenshots.rankMinUniqueViews },
-                favoritesCount: { $gte: config.screenshots.rankMinFavorites }
-              },
-              // Same operations in the same order as getRank, for equal floats.
-              { $divide: [{ $multiply: ['$favoritesCount', 100] }, '$uniqueViewsCount'] },
+              rankableFilter,
+              likeRateExpression,
               rankPercentiles.map(({ percentile }) => percentile)
             ),
             popular: percentileFacet(

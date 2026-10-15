@@ -597,6 +597,8 @@ export class ScreenshotService {
    * select the algorithm used to find a screenshot ({@link RandomScreenshotAlgorithm}),
    * algorithms with a higher weight have a higher probability of being selected.
    *
+   * A logged-in newcomer is first served an unseen screenshot ranked Gold or better,
+   * whatever the weights (see {@link tryGetNewcomerScreenshot}).
    * If no screenshot is found by the algorithm that was randomly selected, it falls back to
    * {@link getScreenshotRandom}.
    */
@@ -619,9 +621,13 @@ export class ScreenshotService {
       (creator id: ${creatorId ? `#${creatorId}` : 'anon'}, viewed ids: ${viewedIds.size}).`
     );
 
-    // Try to get a screenshot using the weighted random selection and taking into account the
-    // viewed screenshots.
-    let screenshot = await this.tryGetWeightedRandomScreenshot(weights, viewedOids);
+    // A newcomer gets a proven screenshot whatever the weights, otherwise try to get a screenshot
+    // using the weighted random selection and taking into account the viewed screenshots.
+    let screenshot = creatorId
+      ? await this.tryGetNewcomerScreenshot(creatorId, viewedIds)
+      : undefined;
+
+    screenshot ??= await this.tryGetWeightedRandomScreenshot(weights, viewedOids);
 
     // If we still did not find a screenshot, fall back to a completely random screenshot.
     if (!screenshot) {
@@ -739,6 +745,51 @@ export class ScreenshotService {
       ),
       views: optionallySerialized(screenshot.views?.map(view => this.viewService.serialize(view)))
     };
+  }
+
+  /**
+   * Used by {@link getWeightedRandomScreenshot}: picks a screenshot for a Creator with fewer than
+   * {@link config.screenshots.newcomerViews} views of all time,
+   * so their first impression is a screenshot other players liked.
+   * Eligible are the screenshots they never viewed,
+   * ranked Gold or better (see {@link ScreenshotStatsService.getRank}).
+   *
+   * @param viewedIds The Creator's viewed screenshot IDs within their max age:
+   *   holding enough of them proves an established Creator without another query.
+   *
+   * @returns Undefined for an established Creator, or when no screenshot is eligible.
+   */
+  private async tryGetNewcomerScreenshot(
+    creatorId: Creator['id'],
+    viewedIds: ReadonlySet<Screenshot['id']>
+  ): Promise<ScreenshotWithAlgo | undefined> {
+    const { newcomerViews } = config.screenshots;
+
+    if (viewedIds.size >= newcomerViews) {
+      return undefined;
+    }
+
+    const allTimeViewedIds = await this.viewService.getAllTimeViewedScreenshotIds(
+      creatorId,
+      newcomerViews
+    );
+
+    if (allTimeViewedIds.length >= newcomerViews) {
+      return undefined;
+    }
+
+    const screenshot = await this.runAggregateForSingleScreenshot([
+      {
+        $match: {
+          _id: { $nin: Array.from(new Set(allTimeViewedIds), id => ({ $oid: id })) },
+          isReported: false
+        }
+      },
+      ...this.screenshotStats.rankedAtLeastStages('gold'),
+      { $sample: { size: 1 } }
+    ]);
+
+    return screenshot ? { ...screenshot, __algorithm: 'newcomer' } : undefined;
   }
 
   /**

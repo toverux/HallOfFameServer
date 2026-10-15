@@ -98,6 +98,24 @@ export class ViewService {
   }
 
   /**
+   * Returns the screenshot IDs of up to `limit` views of the given Creator, of all time.
+   * One per view: a screenshot viewed twice is listed twice.
+   * Not cached, unlike {@link getViewedScreenshotIds}, whose cache holds one max age per Creator.
+   */
+  public async getAllTimeViewedScreenshotIds(
+    creatorId: Creator['id'],
+    limit: number
+  ): Promise<Array<Screenshot['id']>> {
+    const views = await this.prisma.view.findMany({
+      select: { screenshotId: true },
+      where: { creatorId },
+      take: limit
+    });
+
+    return views.map(view => view.screenshotId);
+  }
+
+  /**
    * Remembers which algorithm served a screenshot to the Creator.
    */
   public rememberPick(

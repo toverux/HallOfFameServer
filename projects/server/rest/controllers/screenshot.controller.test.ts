@@ -1499,6 +1499,219 @@ describe('ScreenshotController', () => {
         }
       );
     });
+
+    describe('newcomers', () => {
+      const { newcomerViews, rankMinUniqueViews } = config.screenshots;
+
+      // Each screenshot alone with the reported ones setting the cut points: a newcomer gets it
+      // as "newcomer", otherwise the weighted pick or its fallback serves it.
+      test.each([
+        {
+          kind: 'a Gold one',
+          likes: 40,
+          uniqueViews: 100,
+          viewedDaysAgo: [],
+          algorithm: 'newcomer'
+        },
+        {
+          kind: 'a Diamond one',
+          likes: 80,
+          uniqueViews: 100,
+          viewedDaysAgo: [],
+          algorithm: 'newcomer'
+        },
+        {
+          kind: 'one under the Gold cut',
+          likes: 39,
+          uniqueViews: 100,
+          viewedDaysAgo: [],
+          algorithm: 'random'
+        },
+        {
+          kind: 'one under the unique views floor',
+          likes: rankMinUniqueViews - 1,
+          uniqueViews: rankMinUniqueViews - 1,
+          viewedDaysAgo: [],
+          algorithm: 'random'
+        },
+        {
+          kind: 'one without unique views',
+          likes: 10,
+          uniqueViews: 0,
+          viewedDaysAgo: [],
+          algorithm: 'random'
+        },
+        {
+          kind: 'one viewed within viewMaxAge',
+          likes: 80,
+          uniqueViews: 100,
+          viewedDaysAgo: [1],
+          algorithm: 'random_default'
+        },
+        {
+          kind: 'one viewed before viewMaxAge',
+          likes: 80,
+          uniqueViews: 100,
+          viewedDaysAgo: [90],
+          algorithm: 'random'
+        }
+      ])(
+        `serves a newcomer $kind through $algorithm, whatever the weights`,
+        async ({ likes, uniqueViews, viewedDaysAgo, algorithm }) => {
+          const creator = await createCreator(testApp.prisma);
+          const player = await createCreator(testApp.prisma);
+
+          // Percentile 50 of these rates, the Gold cut point, is 40%.
+          // Reported, so never served, but they set the cut points.
+          for (const favoritesCount of [10, 10, 20, 20, 40, 40, 60, 60, 80, 80]) {
+            // oxlint-disable-next-line no-await-in-loop - sequential factory numbering
+            await createScreenshot(testApp.prisma, creator, {
+              favoritesCount,
+              uniqueViewsCount: 100,
+              isReported: true
+            });
+          }
+
+          // The cut points are computed when the app starts.
+          await testApp.app.close();
+
+          testApp = await createTestApp();
+
+          const screenshot = await createScreenshot(testApp.prisma, creator, {
+            favoritesCount: likes,
+            uniqueViewsCount: uniqueViews
+          });
+
+          for (const daysAgo of viewedDaysAgo) {
+            // oxlint-disable-next-line no-await-in-loop - one view at most
+            await createView(testApp.prisma, screenshot, player, {
+              viewedAt: dfns.subDays(new Date(), daysAgo)
+            });
+          }
+
+          const response = await testApp.app.inject({
+            method: 'GET',
+            url: '/api/v1/screenshots/weighted?random=1&viewMaxAge=30',
+            headers: modHeaders(player)
+          });
+
+          expect(response.statusCode).toBe(200);
+
+          expect(response.json<unknown>()).toEqual(
+            expect.objectContaining({ id: screenshot.id, __algorithm: algorithm })
+          );
+        }
+      );
+
+      // The player's views are each on a screenshot of their own unless stated otherwise.
+      test.each([
+        { viewMaxAge: 30, views: newcomerViews - 1, daysAgo: 1, algorithm: 'newcomer' },
+        { viewMaxAge: 30, views: newcomerViews, daysAgo: 1, algorithm: 'random' },
+        // A player back after months is not a newcomer again.
+        { viewMaxAge: 30, views: newcomerViews, daysAgo: 90, algorithm: 'random' },
+        { viewMaxAge: 0, views: newcomerViews - 1, daysAgo: 90, algorithm: 'newcomer' },
+        { viewMaxAge: 0, views: newcomerViews, daysAgo: 90, algorithm: 'random' }
+      ])(
+        `serves $algorithm after $views views $daysAgo days ago, for viewMaxAge=$viewMaxAge`,
+        async ({ viewMaxAge, views, daysAgo, algorithm }) => {
+          const creator = await createCreator(testApp.prisma);
+          const player = await createCreator(testApp.prisma);
+
+          await createScreenshot(testApp.prisma, creator, {
+            favoritesCount: 40,
+            uniqueViewsCount: 100
+          });
+
+          for (let i = 0; i < views; i++) {
+            // oxlint-disable-next-line no-await-in-loop - sequential factory numbering
+            const viewed = await createScreenshot(testApp.prisma, creator);
+
+            // oxlint-disable-next-line no-await-in-loop - sequential factory numbering
+            await createView(testApp.prisma, viewed, player, {
+              viewedAt: dfns.subDays(new Date(), daysAgo)
+            });
+          }
+
+          const response = await testApp.app.inject({
+            method: 'GET',
+            url: `/api/v1/screenshots/weighted?random=1&viewMaxAge=${viewMaxAge}`,
+            headers: modHeaders(player)
+          });
+
+          expect(response.statusCode).toBe(200);
+
+          // Only the Gold screenshot is eligible for a newcomer.
+          expect(response.json<unknown>()).toEqual(
+            expect.objectContaining({ __algorithm: algorithm })
+          );
+        }
+      );
+
+      test(`counts every view of a screenshot seen again toward the newcomer views`, async () => {
+        const creator = await createCreator(testApp.prisma);
+        const player = await createCreator(testApp.prisma);
+
+        await createScreenshot(testApp.prisma, creator, {
+          favoritesCount: 40,
+          uniqueViewsCount: 100
+        });
+
+        const seenAgain = await createScreenshot(testApp.prisma, creator);
+
+        for (let i = 0; i < newcomerViews; i++) {
+          // oxlint-disable-next-line no-await-in-loop - sequential factory numbering
+          await createView(testApp.prisma, seenAgain, player);
+        }
+
+        const response = await testApp.app.inject({
+          method: 'GET',
+          url: '/api/v1/screenshots/weighted?random=1',
+          headers: modHeaders(player)
+        });
+
+        expect(response.json<unknown>()).toEqual(
+          expect.objectContaining({ __algorithm: 'random' })
+        );
+      });
+
+      test(`falls through to the weighted pick without an eligible screenshot`, async () => {
+        const creator = await createCreator(testApp.prisma);
+        const player = await createCreator(testApp.prisma);
+
+        const screenshot = await createScreenshot(testApp.prisma, creator, {
+          favoritesCount: 39,
+          uniqueViewsCount: rankMinUniqueViews - 1
+        });
+
+        const response = await testApp.app.inject({
+          method: 'GET',
+          url: '/api/v1/screenshots/weighted?random=1',
+          headers: modHeaders(player)
+        });
+
+        expect(response.statusCode).toBe(200);
+        expect(response.json<unknown>()).toEqual(weightedPayload(screenshot, creator, 'random'));
+      });
+
+      test(`never serves an anonymous request as a newcomer`, async () => {
+        const screenshot = await createScreenshot(
+          testApp.prisma,
+          await createCreator(testApp.prisma),
+          { favoritesCount: 40, uniqueViewsCount: 100 }
+        );
+
+        const response = await testApp.app.inject({
+          method: 'GET',
+          url: '/api/v1/screenshots/weighted?random=1'
+        });
+
+        expect(response.statusCode).toBe(200);
+
+        expect(response.json<unknown>()).toEqual(
+          expect.objectContaining({ id: screenshot.id, __algorithm: 'random' })
+        );
+      });
+    });
   });
 
   describe('POST /api/v1/screenshots/:id/views', () => {
@@ -1576,6 +1789,23 @@ describe('ScreenshotController', () => {
           { screenshotId: recent.id, algorithm: 'recent' },
           { screenshotId: popular.id, algorithm: 'popular' }
         ]);
+      });
+
+      test(`labels the view of a newcomer's pick "newcomer"`, async () => {
+        const player = await createCreator(testApp.prisma);
+
+        const gold = await createScreenshot(testApp.prisma, await createCreator(testApp.prisma), {
+          favoritesCount: 40,
+          uniqueViewsCount: 100
+        });
+
+        expect(await pick(player, 'random=1')).toMatchObject({ __algorithm: 'newcomer' });
+
+        await postView(player, gold);
+
+        expect(await testApp.prisma.view.findFirstOrThrow()).toMatchObject({
+          algorithm: 'newcomer'
+        });
       });
 
       test(`remembers no anonymous pick`, async () => {

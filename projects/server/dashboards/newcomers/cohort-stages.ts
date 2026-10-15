@@ -8,11 +8,32 @@ import type { Prisma } from '#prisma-lib/client';
 import type { PeriodExpression } from './dashboard';
 
 /**
+ * Monday of the first cohort shown, the first whole week of November 2024.
+ * The mod's launch weeks before it brought cohorts unlike any since, which flatten every chart.
+ */
+const firstCohortWeek = '2024-11-04T00:00:00Z';
+
+/**
  * Projects each creator's cohort (`week` and `period`) and the end of their first day
  * (`dayOneEnd`), the first 24 hours after account creation.
+ * A cohort shows once its week has ended and its last member's first day is over,
+ * so from the Tuesday after.
+ * The week in progress never shows as a small cohort with first days unfinished.
  */
 export function cohortMemberStages(period: PeriodExpression): readonly Prisma.InputJsonObject[] {
+  const dayAgo = { $dateSubtract: { startDate: '$$NOW', unit: 'day', amount: 1 } };
+
   return [
+    {
+      $match: {
+        $expr: {
+          $and: [
+            { $gte: ['$createdAt', { $toDate: firstCohortWeek }] },
+            { $lt: ['$createdAt', weekOf(dayAgo)] }
+          ]
+        }
+      }
+    },
     {
       $project: {
         createdAt: 1,
@@ -87,6 +108,13 @@ export function groupByCohortStages(
 /**
  * The expression of the UTC week, starting on Monday, of a date.
  */
-export function weekOf(date: string): Prisma.InputJsonObject {
+export function weekOf(date: Prisma.InputJsonValue): Prisma.InputJsonObject {
   return { $dateTrunc: { date, unit: 'week', startOfWeek: 'monday' } };
+}
+
+/**
+ * The expression of the UTC day of a date.
+ */
+export function dayOf(date: Prisma.InputJsonValue): Prisma.InputJsonObject {
+  return { $dateTrunc: { date, unit: 'day' } };
 }

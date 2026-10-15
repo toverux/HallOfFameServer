@@ -12,14 +12,16 @@ const { rankPercentiles, rankableFilter, likeRateExpression } = ScreenshotStatsS
 
 const goldPercentile = nn(rankPercentiles.find(({ rank }) => rank == 'gold')).percentile;
 
-/**
- * The share of the cohort's first-day views on screenshots ranked Gold or better today, the Gold
- * cut point recomputed as {@link ScreenshotStatsService} does.
- * Past cohorts are judged on today's medals, so this approximates what they were served.
- */
 export const dayOneQualityServed: DashboardCard = {
   name: 'Day-1 quality served',
+  description: `Share of first-day views on screenshots that rank Gold or better today. Past cohorts are measured against today's medals, so older values are approximate.`,
   collection: 'creators',
+  chart: {
+    display: 'line',
+    dimensions: ['week', 'period'],
+    metric: 'qualityServed',
+    isPercent: true
+  },
   pipeline: period => [
     ...cohortMemberStages(period),
     // Uncorrelated, so MongoDB runs it once and reuses its result for every member.

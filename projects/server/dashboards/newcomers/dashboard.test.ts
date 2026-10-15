@@ -24,6 +24,11 @@ const dayInMs = 24 * hourInMs;
 
 const monday = new Date('2026-01-05T00:00:00Z');
 
+/**
+ * The smallest cohort the retention cards show.
+ */
+const minCohortSize = 30;
+
 describe('Newcomers dashboard', () => {
   let testingModule: TestingModule;
 
@@ -62,6 +67,32 @@ describe('Newcomers dashboard', () => {
       expect(await runCard('Cohort size')).toEqual([
         { week: new Date('2025-12-29T00:00:00Z'), period: 'baseline', creators: 1 },
         { week: new Date('2026-01-05T00:00:00Z'), period: 'baseline', creators: 2 }
+      ]);
+    });
+
+    test(`leaves out a week until it has ended and its last member's first day is over`, async () => {
+      const lastShownWeekEnd = weekStartOf(new Date(Date.now() - dayInMs));
+
+      await createCreator(prisma, { createdAt: new Date(lastShownWeekEnd.getTime() - hourInMs) });
+      // Joined last in their week, or first in the week in progress.
+      await createCreator(prisma, { createdAt: lastShownWeekEnd });
+      await createCreator(prisma, { createdAt: new Date() });
+
+      expect(await runCard('Cohort size')).toEqual([
+        {
+          week: new Date(lastShownWeekEnd.getTime() - 7 * dayInMs),
+          period: 'baseline',
+          creators: 1
+        }
+      ]);
+    });
+
+    test(`starts with the first whole week of November 2024, after the launch weeks`, async () => {
+      await createCreator(prisma, { createdAt: new Date('2024-11-03T23:59:00Z') });
+      await createCreator(prisma, { createdAt: new Date('2024-11-04T00:00:00Z') });
+
+      expect(await runCard('Cohort size')).toEqual([
+        { week: new Date('2024-11-04T00:00:00Z'), period: 'baseline', creators: 1 }
       ]);
     });
 
@@ -192,43 +223,64 @@ describe('Newcomers dashboard', () => {
   });
 
   describe('Retention', () => {
-    test(`shares the members active at least 1, 7, and 30 days after creation`, async () => {
-      // Never active, so not retained.
+    test(`shares the members active again in each window after creation`, async () => {
+      // Never active, so retained in no window.
       const owner = await createCreator(prisma, { createdAt: monday });
 
       const [screenshot] = await seedScreenshots(owner, 1);
 
-      const [monthViewer, weekPlayer, dayPlayer, firstDayViewer] = await Array.fromAsync(
-        { length: 4 },
-        () => createCreator(prisma, { createdAt: monday })
-      );
+      // Joined at noon, so the end of their D1 window falls within a day of play.
+      const dayPlayer = await createCreator(prisma, { createdAt: hoursAfterMonday(12) });
 
+      const [dayViewer, weekPlayer, monthViewer, firstDayViewer, betweenViewer] =
+        await Array.fromAsync({ length: minCohortSize - 2 }, () =>
+          createCreator(prisma, { createdAt: monday })
+        );
+
+      await createView(prisma, screenshot, nn(dayViewer), { viewedAt: hoursAfterMonday(30) });
+      // First seen on Wednesday before the end of the D1 window, last seen that day after it.
+      await createCreatorActivity(prisma, dayPlayer, {
+        firstSeenAt: hoursAfterMonday(58),
+        lastSeenAt: hoursAfterMonday(62)
+      });
+      await createCreatorActivity(prisma, nn(weekPlayer), { lastSeenAt: daysAfterMonday(13) });
       await createView(prisma, screenshot, nn(monthViewer), { viewedAt: daysAfterMonday(30) });
-      // Last seen in a game load after their last view.
-      await createView(prisma, screenshot, nn(weekPlayer), { viewedAt: hoursAfterMonday(1) });
-      await createCreatorActivity(prisma, nn(weekPlayer), { lastSeenAt: daysAfterMonday(7) });
-      await createCreatorActivity(prisma, nn(dayPlayer), { lastSeenAt: daysAfterMonday(1) });
+      // Before the first window, then between the windows of D7 and D30.
       await createView(prisma, screenshot, nn(firstDayViewer), {
         viewedAt: hoursAfterMonday(23)
       });
+      await createView(prisma, screenshot, nn(betweenViewer), { viewedAt: daysAfterMonday(14) });
 
-      expect(await runCard('Retention')).toEqual([
-        { week: monday, period: 'baseline', creators: 5, d1: 0.6, d7: 0.4, d30: 0.2 }
-      ]);
+      const cohort = { week: monday, period: 'baseline', creators: minCohortSize };
+
+      expect(await runCard('D1 retention')).toEqual([{ ...cohort, d1: 2 / minCohortSize }]);
+      expect(await runCard('D7 retention')).toEqual([{ ...cohort, d7: 1 / minCohortSize }]);
+      expect(await runCard('D30 retention')).toEqual([{ ...cohort, d30: 1 / minCohortSize }]);
     });
 
-    test(`leaves a retention empty until every member of the cohort reached its age`, async () => {
-      const createdAt = new Date(Date.now() - 2 * dayInMs);
+    test.each(['D1 retention', 'D7 retention', 'D30 retention'])(
+      `leaves out a cohort of fewer than 30 members (%s)`,
+      async name => {
+        await Array.fromAsync({ length: minCohortSize - 1 }, () =>
+          createCreator(prisma, { createdAt: monday })
+        );
 
-      const creator = await createCreator(prisma, { createdAt });
+        expect(await runCard(name)).toEqual([]);
+      }
+    );
 
-      await createCreatorActivity(prisma, creator, { lastSeenAt: new Date() });
+    test(`leaves a retention empty until every member is past the end of its window`, async () => {
+      // Joined last in the week before the last one shown, so between 8 and 16 days ago.
+      const createdAt = new Date(
+        weekStartOf(new Date(Date.now() - dayInMs)).getTime() - 7 * dayInMs - hourInMs
+      );
 
-      const rows = await runCard('Retention');
+      await Array.fromAsync({ length: minCohortSize }, () => createCreator(prisma, { createdAt }));
 
-      expect(rows.map(({ creators, d1, d7, d30 }) => ({ creators, d1, d7, d30 }))).toEqual([
-        { creators: 1, d1: 1, d7: null, d30: null }
-      ]);
+      const cohort = { week: weekStartOf(createdAt), period: 'baseline', creators: minCohortSize };
+
+      expect(await runCard('D1 retention')).toEqual([{ ...cohort, d1: 0 }]);
+      expect(await runCard('D30 retention')).toEqual([{ ...cohort, d30: null }]);
     });
   });
 
@@ -295,6 +347,24 @@ describe('Newcomers dashboard', () => {
     });
   });
 
+  describe('Daily actives (both cards)', () => {
+    test.each(['Daily actives', 'Daily actives by mod version'])(
+      `%s leaves out today, whose count is still growing`,
+      async name => {
+        const creator = await createCreator(prisma);
+
+        const yesterday = new Date(Date.now() - dayInMs);
+
+        await createCreatorActivity(prisma, creator, { lastSeenAt: yesterday });
+        await createCreatorActivity(prisma, creator, { lastSeenAt: new Date() });
+
+        const rows = await runCard(name);
+
+        expect(rows.map(({ day }) => ({ day }))).toEqual([{ day: dayStartOf(yesterday) }]);
+      }
+    );
+  });
+
   describe('Daily actives by mod version', () => {
     test(`splits the daily actives by the mod version they reported`, async () => {
       const creators = await Array.fromAsync({ length: 4 }, () => createCreator(prisma));
@@ -350,12 +420,51 @@ describe('Newcomers dashboard', () => {
       await createFavorite(prisma, screenshots[3], owner, { favoritedAt: hoursAfterMonday(2) });
 
       expect(await runCard('Like rate by algorithm')).toEqual([
-        { week: monday, period: 'baseline', algorithm: 'random', views: 3, likeRate: 2 / 3 },
-        { week: monday, period: 'baseline', algorithm: 'trending', views: 2, likeRate: 0 }
+        {
+          week: monday,
+          period: 'baseline',
+          algorithm: 'random',
+          series: 'random, baseline',
+          views: 3,
+          likeRate: 2 / 3
+        },
+        {
+          week: monday,
+          period: 'baseline',
+          algorithm: 'trending',
+          series: 'trending, baseline',
+          views: 2,
+          likeRate: 0
+        }
       ]);
     });
 
-    test(`assigns each view the period it falls in`, async () => {
+    test(`leaves out the week in progress, whose views had the least time to be liked`, async () => {
+      const owner = await createCreator(prisma);
+
+      const [screenshot] = await seedScreenshots(owner, 1);
+
+      const viewer = await createCreator(prisma);
+
+      const weekInProgress = weekStartOf(new Date());
+
+      await createView(prisma, screenshot, viewer, {
+        viewedAt: new Date(weekInProgress.getTime() - hourInMs),
+        algorithm: 'random'
+      });
+      await createView(prisma, screenshot, viewer, {
+        viewedAt: weekInProgress,
+        algorithm: 'random'
+      });
+
+      const rows = await runCard('Like rate by algorithm');
+
+      expect(rows.map(({ week, views }) => ({ week, views }))).toEqual([
+        { week: new Date(weekInProgress.getTime() - 7 * dayInMs), views: 1 }
+      ]);
+    });
+
+    test(`draws a series per algorithm and period, each view in the period it falls in`, async () => {
       const owner = await createCreator(prisma);
 
       const [screenshot] = await seedScreenshots(owner, 1);
@@ -372,11 +481,19 @@ describe('Newcomers dashboard', () => {
       const changes = [{ date: '2026-01-06', label: 'A change' }];
 
       expect(await runCard('Like rate by algorithm', changes)).toEqual([
-        { week: monday, period: 'baseline', algorithm: 'random', views: 1, likeRate: 0 },
+        {
+          week: monday,
+          period: 'baseline',
+          algorithm: 'random',
+          series: 'random, baseline',
+          views: 1,
+          likeRate: 0
+        },
         {
           week: monday,
           period: 'since 2026-01-06 A change',
           algorithm: 'random',
+          series: 'random, since 2026-01-06 A change',
           views: 1,
           likeRate: 0
         }
@@ -394,14 +511,26 @@ describe('Newcomers dashboard', () => {
     )) as TupleOf<TCount, Screenshot>;
   }
 
-  function runCard(name: string, changes: readonly ShippedChange[] = []): Promise<Document[]> {
+  async function runCard(
+    name: string,
+    changes: readonly ShippedChange[] = []
+  ): Promise<Document[]> {
     const card = nn(loadCards(changes).find(candidate => candidate.name == name));
 
-    return mongo
+    const rows = await mongo
       .db()
       .collection(card.collection)
       .aggregate([...card.pipeline])
       .toArray();
+
+    const columns = [...card.chart.dimensions, card.chart.metric];
+
+    // Every row holds the columns its chart draws.
+    for (const row of rows) {
+      expect(columns.filter(column => !(column in row))).toEqual([]);
+    }
+
+    return rows;
   }
 });
 
@@ -411,4 +540,18 @@ function hoursAfterMonday(hours: number): Date {
 
 function daysAfterMonday(days: number): Date {
   return new Date(monday.getTime() + days * dayInMs);
+}
+
+function dayStartOf(date: Date): Date {
+  return new Date(Math.floor(date.getTime() / dayInMs) * dayInMs);
+}
+
+/**
+ * The UTC Monday starting the week of a date.
+ */
+function weekStartOf(date: Date): Date {
+  const day = dayStartOf(date);
+
+  // Sunday is 0, Monday 1.
+  return new Date(day.getTime() - ((day.getUTCDay() + 6) % 7) * dayInMs);
 }

@@ -36,6 +36,25 @@ describe('fetchStub', () => {
     expect(response.status).toBe(200);
   });
 
+  test(`answers every URL under a handled base URL with its handler`, async () => {
+    fetchStub.handle('https://example.com/api/', request =>
+      Response.json({ method: request.method, url: request.url })
+    );
+
+    const response = await fetch('https://example.com/api/card/1', { method: 'PUT' });
+
+    expect(response.json()).resolves.toEqual({
+      method: 'PUT',
+      url: 'https://example.com/api/card/1'
+    });
+
+    expect(fetch('https://example.com/other')).rejects.toThrow(
+      `Unexpected fetch GET https://example.com/other`
+    );
+
+    expect(() => fetchStub.verify()).toThrow();
+  });
+
   test(`rejects an unexpected URL, then fails the test even if the rejection was caught`, () => {
     expect(fetch('https://example.com/')).rejects.toThrow(
       `Unexpected fetch GET https://example.com/, stub it with fetchStub.respondWithJson().`

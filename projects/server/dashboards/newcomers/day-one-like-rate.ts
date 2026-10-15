@@ -6,13 +6,16 @@ import {
 } from './cohort-stages';
 import type { DashboardCard } from './dashboard';
 
-/**
- * The cohort's likes over its views, both in its members' first day: the primary metric of
- * whether newcomers see something they like.
- */
 export const dayOneLikeRate: DashboardCard = {
   name: 'Day-1 like rate',
+  description: `Likes divided by views over each newcomer's first 24 hours. This is the main measure of whether newcomers see cities they like.`,
   collection: 'creators',
+  chart: {
+    display: 'line',
+    dimensions: ['week', 'period'],
+    metric: 'likeRate',
+    isPercent: true
+  },
   pipeline: period => [
     ...cohortMemberStages(period),
     dayOneLookupStage('views', 'views'),

@@ -1,5 +1,5 @@
 /**
- * A change shipped to players, which splits the dashboard's series before and after it.
+ * A change shipped to players, which starts a new period in the dashboard's series.
  */
 export interface ShippedChange {
   /**

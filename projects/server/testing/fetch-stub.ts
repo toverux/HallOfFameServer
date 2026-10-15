@@ -1,5 +1,7 @@
 import type { JsonValue } from '../../shared/utils/json';
 
+type Handler = (request: Request) => Response | Promise<Response>;
+
 /**
  * Stand-in for the global `fetch`, installed for the whole run by the test preload,
  * so no test reaches the network.
@@ -15,6 +17,8 @@ class FetchStub {
 
   private readonly responses = new Map<string, () => Response>();
 
+  private readonly handlers = new Map<string, Handler>();
+
   private readonly unexpectedRequests: string[] = [];
 
   public readonly fetch = (
@@ -25,7 +29,7 @@ class FetchStub {
 
     this.sentRequests.push(request);
 
-    const response = this.responses.get(request.url);
+    const response = this.responses.get(request.url) ?? this.handlerOf(request.url);
 
     if (!response) {
       const description = `${request.method} ${request.url}`;
@@ -37,7 +41,7 @@ class FetchStub {
       );
     }
 
-    return Promise.resolve(response());
+    return Promise.resolve(response(request));
   };
 
   /**
@@ -46,6 +50,15 @@ class FetchStub {
   public respondWithJson(url: string, body: JsonValue, init?: ResponseInit): void {
     // Normalized as a request's URL is, ex. with a slash after a bare origin.
     this.responses.set(new Request(url).url, () => Response.json(body, init));
+  }
+
+  /**
+   * Answers every request whose URL starts with `baseUrl` with what `handler` returns,
+   * for a stateful fake of a whole API.
+   * A URL stubbed with {@link respondWithJson} takes precedence.
+   */
+  public handle(baseUrl: string, handler: Handler): void {
+    this.handlers.set(new Request(baseUrl).url, handler);
   }
 
   /**
@@ -58,6 +71,7 @@ class FetchStub {
   public reset(): void {
     this.sentRequests.length = 0;
     this.responses.clear();
+    this.handlers.clear();
     this.unexpectedRequests.length = 0;
   }
 
@@ -70,6 +84,10 @@ class FetchStub {
     if (unexpectedRequests.length) {
       throw new Error(`Unexpected fetch requests:\n${unexpectedRequests.join('\n')}`);
     }
+  }
+
+  private handlerOf(url: string): Handler | undefined {
+    return this.handlers.entries().find(([baseUrl]) => url.startsWith(baseUrl))?.[1];
   }
 }
 

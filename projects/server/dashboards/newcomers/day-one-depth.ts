@@ -1,13 +1,11 @@
 import { cohortMemberStages, dayOneLookupStage, groupByCohortStages } from './cohort-stages';
 import type { DashboardCard } from './dashboard';
 
-/**
- * The median number of screenshots the cohort's members viewed in their first day, 0 for those who
- * viewed none: catches a change that makes newcomers leave sooner.
- */
 export const dayOneDepth: DashboardCard = {
   name: 'Day-1 depth',
+  description: `Median number of screenshots a newcomer viewed in their first 24 hours, with 0 for those who viewed none. A drop means newcomers leave sooner.`,
   collection: 'creators',
+  chart: { display: 'line', dimensions: ['week', 'period'], metric: 'depth' },
   pipeline: period => [
     ...cohortMemberStages(period),
     dayOneLookupStage('views', 'views'),

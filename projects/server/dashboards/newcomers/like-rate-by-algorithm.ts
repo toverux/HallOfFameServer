@@ -1,17 +1,25 @@
 import { weekOf } from './cohort-stages';
 import type { DashboardCard } from './dashboard';
 
-/**
- * Per week and per algorithm, the share of the views it served that the viewer liked, at the view
- * or later: the baseline later changes to the weighted algorithms are judged on.
- * Counts only the views labelled with the algorithm that served them.
- */
 export const likeRateByAlgorithm: DashboardCard = {
   name: 'Like rate by algorithm',
+  description: `For each week and algorithm, the share of views that the player liked, at the time or later. Only views labelled with the algorithm that served them count.`,
   collection: 'views',
+  chart: {
+    display: 'line',
+    dimensions: ['week', 'series'],
+    metric: 'likeRate',
+    isPercent: true
+  },
   pipeline: period => [
-    // Excludes both a missing and a null algorithm.
-    { $match: { algorithm: { $type: 'string' } } },
+    {
+      $match: {
+        // Excludes both a missing and a null algorithm.
+        algorithm: { $type: 'string' },
+        // The week in progress holds the views least likely to be liked yet.
+        $expr: { $lt: ['$viewedAt', weekOf('$$NOW')] }
+      }
+    },
     {
       $lookup: {
         from: 'favorites',
@@ -48,6 +56,8 @@ export const likeRateByAlgorithm: DashboardCard = {
         week: '$_id.week',
         period: '$_id.period',
         algorithm: '$_id.algorithm',
+        // A chart draws one breakout column, so each algorithm splits at shipped changes here.
+        series: { $concat: ['$_id.algorithm', ', ', '$_id.period'] },
         views: 1,
         likeRate: { $divide: ['$likes', '$views'] }
       }

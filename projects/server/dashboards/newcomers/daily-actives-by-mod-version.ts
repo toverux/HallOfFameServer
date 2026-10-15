@@ -1,13 +1,19 @@
+import { dayOf } from './cohort-stages';
 import type { DashboardCard } from './dashboard';
 
-/**
- * The daily actives split by the mod version each reported that day, "unknown" for none, so the
- * split sums to the total: shows how fast each release reaches players.
- */
 export const dailyActivesByModVersion: DashboardCard = {
   name: 'Daily actives by mod version',
+  description: `Daily actives split by the mod version each player reported that day, with "unknown" when none was sent. Shows how fast each release reaches players.`,
   collection: 'creator_activities',
+  chart: {
+    display: 'bar',
+    dimensions: ['day', 'modVersion'],
+    metric: 'creators',
+    isStacked: true
+  },
   pipeline: period => [
+    // Today's count is still growing.
+    { $match: { $expr: { $lt: ['$day', dayOf('$$NOW')] } } },
     {
       $group: {
         _id: {

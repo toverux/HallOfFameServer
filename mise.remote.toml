@@ -23,3 +23,14 @@ run = [
   "mise exec bun -- bun prisma db push --skip-generate",
   "mise run:cli migrate"
 ]
+
+[tasks."dashboard:sync"]
+description = "Pushes the versioned Metabase dashboards, updating them in place."
+# The CLI connects to the database at boot, through the same tunnel as import-database.
+run = """
+set -e
+socket="${TMPDIR:-/tmp}/hof-remote-db-$$.sock"
+ssh -fNM -S "$socket" -o ExitOnForwardFailure=yes -L 27019:127.0.0.1:5432 "$HOF_REMOTE_SSH"
+trap 'ssh -S "$socket" -O exit "$HOF_REMOTE_SSH" 2>/dev/null' EXIT
+mise run:cli dashboard sync
+"""

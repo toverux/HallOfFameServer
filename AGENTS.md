@@ -54,7 +54,7 @@ TypeScript, one root `tsconfig.json` covering the whole repo, `.agents/hooks` in
 - `projects/server/rest` – REST API controllers
 - `projects/server/graphql` – GraphQL resolvers and schema
 - `projects/server/cli` – Command-line interface tools
-- `projects/server/dashboards` – Metabase dashboards as versioned MongoDB pipelines, one module per card, tested against seeded data
+- `projects/server/dashboards` – Metabase dashboards as versioned MongoDB pipelines, one module per card, tested against seeded data; `mise -E remote dashboard:sync` pushes them
 - `projects/server/services` – Business logic services
 - `projects/server/testing` – Shared test infrastructure: preloads, factories, fakes, the `fetch` stub, the testing-module and test app builders
 - `projects/server/http-tests` – HTTP request files for manual testing with JetBrains HTTP Client, not part of the test suite

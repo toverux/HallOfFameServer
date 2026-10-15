@@ -26,6 +26,10 @@ Object.assign(
     HOF_AZURE_CDN: 'https://cdn.halloffame.invalid',
     HOF_OPENAI_API_KEY: 'sk-inert',
     HOF_SKYVE_API_KEY: 'skyve-inert',
+    HOF_METABASE_URL: 'https://metabase.halloffame.invalid',
+    HOF_METABASE_API_KEY: 'metabase-inert',
+    HOF_METABASE_DATABASE_ID: '2',
+    HOF_METABASE_COLLECTION_ID: '5',
     HOF_SENTRY_DSN: 'disabled'
   }
 );

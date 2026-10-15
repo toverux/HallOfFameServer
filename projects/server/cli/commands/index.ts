@@ -1,6 +1,7 @@
 import type { Provider } from '@nestjs/common';
 import { AnniversaryCommand } from './anniversary.command';
 import { CreatorCommand } from './creator/creator.command';
+import { DashboardCommand } from './dashboard/dashboard.command';
 import { DigestCommand } from './digest.command';
 import { ImportCityCommand } from './import-city.command';
 import { MigrateCommand } from './migrate.command';
@@ -17,6 +18,7 @@ export const commands: Provider[] = [
   ...MigrateCommand.providers(),
   // Commands with sub-commands.
   ...CreatorCommand.providers(),
+  ...DashboardCommand.providers(),
   ...ModCommand.providers(),
   ...ModerateCommand.providers(),
   ...ScreenshotCommand.providers()

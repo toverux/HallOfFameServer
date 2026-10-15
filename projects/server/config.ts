@@ -57,6 +57,21 @@ export const config = {
     apiKey: getString('HOF_SKYVE_API_KEY')
   },
 
+  // Read on use, as only the environment syncing the dashboards sets them.
+  get metabase(): Readonly<{
+    url: string;
+    apiKey: string;
+    databaseId: number;
+    collectionId: number;
+  }> {
+    return {
+      url: getString('HOF_METABASE_URL'),
+      apiKey: getString('HOF_METABASE_API_KEY'),
+      databaseId: getNumber('HOF_METABASE_DATABASE_ID'),
+      collectionId: getNumber('HOF_METABASE_COLLECTION_ID')
+    };
+  },
+
   screenshots: {
     maxFileSizeBytes: getNumber('HOF_SCREENSHOTS_MAX_FILE_SIZE_MB') * 1000 * 1000,
     jpegQuality: getNumber('HOF_SCREENSHOTS_JPEG_QUALITY'),

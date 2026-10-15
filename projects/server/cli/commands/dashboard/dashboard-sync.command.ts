@@ -265,7 +265,7 @@ function dashcards(
 ): Prisma.InputJsonObject[] {
   const lines = changes
     .toSorted((a, b) => a.date.localeCompare(b.date))
-    .map(change => `- ${change.date}: ${change.label}`);
+    .map(change => `- ${change.date.slice(0, 'YYYY-MM-DD'.length)}: ${change.label}`);
 
   const changesText = [`**Shipped changes**`, lines.length ? lines.join('\n') : `None yet.`];
 

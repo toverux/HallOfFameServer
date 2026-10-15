@@ -79,7 +79,10 @@ describe('dashboard sync', () => {
 
     expect(dashcards.map(dashcard => dashcardContent(dashcard))).toEqual([
       introduction,
-      `**Shipped changes**\n\nNone yet.`,
+      // The oldest change stays first as the list grows.
+      expect.stringMatching(
+        /^\*\*Shipped changes\*\*\n\n- 2026-10-15: newcomer protection(?:\n|$)/u
+      ),
       'First day',
       question('Day-1 like rate'),
       question('Day-1 quality served'),

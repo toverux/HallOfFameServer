@@ -47,6 +47,11 @@ export class CreatorMergeCommand extends CommandRunner {
       throw `Creator ${target} not found.`;
     }
 
+    // Merging an account into itself would end by deleting it, with all its records.
+    if (targetCreator.id == duplicateCreator.id) {
+      throw `Creator ${target} and ${duplicate} are the same account.`;
+    }
+
     iconsole.info(chalk.bold(`Merging`), duplicateCreator, chalk.bold(`into`), targetCreator);
 
     const { count: updatedScreenshots } = await prisma.screenshot.updateMany({
@@ -85,6 +90,18 @@ export class CreatorMergeCommand extends CommandRunner {
     });
 
     iconsole.info(chalk.bold(`Updated ${updatedActivities} activity days.`));
+
+    // The account dates from the player's first one, so a merged veteran is no newcomer.
+    if (duplicateCreator.createdAt < targetCreator.createdAt) {
+      await prisma.creator.update({
+        where: { id: targetCreator.id },
+        data: { createdAt: duplicateCreator.createdAt }
+      });
+
+      iconsole.info(
+        chalk.bold(`Dated the account from ${duplicateCreator.createdAt.toISOString()}.`)
+      );
+    }
 
     await prisma.creator.delete({
       where: { id: duplicateCreator.id }

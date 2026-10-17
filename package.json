@@ -102,7 +102,6 @@
     "msgpackr-extract",
     "prisma",
     "puppeteer",
-    "sharp",
     "usearch"
   ]
 }

@@ -4,6 +4,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import {
   createWebRequestFromNodeRequest,
   getAngularAppEngine,
+  trustedProxyHeaders,
   writeResponseToNodeResponse
 } from '../angular-app-engine';
 
@@ -25,7 +26,8 @@ export class NotFoundExceptionFilter extends BaseExceptionFilter {
    * default error handler elsewhere, but it's the best I've found so far.
    */
   // typescript/strict-void-return: false positive due to the method being called catch().
-  // typescript/no-misused-promises: diagnostic is right, it's Nest that has its types wrong, it does await promises.
+  // typescript/no-misused-promises: diagnostic is right, it's Nest that has its types wrong, it
+  // does await promises.
   // oxlint-disable-next-line typescript/strict-void-return typescript/no-misused-promises
   public override async catch(error: NotFoundException, host: ArgumentsHost): Promise<void> {
     const ctx = host.switchToHttp();
@@ -39,7 +41,7 @@ export class NotFoundExceptionFilter extends BaseExceptionFilter {
 
     try {
       const ngResponse = await getAngularAppEngine().handle(
-        createWebRequestFromNodeRequest(req.raw)
+        createWebRequestFromNodeRequest(req.raw, trustedProxyHeaders)
       );
 
       if (ngResponse) {

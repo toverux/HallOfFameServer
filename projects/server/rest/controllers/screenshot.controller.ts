@@ -426,6 +426,7 @@ export class ScreenshotController {
   /**
    * Update a screenshot by ID.
    * Only these properties can be updated:
+   *
    * - {@link Screenshot.cityName}
    * - {@link Screenshot.showcasedModId}, cleared by null or an empty string
    * - {@link Screenshot.description}
@@ -554,6 +555,7 @@ export class ScreenshotController {
    * Receives a screenshot and its metadata and processes it to add it to the Hall of Fame.
    *
    * Expects a multipart request with the following fields:
+   *
    * - `cityName` (required): The name of the city.
    * - `cityMilestone` (required): The milestone reached by the city.
    * - `cityPopulation` (required): The population of the city.
@@ -566,7 +568,7 @@ export class ScreenshotController {
    * - `renderSettings`: A JSON string containing the render settings for the screenshot.
    * - `renderConditions`: A JSON string containing the scene and light conditions of the shot.
    * - `metadata`: A JSON string containing additional metadata about the screenshot that is not
-   * exploited by the application.
+   *   exploited by the application.
    * - `screenshot` (required): The screenshot file, a JPEG.
    *
    * Response will be 201 with a serialized Screenshot.
@@ -719,12 +721,12 @@ export class ScreenshotController {
 
 /**
  * Regular expression to validate a trimmed city name:
+ *
  * - Must contain only letters, numbers, spaces, hyphens, apostrophes and commas (Latin, CJK), and
- * middle dots (the Chinese interpunct, and a bullet), with at least one letter or number.
+ *   middle dots (the Chinese interpunct, and a bullet), with at least one letter or number.
  * - A letter or number may carry up to three combining marks, as scripts like Devanagari and Thai
- * need, where more only stack into unreadable text.
- * - Must be between 1 and 35 characters long. 1-character-long names are for languages like
- * Chinese.
+ *   need, where more only stack into unreadable text.
+ * - Must be between 1 and 35 characters long. 1-character-long names are for languages like Chinese.
  */
 const cityNameRegex = /^(?=.{1,35}$)(?=.*[\p{L}\p{N}])(?:[\p{L}\p{N}]\p{M}{0,3}|[- '’,、·•])+$/u;
 

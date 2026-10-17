@@ -137,6 +137,7 @@ export class ScreenshotService {
    * Ingests a screenshot and its metadata into the Hall of Fame.
    *
    * By ingesting a screenshot, we mean:
+   *
    * - Resizing the screenshot to two sizes.
    * - Uploading the screenshots to Azure Blob Storage.
    * - Creating a {@link Screenshot} record in the database.
@@ -860,9 +861,10 @@ export class ScreenshotService {
 
   /**
    * Retrieves a screenshot that has a high favoriting percentage:
+   *
    * - ≥ {@link config.screenshots.popularScreenshotsMinFavorites} favorites
    * - ≥ X% favoriting percentage (X being dynamically determined, see
-   * {@link ScreenshotStatsService.popularFavoritingPercentageThreshold})
+   *   {@link ScreenshotStatsService.popularFavoritingPercentageThreshold})
    */
   private getScreenshotPopular(nin: readonly JsonOid[]): Promise<ScreenshotWithCreator | null> {
     // Uses [isReported, favoritesCount, favoritingPercentage] compound index for matching, test
@@ -882,6 +884,7 @@ export class ScreenshotService {
 
   /**
    * Retrieves a screenshot that has one of the highest favoriting percentage:
+   *
    * - ≥ 1% favoriting percentage (this is mostly an optimization pass to reduce the set).
    * - Sorts by favoriting percentage descending.
    * - Limits to the X best.
@@ -906,6 +909,7 @@ export class ScreenshotService {
 
   /**
    * Retrieves a screenshot uploaded between X days ago (configurable in env) and now:
+   *
    * - Matches screenshots posted within the time window.
    * - Sorts by views count ascending so that the least viewed screenshots are prioritized.
    * - Limits to the X most recent, least viewed.
@@ -933,6 +937,7 @@ export class ScreenshotService {
 
   /**
    * Retrieves a screenshot among the ones that have the fewest views:
+   *
    * - Omits recent screenshots (see {@link getScreenshotRecent}) because they also have few views.
    * - Sorts by views count ascending so that the least viewed screenshots are prioritized.
    * - Limits to the X most ancient, least viewed.
@@ -961,6 +966,7 @@ export class ScreenshotService {
 
   /**
    * Retrieves a screenshot made by a supporter:
+   *
    * - Finds a random supporter.
    * - Matches screenshots posted by that supporter.
    * - Sorts by views count ascending so that the least viewed screenshots are prioritized.
@@ -1026,10 +1032,11 @@ export class ScreenshotService {
 
 /**
  * Given a set of weights for each algorithm:
+ *
  * - Selects an algorithm based on the weights.
  * - Tries to get a result using the selected algorithm.
- * - If the selected algorithm returns nothing, removes it from the candidate algorithms so it is
- * not selected again.
+ * - If the selected algorithm returns nothing, removes it from the candidate algorithms so it is not
+ *   selected again.
  * - Repeats the process until a result is found or all algorithms have been tried.
  *
  * @param weights Positive integers or zero, totaling a safe integer, or the pick may never end.

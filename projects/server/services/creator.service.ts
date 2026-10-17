@@ -146,10 +146,11 @@ export class CreatorService {
    * Creator ID validation and updates.
    *
    * There are two possible outcomes:
+   *
    * - If the Creator ID doesn't match any record, a new Creator is created with the provided
-   * credentials.
+   *   credentials.
    * - If the Creator ID matches a record, the request is authenticated, and the Creator Name is
-   * updated if it is changed.
+   *   updated if it is changed.
    *
    * This is only a wrapper around {@link authenticateCreatorForModUnsafe} that handles concurrent
    * requests conflicts.

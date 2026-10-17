@@ -21,6 +21,7 @@ type RankCutPoints = Readonly<Record<Exclude<ScreenshotRank, 'bronze'>, number>>
 /**
  * A service responsible for managing and updating screenshot statistics that are costly/hazardous
  * to maintain in realtime:
+ *
  * - {@link Screenshot.viewsCount}
  * - {@link Screenshot.uniqueViewsCount}
  * - {@link Screenshot.favoritesCount}

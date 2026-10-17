@@ -8,6 +8,7 @@
  * ISC License: https://github.com/hayes/pothos/blob/main/LICENSE.
  *
  * Minimal modifications were made:
+ *
  * - So it compiles with our TypeScript configuration,
  * - Oxfmt formatting.
  */

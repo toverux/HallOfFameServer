@@ -26,7 +26,7 @@ When changing public API behavior, pull the latest `dev` branch in `../hof-viewe
 - [mise-en-place](https://mise.jdx.dev): manages dev tools, env vars, and tasks for this repo.
 - **Frontend**: Angular with SSR.
 - **Backend**: Bun, NestJS, Fastify HTTP server.
-- **API**: REST controllers and GraphQL (GraphQL Yoga with Pothos).
+- **API**: REST controllers, which the mod and the viewer use, and an experimental GraphQL endpoint (GraphQL Yoga with Pothos) that no client uses yet, so its schema and behavior change freely.
 - **Database**: MongoDB with Prisma ORM.
 - **ML Capabilities**: TensorFlow.js for image feature extraction.
 - **Error Tracking**: Sentry.

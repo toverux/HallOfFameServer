@@ -58,7 +58,7 @@
     "resolve-accept-language": "^3.2.2",
     "rxjs": "~7.8.2",
     "sharp": "^0.35.5",
-    "slug": "^11.0.1",
+    "slug": "^12.0.1",
     "text-case": "^1.2.10",
     "tslib": "^2.8.1",
     "type-fest": "^5.10.0",

@@ -13,7 +13,6 @@ const productionTracesSampleRate = 0.05;
 Sentry.init({
   dsn: config.sentry.dsn == 'disabled' ? undefined : config.sentry.dsn,
   environment: config.env,
-  enableLogs: true,
   sampleRate: 1,
   // Every other category defaults to collected.
   dataCollection: { userInfo: true },

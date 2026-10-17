@@ -3,7 +3,7 @@
 redactions = ["*_KEY", "HOF_SYSTEM_PASSWORD", "HOF_DATABASE_URL", "HOF_AZURE_URL", "HOF_SENTRY_DSN"]
 
 [tools]
-bun = "1.3.14"
+bun = "1.4.3"
 node = "26"
 
 [env]

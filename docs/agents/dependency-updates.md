@@ -29,3 +29,17 @@ Before upgrading a package, read its entry: honor a live one, and lift one whose
 - **Reason**: the adapter pins `fastify` exactly; a newer root copy would install twice, splitting the adapter's types and `LogController` from ours.
 - **Blocked until**: permanent; move it with each `@nestjs/platform-fastify` bump, to `bun pm view @nestjs/platform-fastify@<version> dependencies.fastify`.
 - **Date**: 2026-10-17
+
+## prisma, @prisma/client
+
+- **Skipped**: 6.19.3 → 7.10.1
+- **Reason**: Prisma 7 does not support MongoDB; its 7.0.0 notes and the prisma.io MongoDB page say to stay on 6.19. Prisma 8 (in release candidates) carries its own MongoDB migration guide, a rewrite of the client setup rather than a bump.
+- **Blocked until**: a stable Prisma release supports MongoDB; then follow its MongoDB upgrade guide (`prisma.config.ts`, the `prisma-client` generator, `db push` without `--skip-generate`).
+- **Date**: 2026-10-17
+
+## typescript
+
+- **Skipped**: 6.0.3 → 7.0.2
+- **Reason**: TypeScript 7 ships no JS compiler API, which `@angular/compiler-cli` calls to build the client; Angular 22.2 peers on `typescript >=6.0 <6.1`. Type-checking the repo with TS 7 alone passes.
+- **Blocked until**: an Angular release accepts TypeScript 7 in its `@angular/compiler-cli` and `@angular/build` peers.
+- **Date**: 2026-10-17

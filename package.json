@@ -51,7 +51,7 @@
     "mongodb": "^7.7.0",
     "nest-commander": "^3.21.0",
     "open": "^11.0.4",
-    "openai": "^6.49.0",
+    "openai": "^7.36.0",
     "p-lazy": "^5.0.0",
     "prisma": "^6.19.3",
     "puppeteer": "^24.43.1",

@@ -41,7 +41,7 @@ export function yogaBuilder(
  * `INTERNAL_SERVER_ERROR` code.
  */
 function maskError(error: unknown, message: string, isDev = false): GraphQLError {
-  const originalError = error instanceof GraphQLError ? error.originalError : undefined;
+  const originalError = error instanceof GraphQLError ? error.cause : undefined;
 
   // If the error is a pre-masking GraphQLError and the cause is a StandardError, we can expose the
   // StandardError contents.
@@ -80,11 +80,11 @@ function handleErrors(
       : 'unknown';
 
     // Extract the cause error if we received a GraphQLError.
-    const originalError = error instanceof GraphQLError ? error.originalError : undefined;
+    const originalError = error instanceof GraphQLError ? error.cause : undefined;
 
     // This is a GraphQLError that originates from the engine/framework, ex. query validation
     // errors, we can ignore those.
-    if (error instanceof GraphQLError && !error.originalError) {
+    if (error instanceof GraphQLError && !error.cause) {
       logger.warn(`[${reqId}/error] ${error.name}: ${error.message}`);
     }
     // If the error is a StandardError, it's not unexpected, log it as a warning for debug and

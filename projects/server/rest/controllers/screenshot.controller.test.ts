@@ -2558,6 +2558,8 @@ describe('ScreenshotController', () => {
       // Encodes the form as a multipart body with its boundary.
       const request = new Request('http://localhost', { method: 'POST', body: form });
 
+      // Read before the body: Bun drops the implicit content-type once the body is consumed
+      // (oven-sh/bun#45245).
       const contentType = nn(request.headers.get('content-type'));
 
       const body = Buffer.from(await request.arrayBuffer());

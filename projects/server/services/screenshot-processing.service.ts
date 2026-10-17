@@ -2,7 +2,7 @@ import path from 'node:path';
 import { Injectable } from '@nestjs/common';
 import * as Bun from 'bun';
 import * as dateFns from 'date-fns';
-import sharp from 'sharp';
+import sharp, { type ResizeOptions } from 'sharp';
 import { allFulfilled } from '../../shared/utils/all-fulfilled';
 import type { Maybe } from '../../shared/utils/utility-types';
 import { config } from '../config';
@@ -46,7 +46,7 @@ export class ScreenshotProcessingService {
     // Resize to Thumbnail, 4K and Full HD-like resolutions but keep the aspect ratio, allowing
     // overflow so the dimensions specified are a minimum.
     // Ex. A 1:1 image of 4000x4000 will be resized to 3840x3840.
-    const options: sharp.ResizeOptions = {
+    const options: ResizeOptions = {
       fit: 'outside',
       withoutEnlargement: true
     };

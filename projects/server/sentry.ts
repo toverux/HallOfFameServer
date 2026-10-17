@@ -15,7 +15,8 @@ Sentry.init({
   environment: config.env,
   enableLogs: true,
   sampleRate: 1,
-  sendDefaultPii: true,
+  // Every other category defaults to collected.
+  dataCollection: { userInfo: true },
   tracesSampleRate: config.env == 'development' ? 1 : productionTracesSampleRate,
   integrations: [Sentry.extraErrorDataIntegration(), Sentry.openAIIntegration()]
 });

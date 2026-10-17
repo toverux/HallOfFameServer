@@ -2371,6 +2371,61 @@ describe('ScreenshotController', () => {
       await expectNothingStored();
     });
 
+    test.each([
+      { part: 'its fields', cutAt: (body: Buffer) => body.indexOf('cityPopulation') },
+      { part: 'its file', cutAt: (body: Buffer) => body.length - 1000 }
+    ])(`returns 400 for an upload cut short in $part`, async ({ cutAt }) => {
+      const creator = await createCreator(testApp.prisma);
+
+      const response = await upload(modHeaders(creator), modUploadFields, testImage, cutAt);
+
+      expect(response.statusCode).toBe(400);
+
+      expect(response.json<unknown>()).toEqual({
+        statusCode: 400,
+        message: `The upload ended before it was complete.`,
+        error: 'IncompleteUploadError'
+      });
+
+      await expectNothingStored();
+    });
+
+    test(`returns 400 for more fields than the mod sends`, async () => {
+      const creator = await createCreator(testApp.prisma);
+
+      const response = await upload(modHeaders(creator), { ...modUploadFields, extra: 'field' });
+
+      expect(response.statusCode).toBe(400);
+
+      expect(response.json<unknown>()).toEqual({
+        statusCode: 400,
+        message: `Expected at most 12 multipart fields.`,
+        error: 'InvalidPayloadError'
+      });
+
+      await expectNothingStored();
+    });
+
+    test(`returns 413 for a screenshot over the size limit`, async () => {
+      const creator = await createCreator(testApp.prisma);
+
+      const response = await upload(
+        modHeaders(creator),
+        modUploadFields,
+        new Blob([new Uint8Array(config.screenshots.maxFileSizeBytes + 1)])
+      );
+
+      expect(response.statusCode).toBe(413);
+
+      expect(response.json<unknown>()).toEqual({
+        statusCode: 413,
+        message: `The screenshot exceeds the 50 MB limit.`,
+        error: 'ScreenshotTooLargeError'
+      });
+
+      await expectNothingStored();
+    });
+
     test(`returns 400 for a file that is not an image`, async () => {
       const creator = await createCreator(testApp.prisma);
 
@@ -2481,11 +2536,13 @@ describe('ScreenshotController', () => {
 
     /**
      * Sends an upload the way the mod encodes it: the fields in order, then the screenshot file.
+     * `cutAt` ends the body at the offset it returns, as a connection lost mid-upload would.
      */
     async function upload(
       headers: Readonly<Record<string, string>>,
       fields = modUploadFields,
-      screenshot: Blob | null = testImage
+      screenshot: Blob | null = testImage,
+      cutAt?: (body: Buffer) => number
     ): Promise<Awaited<ReturnType<TestApp['app']['inject']>>> {
       const form = new FormData();
 
@@ -2501,11 +2558,15 @@ describe('ScreenshotController', () => {
       // Encodes the form as a multipart body with its boundary.
       const request = new Request('http://localhost', { method: 'POST', body: form });
 
+      const contentType = nn(request.headers.get('content-type'));
+
+      const body = Buffer.from(await request.arrayBuffer());
+
       return testApp.app.inject({
         method: 'POST',
         url: '/api/v1/screenshots',
-        headers: { ...headers, 'content-type': nn(request.headers.get('content-type')) },
-        payload: Buffer.from(await request.arrayBuffer())
+        headers: { ...headers, 'content-type': contentType },
+        payload: cutAt ? body.subarray(0, cutAt(body)) : body
       });
     }
 

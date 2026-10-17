@@ -1,4 +1,4 @@
-import type { Multipart } from '@fastify/multipart';
+import type { Multipart, MultipartFile } from '@fastify/multipart';
 import {
   BadRequestException,
   Body,
@@ -11,6 +11,7 @@ import {
   Param,
   ParseBoolPipe,
   ParseIntPipe,
+  PayloadTooLargeException,
   Post,
   Put,
   Query,
@@ -21,6 +22,7 @@ import {
 import { inspect } from 'bun';
 import { oneLine } from 'common-tags';
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import { filesize } from 'filesize';
 import { ObjectId } from 'mongodb';
 import { z } from 'zod';
 import { Prisma, type Screenshot } from '#prisma-lib/client';
@@ -577,21 +579,7 @@ export class ScreenshotController {
   ): Promise<JsonObject> {
     const creator = CreatorAuthenticationService.getAuthenticatedCreator(req);
 
-    // noinspection JSUnusedGlobalSymbols False positive.
-    const multipart = await req.file({
-      isPartAFile: fieldName => fieldName == 'screenshot',
-      limits: {
-        // Number of fields we expect to receive at most, raised with each new upload field.
-        // Exceeding it fails the upload with a 500 "Premature close", not a 400.
-        fields: 12,
-        files: 1,
-        fileSize: config.screenshots.maxFileSizeBytes
-      }
-    });
-
-    if (!multipart) {
-      throw new InvalidPayloadError(`Expected a file-field named 'screenshot'.`);
-    }
+    const multipart = await this.receiveUploadFields(req);
 
     const cityName = validateCityName(this.getMultipartString(multipart, 'cityName', true));
 
@@ -658,8 +646,45 @@ export class ScreenshotController {
         throw new InvalidImageFormatError(error);
       }
 
-      throw error;
+      throw toUploadError(error);
     }
+  }
+
+  /**
+   * Parses the upload's fields, up to its file, which the mod sends last.
+   */
+  private async receiveUploadFields(req: FastifyRequest): Promise<MultipartFile> {
+    // Number of fields the mod sends at most, raised with each new upload field.
+    const maxFields = 12;
+
+    let multipart: MultipartFile | undefined;
+
+    try {
+      // noinspection JSUnusedGlobalSymbols False positive.
+      multipart = await req.file({
+        isPartAFile: fieldName => fieldName == 'screenshot',
+        limits: {
+          // One past the maximum: past its limit, the parser silently drops the fields that
+          // follow, so receiving one more field than the maximum is how an excess shows.
+          fields: maxFields + 1,
+          files: 1,
+          fileSize: config.screenshots.maxFileSizeBytes
+        }
+      });
+    } catch (error) {
+      throw toUploadError(error);
+    }
+
+    if (!multipart) {
+      throw new InvalidPayloadError(`Expected a file-field named 'screenshot'.`);
+    }
+
+    // The fields list the file part too.
+    if (Object.keys(multipart.fields).length - 1 > maxFields) {
+      throw new InvalidPayloadError(`Expected at most ${maxFields} multipart fields.`);
+    }
+
+    return multipart;
   }
 
   private getMultipartString(multipart: Multipart, fieldName: string, strict: true): string;
@@ -884,6 +909,34 @@ function parseJsonObjectField<TValue>(
   }
 }
 
+/**
+ * Turns the multipart parser's errors on a malformed upload into client errors, which would
+ * otherwise answer 500.
+ */
+function toUploadError(error: unknown): unknown {
+  if (!(error instanceof Error)) {
+    return error;
+  }
+
+  const code = 'code' in error ? error.code : undefined;
+
+  if (code == 'FST_REQ_FILE_TOO_LARGE') {
+    return new ScreenshotTooLargeError(error);
+  }
+
+  // A body cut short while the parser reads the fields (busboy's error, which has no code), the
+  // file, or when the client disconnects.
+  if (
+    code == 'FST_MP_PREMATURE_CLOSE' ||
+    code == 'ERR_STREAM_PREMATURE_CLOSE' ||
+    error.message == 'Unexpected end of multipart data'
+  ) {
+    return new IncompleteUploadError(error);
+  }
+
+  return error;
+}
+
 class PlaysetNotSharedError extends StandardError {
   public override httpErrorType = ForbiddenException;
 
@@ -915,6 +968,22 @@ class InvalidCityNameError extends UploadError {
     );
 
     this.incorrectName = incorrectName;
+  }
+}
+
+class IncompleteUploadError extends UploadError {
+  public constructor(cause: unknown) {
+    super(`The upload ended before it was complete.`, { cause });
+  }
+}
+
+class ScreenshotTooLargeError extends UploadError {
+  public override httpErrorType = PayloadTooLargeException;
+
+  public constructor(cause: unknown) {
+    super(`The screenshot exceeds the ${filesize(config.screenshots.maxFileSizeBytes)} limit.`, {
+      cause
+    });
   }
 }
 

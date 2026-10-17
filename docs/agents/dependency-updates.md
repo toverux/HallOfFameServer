@@ -15,3 +15,17 @@ Before upgrading a package, read its entry: honor a live one, and lift one whose
   - `projects/server/services/screenshot-merging.service.test.ts`, `keeps one like per $shared, dated from the earliest`;
   - `projects/server/cli/commands/creator/creator-merge.command.test.ts`, `findCreatedAt`.
 - **Date**: 2026-10-15
+
+## @golevelup/nestjs-discovery
+
+- **Workaround**: `package.json` `overrides` lifts it to `^7.1.0`.
+- **Reason**: `nest-commander` 3.21.0 announces NestJS 12 support but pins `@golevelup/nestjs-discovery` to exactly 7.0.3, whose peers stop at `@nestjs/*` `^11.1.21`; 7.1.0 accepts `^12.0.0`.
+- **Blocked until**: a `nest-commander` release depends on `@golevelup/nestjs-discovery` 7.1 or later; then drop the override.
+- **Date**: 2026-10-17
+
+## fastify
+
+- **Workaround**: pinned to the exact version `@nestjs/platform-fastify` depends on (5.12.5 for 12.1.3), not a range.
+- **Reason**: the adapter pins `fastify` exactly; a newer root copy would install twice, splitting the adapter's types and `LogController` from ours.
+- **Blocked until**: permanent; move it with each `@nestjs/platform-fastify` bump, to `bun pm view @nestjs/platform-fastify@<version> dependencies.fastify`.
+- **Date**: 2026-10-17

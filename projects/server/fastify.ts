@@ -1,7 +1,12 @@
 import fastifyMultipart from '@fastify/multipart';
 import { HttpStatus, Injectable, Logger, type NestMiddleware } from '@nestjs/common';
 import { FastifyAdapter } from '@nestjs/platform-fastify';
-import type { FastifyBaseLogger, FastifyReply, FastifyRequest } from 'fastify';
+import {
+  type FastifyBaseLogger,
+  type FastifyReply,
+  type FastifyRequest,
+  LogController
+} from 'fastify';
 import { config } from './config';
 
 const httpLogger = new Logger('Fastify');
@@ -25,7 +30,7 @@ export function createFastifyAdapter(): FastifyAdapter {
   const adapter = new FastifyAdapter({
     trustProxy: true,
     loggerInstance: pinoLikeLogger,
-    disableRequestLogging: true
+    logController: new LogController({ disableRequestLogging: true })
   });
 
   // @ts-expect-error: errors due to our strict config on types we don't control.

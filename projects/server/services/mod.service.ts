@@ -18,8 +18,10 @@ import {
 } from 'rxjs';
 import { z } from 'zod';
 import type { Mod } from '#prisma-lib/client';
+import { allFulfilled } from '../../shared/utils/all-fulfilled';
 import type { ParadoxModId } from '../../shared/utils/branded-types';
 import type { JsonObject, JsonValue } from '../../shared/utils/json';
+import { isPrismaError } from '../common/prisma-errors';
 import { PrismaService } from './prisma.service';
 
 /**
@@ -195,29 +197,10 @@ export class ModService {
       return ModService.availablePublishedFirst(foundMods);
     }
 
-    await this.prisma.mod.createMany({
-      // oxlint-disable-next-line oxc/no-map-spread - few records, each spread once
-      data: missingModResults.map(result =>
-        result.kind == 'mod'
-          ? { paradoxModId: result.modId, isRetired: false, ...result.fields }
-          : {
-              isRetired: true,
-              retiredReason: result.reason,
-              paradoxModId: result.modId,
-              name: 'Unknown',
-              authorName: 'Unknown',
-              shortDescription: 'Unknown',
-              thumbnailUrl: 'Unknown',
-              previewUrls: [],
-              tags: [],
-              subscribersCount: 0,
-              knownLastUpdatedAt: new Date(0)
-            }
-      )
-    });
+    // One insert per mod, so a mod that a concurrent lookup inserted first fails only its own.
+    await allFulfilled(missingModResults.map(result => this.createMod(result)));
 
-    // We have to fetch new mods via a separate query because createMany doesn't return records.
-    // createManyAndReturn() does but it's not available for MongoDB.
+    // Read back, as a mod inserted by a concurrent lookup comes from no insert here.
     const newMods = await this.prisma.mod.findMany({
       where: { paradoxModId: { in: Array.from(missingModIds) } }
     });
@@ -382,6 +365,37 @@ export class ModService {
     }
 
     return counts;
+  }
+
+  /**
+   * Inserts a mod new to the database from its lookup result.
+   * A mod a concurrent lookup inserted meanwhile is left as it is.
+   */
+  private async createMod(result: ModFetchResult): Promise<void> {
+    try {
+      await this.prisma.mod.create({
+        data:
+          result.kind == 'mod'
+            ? { paradoxModId: result.modId, isRetired: false, ...result.fields }
+            : {
+                isRetired: true,
+                retiredReason: result.reason,
+                paradoxModId: result.modId,
+                name: 'Unknown',
+                authorName: 'Unknown',
+                shortDescription: 'Unknown',
+                thumbnailUrl: 'Unknown',
+                previewUrls: [],
+                tags: [],
+                subscribersCount: 0,
+                knownLastUpdatedAt: new Date(0)
+              }
+      });
+    } catch (error) {
+      if (!isPrismaError(error) || error.code != 'P2002') {
+        throw error;
+      }
+    }
   }
 
   /**

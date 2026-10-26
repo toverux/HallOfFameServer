@@ -2763,6 +2763,56 @@ describe('ScreenshotController', () => {
       expect(await testApp.prisma.mod.count({ where: { paradoxModId: 87_755 } })).toBe(1);
     });
 
+    test(`serves a newly showcased mod to a read racing its caching`, async () => {
+      const creator = await createCreator(testApp.prisma);
+      const screenshot = await createScreenshot(testApp.prisma, creator, { showcasedModId: null });
+
+      // Holds each Paradox lookup until the caching and the read have both sent theirs,
+      // so both find the mod missing from the database and insert it.
+      const lookupsSent = [Promise.withResolvers<void>(), Promise.withResolvers<void>()];
+      let lookupsCount = 0;
+
+      fetchStub.handle(paradoxModUrl(87_755), async () => {
+        nn(lookupsSent[lookupsCount++]).resolve();
+
+        await Promise.all(lookupsSent.map(sent => sent.promise));
+
+        return Response.json(paradoxModBody(87_755));
+      });
+
+      const logError = spyOn(Logger.prototype, 'error').mockReturnValue(void 0);
+
+      try {
+        const update = await testApp.app.inject({
+          method: 'PUT',
+          url: `/api/v1/screenshots/${screenshot.id}`,
+          headers: modHeaders(creator),
+          payload: { showcasedModId: '87755' }
+        });
+
+        expect(update.statusCode).toBe(200);
+
+        const read = await testApp.app.inject({
+          method: 'GET',
+          url: `/api/v1/screenshots/${screenshot.id}`
+        });
+
+        await testApp.backgroundTasks.settled();
+
+        const mod = await testApp.prisma.mod.findUniqueOrThrow({ where: { paradoxModId: 87_755 } });
+
+        expect(read.statusCode).toBe(200);
+        expect(read.json<{ showcasedMod: unknown }>().showcasedMod).toEqual(
+          expectedModPayload(mod)
+        );
+
+        // Whichever of the two inserted second, its failure would be logged.
+        expect(logError).not.toHaveBeenCalled();
+      } finally {
+        logError.mockRestore();
+      }
+    });
+
     test(`puts a newly showcased mod up for moderation`, async () => {
       const creator = await createCreator(testApp.prisma);
 
@@ -3214,13 +3264,23 @@ function paradoxModUrl(modId: number): string {
 }
 
 /**
- * Answers the Paradox Mods lookup of `modId` with a mod named after its ID, unless overridden.
- * An `undefined` override leaves the field out.
+ * Answers the Paradox Mods lookup of `modId` with {@link paradoxModBody}.
  */
 function stubParadoxMod(
   modId: number,
   overrides: Readonly<Record<string, JsonValue | undefined>> = {}
 ): void {
+  fetchStub.respondWithJson(paradoxModUrl(modId), paradoxModBody(modId, overrides));
+}
+
+/**
+ * A Paradox Mods lookup's answer for a mod named after `modId`, unless overridden.
+ * An `undefined` override leaves the field out.
+ */
+function paradoxModBody(
+  modId: number,
+  overrides: Readonly<Record<string, JsonValue | undefined>> = {}
+): JsonValue {
   const modDetail: Record<string, JsonValue | undefined> = {
     modId: String(modId),
     author: 'toverux',
@@ -3247,11 +3307,11 @@ function stubParadoxMod(
     ...overrides
   };
 
-  fetchStub.respondWithJson(paradoxModUrl(modId), {
+  return {
     modDetail: Object.fromEntries(
       Object.entries(modDetail).filter(
         (field): field is [string, JsonValue] => field[1] !== undefined
       )
     )
-  });
+  };
 }

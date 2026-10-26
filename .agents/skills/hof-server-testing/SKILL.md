@@ -49,6 +49,7 @@ No cron runs, and the app logs only errors, so a passing run prints nothing.
 - `createServiceTestingModule()` provides nothing but `PrismaService`: list the fakes a service depends on beside it.
 - The global `fetch` is `fetchStub` for the whole run.
   Stub each expected URL with `fetchStub.respondWithJson()` before the request, or fake a whole API with `fetchStub.handle(baseUrl, handler)`, which answers every URL under the base: any other request fails the test.
+  An async `handle` handler also holds or sequences a request, as a race test does.
 - Bun's `spyOn` and `mock` serve one-offs: a call assertion, a forced rejection, a silenced logger.
   Restore a spy on a shared object (`Logger.prototype`) with `mockRestore()` even when the test fails: in a `finally`, or before the first assertion.
 - A `spyOn` on a Prisma model delegate's method never takes effect: force a query to fail by replacing the delegate on the per-test client, `Object.defineProperty(testApp.prisma, 'creatorActivity', { value: { upsert } })`.

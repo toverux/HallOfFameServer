@@ -9,12 +9,15 @@ import { config } from '../config';
  * Catch-all error filter, uses the base exception filter to handle all errors that reach it, but
  * adds Sentry error reporting for all errors that are not {@link HttpException} (unless status
  * 500+) or {@link StandardError}.
+ * A client error from the static file server is answered with its own status, unreported.
  */
 @Catch()
 export class GlobalExceptionFilter extends BaseExceptionFilter {
   private readonly logger = new Logger(GlobalExceptionFilter.name);
 
   public override catch(error: unknown, host: ArgumentsHost): void {
+    const request = host.switchToHttp().getRequest<FastifyRequest>();
+
     const responseError =
       error instanceof StandardError
         ? // oxlint-disable-next-line new-cap
@@ -22,9 +25,11 @@ export class GlobalExceptionFilter extends BaseExceptionFilter {
             cause: error,
             description: error.constructor.name
           })
-        : error;
+        : isStaticFileClientError(error, request)
+          ? new HttpException(error.message, error.statusCode, { cause: error })
+          : error;
 
-    const reqId = host.switchToHttp().getRequest<FastifyRequest>().id;
+    const reqId = request.id;
 
     // Report unknown errors and 500+ errors to Sentry, log the rest as warnings.
     if (
@@ -63,4 +68,26 @@ export class GlobalExceptionFilter extends BaseExceptionFilter {
   public override isHttpError(_error: unknown): _error is { statusCode: number; message: string } {
     return false;
   }
+}
+
+/**
+ * Whether the error is a client error the static file server raised, such as the 403 it answers a
+ * path traversal attempt with.
+ * The static file server serves its wildcard route, `/*`, which also catches a malformed API path
+ * such as `/api/v1//screenshots`.
+ */
+function isStaticFileClientError(
+  error: unknown,
+  request: FastifyRequest
+): error is Error & { statusCode: number } {
+  return (
+    request.routeOptions.url == '/*' &&
+    error instanceof Error &&
+    'statusCode' in error &&
+    typeof error.statusCode == 'number' &&
+    // oxlint-disable-next-line typescript/no-unsafe-enum-comparison - Fastify status number vs enum
+    error.statusCode >= HttpStatus.BAD_REQUEST &&
+    // oxlint-disable-next-line typescript/no-unsafe-enum-comparison - Fastify status number vs enum
+    error.statusCode < HttpStatus.INTERNAL_SERVER_ERROR
+  );
 }

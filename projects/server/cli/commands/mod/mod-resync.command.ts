@@ -6,7 +6,7 @@ import { ModService } from '../../../services';
 
 @SubCommand({
   name: 'resync',
-  description: `Refreshes every mod from Paradox Mods, and un-retires the ones retired on a transient error.`
+  description: `Refreshes every mod from Paradox Mods, and un-retires the ones retired on a transient error or made private.`
 })
 export class ModResyncCommand extends CommandRunner {
   public static readonly providers: () => Provider[] = () => [ModResyncCommand];

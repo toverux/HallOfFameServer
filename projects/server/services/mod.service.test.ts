@@ -206,7 +206,7 @@ describe('ModService', () => {
   });
 
   describe('resyncAll()', () => {
-    test(`refreshes every mod, and un-retires the ones retired on a transient error`, async () => {
+    test(`refreshes every mod, and un-retires the recoverable ones Paradox serves`, async () => {
       const live = await createMod(prisma, { lastSyncedAt: anHourAgo });
 
       const falselyRetired = await createMod(prisma, {
@@ -219,6 +219,12 @@ describe('ModService', () => {
       const nowRemoved = await createMod(prisma, {
         isRetired: true,
         retiredReason: 'Game could not be found.',
+        lastSyncedAt: anHourAgo
+      });
+
+      const nowPublic = await createMod(prisma, {
+        isRetired: true,
+        retiredReason: 'User does not have access to this mod',
         lastSyncedAt: anHourAgo
       });
 
@@ -236,6 +242,7 @@ describe('ModService', () => {
 
       stubParadoxMod(live, { subscriptions: 2500 });
       stubParadoxMod(falselyRetired, { displayName: 'Hall of Fame' });
+      stubParadoxMod(nowPublic);
 
       fetchStub.respondWithJson(
         paradoxModUrl(nowRemoved),
@@ -245,13 +252,13 @@ describe('ModService', () => {
 
       expect(modService.resyncAll()).resolves.toEqual({
         refreshed: 1,
-        unretired: 1,
+        unretired: 2,
         retired: 1,
         failed: 0
       });
 
       expect(fetchStub.requests.toSorted()).toEqual(
-        [live, falselyRetired, nowRemoved].map(mod => paradoxModUrl(mod)).toSorted()
+        [live, falselyRetired, nowRemoved, nowPublic].map(mod => paradoxModUrl(mod)).toSorted()
       );
 
       const byId = (mod: Mod): Promise<Mod> =>
@@ -276,6 +283,8 @@ describe('ModService', () => {
         isRetired: true,
         retiredReason: 'This mod version is banned'
       });
+
+      expect(await byId(nowPublic)).toMatchObject({ isRetired: false, retiredReason: null });
 
       // Apart, as Bun's toMatchObject passes on any two dates.
       expect([liveMod, falselyRetiredMod, nowRemovedMod].map(mod => mod.lastSyncedAt)).toEqual([

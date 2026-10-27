@@ -373,7 +373,7 @@ model Mod {
   id                  String    @id @default(auto()) @map("_id") @db.ObjectId
   /// Mod ID on Paradox Mods.
   paradoxModId        Int       @unique
-  /// Whether the mod could not be fetched because it was removed/banned.
+  /// Whether the mod could not be fetched because it was removed, banned, or made private.
   /// In this case we will still store a reference to it to remember not to fetch it again.
   /// Only `mod resync` fetches it again, when its `retiredReason` is not a known removal message.
   /// A retired mod should NOT appear in our API results and be skipped.

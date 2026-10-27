@@ -1078,6 +1078,45 @@ describe('ScreenshotController', () => {
       expect(again.json<unknown>()).toEqual([expect.objectContaining({ paradoxModId: 87_755 })]);
     });
 
+    test(`retires a mod its author made private, without retrying`, async () => {
+      const screenshot = await createScreenshot(
+        testApp.prisma,
+        await createCreator(testApp.prisma),
+        { paradoxModIds: [87_755] }
+      );
+
+      fetchStub.respondWithJson(
+        paradoxModUrl(87_755),
+        {
+          result: 'Failure',
+          errorCode: 'forbidden',
+          errorMessage: 'User does not have access to this mod',
+          detail: ''
+        },
+        { status: 403 }
+      );
+
+      const response = await testApp.app.inject({
+        method: 'GET',
+        url: `/api/v1/screenshots/${screenshot.id}/playset`
+      });
+
+      expect(response.json<unknown>()).toEqual([]);
+      expect(fetchStub.requests).toEqual([paradoxModUrl(87_755)]);
+
+      expect(
+        await testApp.prisma.mod.findUniqueOrThrow({ where: { paradoxModId: 87_755 } })
+      ).toMatchObject({ isRetired: true, retiredReason: 'User does not have access to this mod' });
+
+      const again = await testApp.app.inject({
+        method: 'GET',
+        url: `/api/v1/screenshots/${screenshot.id}/playset`
+      });
+
+      expect(again.json<unknown>()).toEqual([]);
+      expect(fetchStub.requests).toHaveLength(1);
+    });
+
     test(`retries a failing Paradox Mods lookup, then leaves the mod out`, async () => {
       const screenshot = await createScreenshot(
         testApp.prisma,

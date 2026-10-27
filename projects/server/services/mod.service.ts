@@ -86,13 +86,22 @@ export class ModService {
   private static readonly paradoxApiTimeout = 10_000;
 
   /**
-   * Paradox Mods' error messages for a mod removed or banned, the only errors retiring a mod.
+   * Paradox Mods' error messages for a mod removed or banned, retiring it for good.
    * Paradox also answers other errors for mods it serves fine again later,
    * ex. "Game could not be found.", so these are matched exactly.
    */
   private static readonly retirementMessages: ReadonlySet<string> = new Set([
     'The mod with the specified modId could not be found',
     'This mod version is banned'
+  ]);
+
+  /**
+   * Paradox Mods' error messages for a mod its author made private, retiring it until `mod resync`
+   * finds it public again, as it fetches every mod retired on a reason not in
+   * {@link retirementMessages}.
+   */
+  private static readonly hiddenMessages: ReadonlySet<string> = new Set([
+    'User does not have access to this mod'
   ]);
 
   /**
@@ -315,8 +324,9 @@ export class ModService {
 
   /**
    * Refreshes every mod from Paradox's API, as the hourly cron would, but all in one go.
-   * Also takes the mods retired on an error other than a {@link retirementMessages},
-   * which a transient error may have retired, and un-retires those Paradox serves.
+   * Also takes the mods retired on an error other than a {@link retirementMessages}, which a
+   * transient error may have retired or their author made private, and un-retires those Paradox
+   * serves.
    */
   public async resyncAll(): Promise<{
     refreshed: number;
@@ -469,7 +479,8 @@ export class ModService {
 
   /**
    * Fetches a mod's details from Paradox's API.
-   * Returns an enum-like object of kind `retired` when a mod has been removed or banned.
+   * Returns an enum-like object of kind `retired` when a mod has been removed, banned, or made
+   * private.
    *
    * @throws {Error} For any unknown error.
    * @throws {assert.AssertionError} For unexpected Paradox API responses shapes.
@@ -511,14 +522,15 @@ export class ModService {
       `Invalid Paradox API response (${debugResponseStatusStr}): ${responseText}`
     );
 
-    // Handle Paradox Mods errors for mods removed or banned.
+    // Handle Paradox Mods errors for mods removed, banned, or made private.
     // Matched by message because Paradox's API does not provide a useful code, ex. `errorCode` for
     // unavailable mods is always "bad-input".
     // noinspection JSObjectNullOrUndefined false positive
     if (
       'errorMessage' in responseData &&
       typeof responseData.errorMessage == 'string' &&
-      ModService.retirementMessages.has(responseData.errorMessage)
+      (ModService.retirementMessages.has(responseData.errorMessage) ||
+        ModService.hiddenMessages.has(responseData.errorMessage))
     ) {
       this.logger.warn(
         `Mod with ID ${modId} was retired or not found (${responseData.errorMessage}).`

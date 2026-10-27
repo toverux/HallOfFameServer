@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, setSystemTime, spyOn, test } from 'bun:test';
 import { Logger } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
+import * as sentry from '@sentry/bun';
+import { z } from 'zod';
 import type { Mod } from '#prisma-lib/client';
 import type { JsonValue } from '../../shared/utils/json';
 import { createMod } from '../testing/factories';
@@ -155,6 +157,51 @@ describe('ModService', () => {
       }
 
       expect(fetchStub.requests).toEqual([paradoxModUrl(mod)]);
+    });
+
+    test(`reports a stalling Paradox API as a warning naming the mod`, async () => {
+      const mod = await createMod(prisma, { lastSyncedAt: lastWeek });
+
+      fetchStub.handle(paradoxModUrl(mod), () =>
+        Promise.reject(new DOMException(`The operation timed out.`, 'TimeoutError'))
+      );
+
+      const captureException = spyOn(sentry, 'captureException').mockReturnValue('');
+      const logError = spyOn(Logger.prototype, 'error').mockReturnValue(void 0);
+
+      try {
+        await modService.syncModDetailsCron();
+
+        expect(captureException.mock.calls).toEqual([
+          [
+            expect.objectContaining({ name: 'TimeoutError' }),
+            { level: 'warning', extra: { modId: mod.paradoxModId } }
+          ]
+        ]);
+      } finally {
+        captureException.mockRestore();
+        logError.mockRestore();
+      }
+    });
+
+    test(`reports any other failed fetch as an error naming the mod`, async () => {
+      const mod = await createMod(prisma, { lastSyncedAt: lastWeek });
+
+      fetchStub.respondWithJson(paradoxModUrl(mod), { modDetail: {} });
+
+      const captureException = spyOn(sentry, 'captureException').mockReturnValue('');
+      const logError = spyOn(Logger.prototype, 'error').mockReturnValue(void 0);
+
+      try {
+        await modService.syncModDetailsCron();
+
+        expect(captureException.mock.calls).toEqual([
+          [expect.any(z.ZodError), { level: 'error', extra: { modId: mod.paradoxModId } }]
+        ]);
+      } finally {
+        captureException.mockRestore();
+        logError.mockRestore();
+      }
     });
   });
 

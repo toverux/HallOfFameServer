@@ -450,7 +450,12 @@ export class ModService {
               }),
               catchError(failure => {
                 this.logger.error(failureMessage(modId), failure);
-                sentry.captureException(failure);
+
+                sentry.captureException(failure, {
+                  // A stalling API recovers on its own, the mod is fetched again on its next turn.
+                  level: ModService.isTimeout(failure) ? 'warning' : 'error',
+                  extra: { modId }
+                });
 
                 return EMPTY;
               })
@@ -636,14 +641,18 @@ export class ModService {
    * and a response failing validation.
    */
   private static retryDelay(error: unknown, retryCount: number): Observable<number> {
-    if (
-      (error instanceof DOMException && error.name == 'TimeoutError') ||
-      error instanceof z.ZodError
-    ) {
+    if (ModService.isTimeout(error) || error instanceof z.ZodError) {
       return throwError(() => error);
     }
 
     return timer(ModService.paradoxApiRetryDelay * 2 ** (retryCount - 1));
+  }
+
+  /**
+   * Whether a Paradox API request failed on {@link paradoxApiTimeout}.
+   */
+  private static isTimeout(error: unknown): boolean {
+    return error instanceof DOMException && error.name == 'TimeoutError';
   }
 
   /**

@@ -34,7 +34,7 @@ export interface WorkerRequest {
 export interface WorkerResponse {
   id: number;
   payload:
-    | Error // Note: `Error` is serializable — non-standard subclasses are converted to `Error`.
+    | Error // Note: `Error` is serializable; non-standard subclasses are converted to `Error`.
     | Float32Array[];
 }
 
@@ -68,27 +68,32 @@ const modelInfo = {
 };
 
 // Load TensorFlow model.
-const model = await tf.loadGraphModel(`file://${modelInfo.path}`);
+const modelLoad = tf.loadGraphModel(`file://${modelInfo.path}`);
 
-// Start listening for requests.
-self.addEventListener('message', (event: MessageEvent<WorkerRequest>) => handleRequest(event.data));
+// Start listening for requests before the model loads: Bun drops a message posted to the worker
+// before it has a listener.
+self.addEventListener(
+  'message',
+  (event: MessageEvent<WorkerRequest>) => void handleRequest(event.data)
+);
 
 /**
  * Handles a {@link WorkerRequest} received through posted messages, by processing image data into
  * embeddings and posting those as a response, using a {@link WorkerResponse} with the same ID as
  * the request.
  */
-function handleRequest(request: WorkerRequest): void {
+async function handleRequest(request: WorkerRequest): Promise<void> {
   try {
-    const embeddings = inferEmbeddings(request.imagesData);
+    const embeddings = inferEmbeddings(await modelLoad, request.imagesData);
 
     self.postMessage(
       {
         id: request.id,
         payload: embeddings
       } satisfies WorkerResponse,
-      // Transfer ownership of underlying ArrayBuffers to the main thread.
-      embeddings.map(embedding => embedding.buffer)
+      // Transfer ownership of underlying ArrayBuffers to the main thread, listing each once as
+      // embeddings are views over the batch's one buffer.
+      [...new Set(embeddings.map(embedding => embedding.buffer))]
     );
   } catch (error) {
     self.postMessage({
@@ -103,11 +108,12 @@ function handleRequest(request: WorkerRequest): void {
  * The method processes image buffers, extracts embeddings, and normalizes them.
  * ! This function MUST stay sync (see comments in the function), otherwise, implement a mutex.
  *
+ * @param model The loaded feature vector model.
  * @param buffers Each buffer represents the raw data of an image to process.
  *
  * @returns Array of normalized embedding vector for the respective input image, ready to be stored.
  */
-function inferEmbeddings(buffers: readonly Uint8Array[]): Float32Array[] {
+function inferEmbeddings(model: tf.GraphModel, buffers: readonly Uint8Array[]): Float32Array[] {
   // Start a new scope to ensure that the tensors are released when the scope is exited.
   tf.engine().startScope();
 

@@ -347,9 +347,9 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnAppl
       .filter(
         item =>
           // Skip match with our own embedding.
-          // This is generally the first match, but not necessarily; ex. in the case the user uploaded
-          // a 100% identical image (hence we don't use .splice()).
-          item.id != embeddingDoc.id ||
+          // This is generally the first match, but not necessarily; ex. in the case the user
+          // uploaded a 100% identical image (hence we don't use .splice()).
+          item.id != embeddingDoc.id &&
           // Keep only matches with a distance below the maximum allowed.
           item.distance <= maxDistance
       );
@@ -581,11 +581,10 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnAppl
 
     const worker = await this.inferenceWorker;
 
-    worker.postMessage(
-      request,
-      // Transfer ownership of underlying ArrayBuffers to the worker.
-      buffers.map(buffer => buffer.buffer)
-    );
+    // Copy the buffers to the worker rather than transfer them: a buffer from sharp holds native
+    // memory that cannot be transferred, and a pooled Buffer shares its ArrayBuffer with unrelated
+    // data.
+    worker.postMessage(request);
 
     const response = await firstValueFrom(
       this.workerResponses.pipe(

@@ -20,6 +20,9 @@ jobs:
       # checks nor the tests use; `mise check` generates the Prisma client.
       - run: bun install --frozen-lockfile --ignore-scripts
 
+      # Downloads TensorFlow and its native binding, which the similarity detector's test runs.
+      - run: bun run --cwd node_modules/@tensorflow/tfjs-node install
+
       - run: mise check
 
       # Starts the compose MongoDB through its `dev:db:start` dependency: a service container

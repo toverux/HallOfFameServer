@@ -163,6 +163,7 @@ export class ScreenshotService {
     renderConditions: Record<string, number | string | boolean>;
     metadata: JsonObject;
     createdAt: Date;
+    sessionId: string | undefined;
     file: Buffer;
     healthcheck: boolean;
   }): Promise<Screenshot> {
@@ -249,6 +250,7 @@ export class ScreenshotService {
           createdAt: data.createdAt,
           hwid: data.creator.hwids[0] ?? null,
           ip: data.creator.ips[0] ?? null,
+          uploadSessionId: data.sessionId ?? Prisma.skip,
           creatorId: data.creator.id,
           cityName: data.cityName,
           cityMilestone: data.cityMilestone,
@@ -452,10 +454,12 @@ export class ScreenshotService {
    * @param screenshotId Screenshot to mark as reported.
    * @param reportedById The Creator OID of the user who made the report.
    *   Useful to reset a bunch of reports if the report feature is abused.
+   * @param sessionId Session ID of the request, see {@link Screenshot.reportSessionId}.
    */
   public async markReported(
     screenshotId: Screenshot['id'],
-    reportedById: Creator['id']
+    reportedById: Creator['id'],
+    sessionId: string | undefined
   ): Promise<Screenshot> {
     const screenshot = await this.prisma.screenshot.findUnique({
       where: { id: screenshotId },
@@ -477,7 +481,8 @@ export class ScreenshotService {
     try {
       return await this.prisma.screenshot.update({
         where: { id: screenshotId },
-        data: { isReported: true, reportedById },
+        // Cleared without a session ID, so it never outlives the report it came with.
+        data: { isReported: true, reportedById, reportSessionId: sessionId ?? { unset: true } },
         include: { creator: true }
       });
     } catch (error) {
@@ -499,7 +504,8 @@ export class ScreenshotService {
         data: {
           isApproved: true,
           isReported: false,
-          reportedById: null
+          reportedById: null,
+          reportSessionId: { unset: true }
         },
         include: { creator: true }
       });
@@ -1035,8 +1041,8 @@ export class ScreenshotService {
  *
  * - Selects an algorithm based on the weights.
  * - Tries to get a result using the selected algorithm.
- * - If the selected algorithm returns nothing, removes it from the candidate algorithms so it is not
- *   selected again.
+ * - If the selected algorithm returns nothing, removes it from the candidates so it is not selected
+ *   again.
  * - Repeats the process until a result is found or all algorithms have been tried.
  *
  * @param weights Positive integers or zero, totaling a safe integer, or the pick may never end.

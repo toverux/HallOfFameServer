@@ -3,15 +3,18 @@ import { CreatorController } from './creator.controller';
 import { ModController } from './mod.controller';
 import { ScreenshotController } from './screenshot.controller';
 import { SystemController } from './system.controller';
+import { UsageController } from './usage.controller';
 
 export * from './creator.controller';
 export * from './mod.controller';
 export * from './screenshot.controller';
 export * from './system.controller';
+export * from './usage.controller';
 
 export const controllers: Array<Type<unknown>> = [
   CreatorController,
   ModController,
   ScreenshotController,
-  SystemController
+  SystemController,
+  UsageController
 ];

@@ -43,7 +43,7 @@ describe('ViewService', () => {
 
     const loading = viewService.getViewedScreenshotIds(player.id);
 
-    await viewService.markViewed(screenshot.id, player.id);
+    await viewService.markViewed(screenshot.id, player.id, undefined);
 
     expect(await loading).toEqual(new Set([screenshot.id]));
     expect(await viewService.getViewedScreenshotIds(player.id)).toEqual(new Set([screenshot.id]));

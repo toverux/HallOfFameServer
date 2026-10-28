@@ -23,3 +23,6 @@ export const otherUnusedCreatorId = '00000000-0000-4000-8000-0000000000fe' as Cr
 
 // A well-formed ObjectId.
 export const unknownScreenshotId = '0123456789abcdef01234567';
+
+// A UUID v4, as the mod draws one per game launch for the `X-Session-Id` header.
+export const sessionId1 = '6f1c2b8e-3d4a-4f5b-9c6d-7e8f9a0b1c2d';

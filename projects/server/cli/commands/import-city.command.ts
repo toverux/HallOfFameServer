@@ -217,6 +217,7 @@ export class ImportCityCommand extends CommandRunner {
         renderConditions: {},
         metadata: {},
         createdAt: cityInfo.date,
+        sessionId: undefined,
         file: Buffer.from(fileBytes),
         healthcheck: false
       });

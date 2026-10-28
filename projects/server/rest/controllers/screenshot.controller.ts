@@ -30,6 +30,7 @@ import type { ParadoxModId } from '../../../shared/utils/branded-types';
 import type { JsonObject, JsonValue } from '../../../shared/utils/json';
 import { viewerBaseUrl } from '../../common/constants';
 import { isPrismaError } from '../../common/prisma-errors';
+import { getSessionId } from '../../common/session-id';
 import { ForbiddenError, NotFoundByIdError, StandardError } from '../../common/standard-error';
 import { config } from '../../config';
 import { CreatorAuthorizationGuard } from '../../guards';
@@ -490,7 +491,11 @@ export class ScreenshotController {
   ): Promise<JsonObject> {
     const creator = CreatorAuthenticationService.getAuthenticatedCreator(req);
 
-    const favorite = await this.favoriteService.addFavorite(screenshotId, creator);
+    const favorite = await this.favoriteService.addFavorite(
+      screenshotId,
+      creator,
+      getSessionId(req)
+    );
 
     return this.favoriteService.serialize(favorite);
   }
@@ -520,7 +525,7 @@ export class ScreenshotController {
   ): Promise<JsonObject> {
     const creator = CreatorAuthenticationService.getAuthenticatedCreator(req);
 
-    const view = await this.viewService.markViewed(screenshotId, creator.id);
+    const view = await this.viewService.markViewed(screenshotId, creator.id, getSessionId(req));
 
     return this.viewService.serialize(view);
   }
@@ -539,7 +544,11 @@ export class ScreenshotController {
     try {
       const creator = CreatorAuthenticationService.getAuthenticatedCreator(req);
 
-      const screenshot = await this.screenshotService.markReported(screenshotId, creator.id);
+      const screenshot = await this.screenshotService.markReported(
+        screenshotId,
+        creator.id,
+        getSessionId(req)
+      );
 
       return this.screenshotService.serialize(screenshot, req);
     } catch (error) {
@@ -638,6 +647,7 @@ export class ScreenshotController {
         renderConditions,
         metadata,
         createdAt: new Date(),
+        sessionId: getSessionId(req),
         file,
         healthcheck
       });
@@ -726,7 +736,7 @@ export class ScreenshotController {
  *   middle dots (the Chinese interpunct, and a bullet), with at least one letter or number.
  * - A letter or number may carry up to three combining marks, as scripts like Devanagari and Thai
  *   need, where more only stack into unreadable text.
- * - Must be between 1 and 35 characters long. 1-character-long names are for languages like Chinese.
+ * - Must be 1 to 35 characters long; 1-character names are for languages like Chinese.
  */
 const cityNameRegex = /^(?=.{1,35}$)(?=.*[\p{L}\p{N}])(?:[\p{L}\p{N}]\p{M}{0,3}|[- '’,、·•])+$/u;
 

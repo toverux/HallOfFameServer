@@ -79,6 +79,22 @@ const modUploadFields: Readonly<Record<string, string>> = {
   description: `Sunset over the bay.`
 };
 
+/**
+ * The `X-Session-Id` header a mod request may carry, and the session ID its row then holds: only a
+ * UUID is stored, and the request succeeds either way.
+ */
+const sessionHeaderCases: ReadonlyArray<
+  readonly [string, Readonly<Record<string, string>>, string | null]
+> = [
+  [
+    'the session ID of the header',
+    { 'x-session-id': identifiers.sessionId1 },
+    identifiers.sessionId1
+  ],
+  ['no session ID without the header', {}, null],
+  ['no session ID for a header that is not a UUID', { 'x-session-id': 'not-a-uuid' }, null]
+];
+
 // A Full HD JPEG.
 const testImage = Bun.file(
   Bun.fileURLToPath(import.meta.resolve('../../../shared/assets/healthcheck-test-image.jpg'))
@@ -1780,6 +1796,25 @@ describe('ScreenshotController', () => {
       ).toMatchObject({ viewsCount: 1 });
     });
 
+    test.each(sessionHeaderCases)(`stores %s`, async (_case, headers, sessionId) => {
+      const player = await createCreator(testApp.prisma);
+
+      const screenshot = await createScreenshot(
+        testApp.prisma,
+        await createCreator(testApp.prisma)
+      );
+
+      const response = await testApp.app.inject({
+        method: 'POST',
+        url: `/api/v1/screenshots/${screenshot.id}/views`,
+        headers: { ...modHeaders(player), ...headers }
+      });
+
+      expect(response.statusCode).toBe(201);
+
+      expect(await testApp.prisma.view.findFirstOrThrow()).toMatchObject({ sessionId });
+    });
+
     describe('algorithm', () => {
       test(`labels the view a pick served with its algorithm, and no later view`, async () => {
         const player = await createCreator(testApp.prisma);
@@ -1925,6 +1960,25 @@ describe('ScreenshotController', () => {
       ).toMatchObject({ favoritesCount: 1 });
     });
 
+    test.each(sessionHeaderCases)(`stores %s`, async (_case, headers, sessionId) => {
+      const fan = await createCreator(testApp.prisma);
+
+      const screenshot = await createScreenshot(
+        testApp.prisma,
+        await createCreator(testApp.prisma)
+      );
+
+      const response = await testApp.app.inject({
+        method: 'POST',
+        url: `/api/v1/screenshots/${screenshot.id}/favorites`,
+        headers: { ...modHeaders(fan), ...headers }
+      });
+
+      expect(response.statusCode).toBe(201);
+
+      expect(await testApp.prisma.favorite.findFirstOrThrow()).toMatchObject({ sessionId });
+    });
+
     test.each([
       'the same account',
       'another account on the same hardware ID',
@@ -2059,6 +2113,35 @@ describe('ScreenshotController', () => {
       expect(response.json<unknown>()).toEqual(expectedScreenshotPayload(reported, creator));
     });
 
+    test.each(sessionHeaderCases)(`stores %s`, async (_case, headers, sessionId) => {
+      const player = await createCreator(testApp.prisma);
+
+      const screenshot = await createScreenshot(
+        testApp.prisma,
+        await createCreator(testApp.prisma)
+      );
+
+      const response = await testApp.app.inject({
+        method: 'POST',
+        url: `/api/v1/screenshots/${screenshot.id}/reports`,
+        headers: { ...modHeaders(player), ...headers }
+      });
+
+      expect(response.statusCode).toBe(201);
+
+      expect(
+        await testApp.prisma.screenshot.findUniqueOrThrow({ where: { id: screenshot.id } })
+      ).toMatchObject({ reportSessionId: sessionId });
+
+      // Prisma reads an absent field as null: without a session ID, the field is left absent, as
+      // the view, favorite, and upload paths leave theirs.
+      expect(
+        await testApp.prisma.screenshot.count({
+          where: { id: screenshot.id, reportSessionId: { isSet: sessionId != null } }
+        })
+      ).toBe(1);
+    });
+
     test(`returns 403 for a screenshot an administrator approved`, async () => {
       const creator = await createCreator(testApp.prisma);
       const player = await createCreator(testApp.prisma);
@@ -2183,6 +2266,18 @@ describe('ScreenshotController', () => {
       expect(list.json<unknown>()).toEqual([
         expectedScreenshotPayload(screenshot, creator, { __favorited: false })
       ]);
+    });
+
+    test.each(sessionHeaderCases)(`stores %s`, async (_case, headers, sessionId) => {
+      const creator = await createCreator(testApp.prisma);
+
+      const response = await upload({ ...modHeaders(creator), ...headers });
+
+      expect(response.statusCode).toBe(201);
+
+      expect(await testApp.prisma.screenshot.findFirstOrThrow()).toMatchObject({
+        uploadSessionId: sessionId
+      });
     });
 
     test(`runs the translation, embeddings, and mod cache warmup in the background`, async () => {

@@ -91,6 +91,8 @@ model Creator {
   viewedScreenshots     View[]
   /// One to many relationship with CreatorActivities, the days the Creator played with the mod.
   activities            CreatorActivity[]
+  /// One to many relationship with UsageEvents, the client-side usage events the mod sent.
+  usageEvents           UsageEvent[]
 
   @@index([creatorName])
   @@index([creatorNameSlug])
@@ -149,6 +151,9 @@ model Screenshot {
   /// they aren't justified.
   reportedById            String?                     @db.ObjectId
   reportedBy              Creator?                    @relation("reports", fields: [reportedById], references: [id], onDelete: SetNull)
+  /// Session ID of the game launch the report was sent from, set beside `reportedById`.
+  /// Absent when the request carried none, see `View.sessionId`.
+  reportSessionId         String?
   /// Number of favorites the Screenshot has received.
   favoritesCount          Int                         @default(0)
   /// Percentage of users who favorited the Screenshot when they saw it.
@@ -171,6 +176,9 @@ model Screenshot {
   hwid                    String?
   /// Same purpose as `Screenshot.hwid`, but for the IP address.
   ip                      String?
+  /// Session ID of the game launch the Screenshot was uploaded from.
+  /// Absent when the request carried none, see `View.sessionId`.
+  uploadSessionId         String?
   creatorId               String                      @db.ObjectId
   creator                 Creator                     @relation("screenshots", fields: [creatorId], references: [id], onDelete: Cascade)
   /// Name of the city.
@@ -244,6 +252,8 @@ model Screenshot {
   @@index([isReported, favoritesCount, favoritingPercentage]) // for "popular" aggregation
   @@index([isReported, favoritingPercentage]) // for "trending" aggregation
   @@index([isReported, viewsCount, createdAt]) // for "archeologist" aggregation and recent aggregation when >limit results
+  @@index([uploadSessionId]) // for usage analytics per session
+  @@index([reportSessionId]) // for usage analytics per session
   @@map("screenshots")
 }
 
@@ -310,6 +320,9 @@ model Favorite {
   hwid         String?
   /// As well as `hwid`, prevents multi-accounting for favorites.
   ip           String
+  /// Session ID of the game launch the Favorite was sent from.
+  /// Absent when the request carried none, see `View.sessionId`.
+  sessionId    String?
 
   /// These unique indexes will help us find a Favorite on a specific Screenshot set by a specific
   /// user, and prevent multi-accounting for favorites.
@@ -320,6 +333,8 @@ model Favorite {
   @@index([screenshotId])
   /// Index to be used to find all Favorites for a single Creator.
   @@index([creatorId])
+  /// Index to be used for usage analytics per session.
+  @@index([sessionId])
   @@map("favorites")
 }
 
@@ -335,12 +350,18 @@ model View {
   /// Algorithm that served the Screenshot to the Creator, internal to the server.
   /// Absent when the server no longer remembered the pick, and on views recorded before it did.
   algorithm    ScreenshotAlgorithm?
+  /// Random UUID the mod draws once per game launch and sends as the `X-Session-Id` header, which
+  /// ties the View to the launch's UsageEvents.
+  /// Absent when the request carried none: older mod versions send none, and the mod sends none
+  /// when the player switched usage statistics off.
+  sessionId    String?
 
   @@index([screenshotId])
   @@index([creatorId])
   // Composite index for querying with date bounds to propose again screenshots the user hasn't seen
   // in a while.
   @@index([creatorId, viewedAt])
+  @@index([sessionId]) // for usage analytics per session
   @@map("views")
 }
 
@@ -356,6 +377,38 @@ enum ScreenshotAlgorithm {
   random_default
   /// Proven screenshots served to a newcomer, ignoring their weights.
   newcomer
+}
+
+/// A client-side usage event, one moment in the game the server cannot otherwise see.
+/// The mod posts them in batches to `POST /usage/events`; one document per event.
+/// A TTL index on `receivedAt`, which the server creates at boot, expires them after one year, see
+/// `UsageController`.
+model UsageEvent {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  creatorId   String   @db.ObjectId
+  creator     Creator  @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  /// Game launch the event comes from, see `View.sessionId`.
+  sessionId   String
+  /// Mod version that sent the event.
+  modVersion  String
+  /// Game version the mod ran on, in the `1.6.2f1` form.
+  gameVersion String
+  /// Whether a debug build of the mod sent the event, so the author's test sessions are excluded
+  /// from analytics.
+  isDebug     Boolean
+  /// Event name, ex. "slideshow_navigated"; not an enum, so any mod version's names are accepted.
+  name        String
+  /// Flat object of scalar properties of the event, ex. `{ "direction": "next" }`.
+  properties  Json
+  /// When the event happened, by the client's clock; orders the events within a session.
+  trackedAt   DateTime
+  /// When the server received the event's batch; buckets the events by period.
+  receivedAt  DateTime
+
+  @@index([creatorId])
+  @@index([sessionId])
+  // No `receivedAt` index here: the TTL index the server creates at boot is that index.
+  @@map("usage_events")
 }
 
 /// A mod from Paradox Mods.

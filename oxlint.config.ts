@@ -27,7 +27,7 @@ export default defineConfig({
       {
         // Ignore Angular/Nest.js decorators.
         capIsNewExceptionPattern:
-          'Body|Catch|Command|Component|Controller|Cron|Delete|Get|Inject|Module|Option|Param|Patch|Post|Put|Query|Question|QuestionSet|Req|Res|SubCommand|UseGuards'
+          'Body|Catch|Command|Component|Controller|Cron|Delete|Get|HttpCode|Inject|Module|Option|Param|Patch|Post|Put|Query|Question|QuestionSet|Req|Res|SubCommand|UseGuards'
       }
     ],
     'no-underscore-dangle': [

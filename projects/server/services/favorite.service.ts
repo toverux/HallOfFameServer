@@ -1,5 +1,5 @@
 import { BadRequestException, Inject, Injectable } from '@nestjs/common';
-import type { Creator, Favorite, Prisma, Screenshot } from '#prisma-lib/client';
+import { type Creator, type Favorite, Prisma, type Screenshot } from '#prisma-lib/client';
 import { type JsonObject, optionallySerialized } from '../../shared/utils/json';
 import { nn } from '../../shared/utils/type-assertion';
 import { StandardError } from '../common/standard-error';
@@ -63,7 +63,8 @@ export class FavoriteService {
    */
   public async addFavorite(
     screenshotId: Screenshot['id'],
-    creator: Pick<Creator, 'id' | 'hwids' | 'ips'>
+    creator: Pick<Creator, 'id' | 'hwids' | 'ips'>,
+    sessionId: string | undefined
   ): Promise<Favorite> {
     // Check if the user has already favorited this screenshot.
     // We can't use .findUnique() because of the OR clause.
@@ -93,7 +94,8 @@ export class FavoriteService {
         screenshotId,
         creatorId: creator.id,
         ip: nn(creator.ips[0]),
-        hwid: creator.hwids[0] ?? null
+        hwid: creator.hwids[0] ?? null,
+        sessionId: sessionId ?? Prisma.skip
       }
     });
 

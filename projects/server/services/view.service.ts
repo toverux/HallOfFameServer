@@ -130,7 +130,11 @@ export class ViewService {
    * Marks a screenshot as viewed, creates a new {@link View} record.
    * The view count properties will be updated with the background job.
    */
-  public async markViewed(screenshotId: Screenshot['id'], creatorId: Creator['id']): Promise<View> {
+  public async markViewed(
+    screenshotId: Screenshot['id'],
+    creatorId: Creator['id'],
+    sessionId: string | undefined
+  ): Promise<View> {
     const pickKey = `${creatorId}:${screenshotId}` as const;
     const algorithm = this.pickedAlgorithms.get(pickKey);
 
@@ -138,7 +142,12 @@ export class ViewService {
 
     // Create the View record.
     const view = await this.prisma.view.create({
-      data: { screenshotId, creatorId, algorithm: algorithm ?? Prisma.skip }
+      data: {
+        screenshotId,
+        creatorId,
+        algorithm: algorithm ?? Prisma.skip,
+        sessionId: sessionId ?? Prisma.skip
+      }
     });
 
     // Add the view to the Creator's cached views, even while they load: once the View exists, a

@@ -3302,7 +3302,8 @@ describe('validateRenderSettings', () => {
       json: '{"aperture":"2.4"}',
       reason: 'expected a number value for the key "aperture", got ""2.4""'
     },
-    { json: '{"aperture":', reason: 'JSON Parse error: Unexpected EOF' }
+    { json: '{"aperture":', reason: 'JSON Parse error: Unexpected EOF' },
+    { json: '{"$numberLong":5}', reason: 'expected no key starting with "$", got "$numberLong"' }
   ])(`rejects $json: $reason`, ({ json, reason }) => {
     expect(() => validateRenderSettings(json)).toThrow(
       `Invalid JSON for render settings field (${reason}).`
@@ -3346,7 +3347,8 @@ describe('validateRenderConditions', () => {
       reason:
         'expected a number, string, or boolean value for the key "sun", got "{ elevation: 12, }"'
     },
-    { json: '{"season":', reason: 'JSON Parse error: Unexpected EOF' }
+    { json: '{"season":', reason: 'JSON Parse error: Unexpected EOF' },
+    { json: '{"$date":"2026-01-01"}', reason: 'expected no key starting with "$", got "$date"' }
   ])(`rejects $json: $reason`, ({ json, reason }) => {
     expect(() => validateRenderConditions(json)).toThrow(
       `Invalid JSON for render conditions field (${reason}).`
@@ -3370,7 +3372,11 @@ describe('validateMetadata', () => {
     { json: '["WindowsPlayer"]', reason: 'expected a JSON object' },
     { json: 'null', reason: 'expected a JSON object' },
     { json: '"WindowsPlayer"', reason: 'expected a JSON object' },
-    { json: '{"platform":', reason: 'JSON Parse error: Unexpected EOF' }
+    { json: '{"platform":', reason: 'JSON Parse error: Unexpected EOF' },
+    {
+      json: '{"gpu":{"$oid":"507f1f77bcf86cd799439011"}}',
+      reason: 'expected no key starting with "$", got "$oid"'
+    }
   ])(`rejects $json: $reason`, ({ json, reason }) => {
     expect(() => validateMetadata(json)).toThrow(
       `Invalid JSON for the metadata field (${reason}).`

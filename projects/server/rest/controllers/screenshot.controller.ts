@@ -902,7 +902,16 @@ function parseJsonObjectField<TValue>(
   }
 
   try {
-    const parsed: JsonValue = JSON.parse(json);
+    // Prisma reads an Extended JSON operator key, at any depth, as the type it encodes: a lone
+    // `$oid` key is stored as an ObjectId, and beside another key it fails the insert.
+    // Operator keys start with `$`, so this refuses every such key.
+    const parsed: JsonValue = JSON.parse(json, (key, value: unknown) => {
+      if (key.startsWith('$')) {
+        throw new Error(`expected no key starting with "$", got "${key}"`);
+      }
+
+      return value;
+    });
 
     if (!parsed || typeof parsed != 'object' || Array.isArray(parsed)) {
       // noinspection ExceptionCaughtLocallyJS

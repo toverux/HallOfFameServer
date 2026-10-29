@@ -411,6 +411,70 @@ model UsageEvent {
   @@map("usage_events")
 }
 
+/// An item awaiting the moderator's decision, posted to Discord by the daily batch and settled from
+/// Discord, the CLI, or as moot.
+/// The flags it is opened for (`Screenshot.isReported`, ...) stay what the feed and the CLI queues
+/// read; the case records the decision on them.
+/// Screenshot IDs are stored without a relation, as every relation to a Screenshot cascades on
+/// delete, and the case outlives the screenshot its outcome deletes.
+/// Its optional fields are absent until set: filter on them matching both absent and null.
+model ModerationCase {
+  id                     String                 @id @default(auto()) @map("_id") @db.ObjectId
+  kind                   ModerationCaseKind
+  /// The reported screenshot, the showcasing screenshot, or B, the newer upload of a pair.
+  screenshotId           String                 @db.ObjectId
+  /// For a pair, A, the older screenshot.
+  pairedScreenshotId     String?                @db.ObjectId
+  /// For a pair, the cosine distance between the two screenshots' embeddings.
+  pairDistance           Float?
+  /// For a showcase, the Paradox mod ID the case was opened for, so a later change makes it moot.
+  showcasedModId         Int?
+  /// ID of the case's Discord message, set once the batch posted it.
+  discordMessageId       String?
+  postedAt               DateTime?
+  /// Set while a settle holds the case; a claim older than a few minutes has lapsed.
+  settleClaimedAt        DateTime?
+  /// Set while a post holds the case; a claim older than a few minutes has lapsed.
+  postClaimedAt          DateTime?
+  /// Absent while the case is pending.
+  outcome                ModerationCaseOutcome?
+  settledThrough         ModerationCaseSurface?
+  /// Discord user ID of the moderator, when settled through Discord.
+  settledByDiscordUserId String?
+  openedAt               DateTime               @default(now())
+  settledAt              DateTime?
+
+  @@index([screenshotId])
+  @@index([pairedScreenshotId])
+  @@index([outcome])
+  @@map("moderation_cases")
+}
+
+enum ModerationCaseKind {
+  report
+  showcased_mod
+  near_duplicate
+}
+
+enum ModerationCaseOutcome {
+  approved
+  deleted
+  banned
+  accepted
+  removed
+  allowed
+  kept_a
+  kept_b
+  moot
+}
+
+enum ModerationCaseSurface {
+  discord
+  cli
+  /// Settled by the server, its subject gone or changed.
+  moot
+}
+
 /// A mod from Paradox Mods.
 /// The model is meant to cache data on our side to:
 /// - Answer to queries faster rather than querying Paradox's API;

@@ -6,8 +6,11 @@ import { BanService } from './ban.service';
 import { CreatorAuthenticationService } from './creator-authentication.service';
 import { CreatorService } from './creator.service';
 import { DateFnsLocalizationService } from './date-fns-localization.service';
+import { DiscordService } from './discord.service';
 import { FavoriteService } from './favorite.service';
 import { ModService } from './mod.service';
+import { ModerationCaseService } from './moderation-case.service';
+import { ModerationService } from './moderation.service';
 import { PrismaService } from './prisma.service';
 import { ScreenshotMergingService } from './screenshot-merging.service';
 import { ScreenshotProcessingService } from './screenshot-processing.service';
@@ -25,8 +28,11 @@ export * from './ban.service';
 export * from './creator.service';
 export * from './creator-authentication.service';
 export * from './date-fns-localization.service';
+export * from './discord.service';
 export * from './favorite.service';
 export * from './mod.service';
+export * from './moderation.service';
+export * from './moderation-case.service';
 export * from './prisma.service';
 export * from './screenshot.service';
 export * from './screenshot-merging.service';
@@ -45,7 +51,10 @@ export const services: Provider[] = [
   CreatorService,
   CreatorAuthenticationService,
   DateFnsLocalizationService,
+  DiscordService,
   FavoriteService,
+  ModerationCaseService,
+  ModerationService,
   ModService,
   PrismaService,
   ScreenshotService,

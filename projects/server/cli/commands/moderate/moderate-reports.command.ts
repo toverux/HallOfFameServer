@@ -13,13 +13,11 @@ import {
   SubCommand
 } from 'nest-commander';
 import open from 'open';
-import type { Creator, Screenshot } from '#prisma-lib/client';
 import { iconsole } from '../../../../shared/iconsole';
-import { unreachable } from '../../../../shared/utils/type-assertion';
 import {
-  BanService,
+  ModerationService,
   PrismaService,
-  ScreenshotService,
+  type ReportAction,
   ScreenshotStorageService
 } from '../../../services';
 
@@ -27,7 +25,13 @@ const moderationActions = {
   approve: 'APPROVE Screenshot (discard report, mark approved)',
   delete: 'DELETE Screenshot',
   ban: 'DELETE Screenshot & Ban Creator'
-};
+} as const satisfies Record<ReportAction, string>;
+
+const moderationOutcomes = {
+  approve: 'APPROVED screenshot',
+  delete: 'DELETED screenshot',
+  ban: 'DELETED screenshot and BANNED creator'
+} as const satisfies Record<ReportAction, string>;
 
 type ModerationAction = keyof typeof moderationActions;
 
@@ -47,14 +51,11 @@ export class ModerateReportsCommand extends CommandRunner {
   @Inject(PrismaService)
   private readonly prisma!: PrismaService;
 
-  @Inject(ScreenshotService)
-  private readonly screenshotService!: ScreenshotService;
+  @Inject(ModerationService)
+  private readonly moderation!: ModerationService;
 
   @Inject(ScreenshotStorageService)
   private readonly screenshotStorage!: ScreenshotStorageService;
-
-  @Inject(BanService)
-  private readonly ban!: BanService;
 
   @Option({
     name: 'download',
@@ -109,45 +110,14 @@ export class ModerateReportsCommand extends CommandRunner {
         // oxlint-disable-next-line unicorn/no-useless-undefined - required
         await this.inquirer.ask<ModerationActionQuestionsResult>('moderation-action', undefined);
 
-      switch (action) {
-        case 'approve': {
-          await this.screenshotService.unmarkReported(screenshot.id);
+      await this.moderation.settleReport(screenshot.id, action, { surface: 'cli' });
 
-          iconsole.info(`APPROVED screenshot.`);
-          break;
-        }
-        case 'delete': {
-          await this.screenshotService.deleteScreenshot(screenshot.id);
-
-          iconsole.info(`DELETED screenshot.`);
-          break;
-        }
-        case 'ban': {
-          await this.banCreator(screenshot.creator, screenshot);
-
-          iconsole.info(`DELETED screenshot and BANNED creator.`);
-          break;
-        }
-        default: {
-          unreachable(action);
-        }
-      }
+      iconsole.info(`${moderationOutcomes[action]}.`);
     }
 
     if (await fs.exists(reportedScreenshotFilePath)) {
       await fs.rm(reportedScreenshotFilePath);
     }
-  }
-
-  private async banCreator(creator: Creator, screenshot: Screenshot): Promise<void> {
-    await this.ban.banCreator(
-      creator,
-      oneLine`
-      one or more screenshots for city "${screenshot.cityName}" was
-      reported and judged to be inappropriate by our moderation team`
-    );
-
-    await this.screenshotService.deleteScreenshot(screenshot.id);
   }
 }
 

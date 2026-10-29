@@ -9,6 +9,7 @@ import type {
   CreatorActivity,
   Favorite,
   Mod,
+  ModerationCase,
   Prisma,
   Screenshot,
   View
@@ -197,6 +198,25 @@ export function createBan(
   return prisma.ban.create({
     data: {
       reason: 'uploading inappropriate content',
+      ...overrides
+    }
+  });
+}
+
+/**
+ * Opens a pending report case on the given Screenshot, as reporting it does, not yet posted.
+ * Override the kind and its fields for another kind of case.
+ */
+export function createModerationCase(
+  prisma: PrismaService,
+  screenshot: Pick<Screenshot, 'id'>,
+  overrides: Partial<Prisma.ModerationCaseCreateInput> = {}
+): Promise<ModerationCase> {
+  return prisma.moderationCase.create({
+    data: {
+      kind: 'report',
+      screenshotId: screenshot.id,
+      openedAt: new Date('2026-10-20T14:30:00Z'),
       ...overrides
     }
   });

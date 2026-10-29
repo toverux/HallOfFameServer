@@ -16,8 +16,10 @@ import { AiTranslatorService } from './ai-translator.service';
 import { BackgroundTasksService } from './background-tasks.service';
 import { CreatorService } from './creator.service';
 import { DateFnsLocalizationService } from './date-fns-localization.service';
+import { DiscordService } from './discord.service';
 import { FavoriteService } from './favorite.service';
 import { ModService } from './mod.service';
+import { ModerationCaseService } from './moderation-case.service';
 import { PrismaService } from './prisma.service';
 import { ScreenshotMergingService } from './screenshot-merging.service';
 import { ScreenshotProcessingService } from './screenshot-processing.service';
@@ -67,7 +69,9 @@ describe('ScreenshotMergingService', () => {
       BackgroundTasksService,
       CreatorService,
       DateFnsLocalizationService,
+      DiscordService,
       FavoriteService,
+      ModerationCaseService,
       ModService,
       ScreenshotProcessingService,
       ViewService,

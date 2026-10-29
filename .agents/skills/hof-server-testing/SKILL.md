@@ -50,6 +50,7 @@ No cron runs, and the app logs only errors, so a passing run prints nothing.
 - The global `fetch` is `fetchStub` for the whole run.
   Stub each expected URL with `fetchStub.respondWithJson()` before the request, or fake a whole API with `fetchStub.handle(baseUrl, handler)`, which answers every URL under the base: any other request fails the test.
   An async `handle` handler also holds or sequences a request, as a race test does.
+- A whole-API fake shared by several suites lives in its own file beside `fakes.ts`, ex. `FakeDiscordApi` in `fake-discord-api.ts`: `new FakeDiscordApi().install()` in `beforeEach` puts it on `fetchStub.handle()`, and the test asserts on the state it keeps.
 - Bun's `spyOn` and `mock` serve one-offs: a call assertion, a forced rejection, a silenced logger.
   Restore a spy on a shared object (`Logger.prototype`) with `mockRestore()` even when the test fails: in a `finally`, or before the first assertion.
 - A `spyOn` on a Prisma model delegate's method never takes effect: force a query to fail by replacing the delegate on the per-test client, `Object.defineProperty(testApp.prisma, 'creatorActivity', { value: { upsert } })`.

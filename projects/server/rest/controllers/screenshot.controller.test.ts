@@ -4,20 +4,22 @@ import * as sentry from '@sentry/bun';
 import * as Bun from 'bun';
 import * as dfns from 'date-fns';
 import sharp from 'sharp';
-import type { Creator, Screenshot } from '#prisma-lib/client';
+import type { Creator, ModerationCase, Screenshot } from '#prisma-lib/client';
 import { allFulfilled } from '../../../shared/utils/all-fulfilled';
 import type { JsonObject, JsonValue } from '../../../shared/utils/json';
 import { nn } from '../../../shared/utils/type-assertion';
 import { config } from '../../config';
-import type { PrismaService } from '../../services';
+import { ModerationCaseService, type PrismaService } from '../../services';
 import {
   createBan,
   createCreator,
   createFavorite,
   createMod,
+  createModerationCase,
   createScreenshot,
   createView
 } from '../../testing/factories';
+import { FakeDiscordApi } from '../../testing/fake-discord-api';
 import { fetchStub } from '../../testing/fetch-stub';
 import * as identifiers from '../../testing/identifiers';
 import {
@@ -2113,6 +2115,56 @@ describe('ScreenshotController', () => {
       expect(response.json<unknown>()).toEqual(expectedScreenshotPayload(reported, creator));
     });
 
+    test(`opens one report case, which a second report leaves alone`, async () => {
+      const screenshot = await createScreenshot(
+        testApp.prisma,
+        await createCreator(testApp.prisma)
+      );
+
+      for (const player of [
+        await createCreator(testApp.prisma),
+        await createCreator(testApp.prisma)
+      ]) {
+        // oxlint-disable-next-line no-await-in-loop - the second report follows the first
+        const response = await testApp.app.inject({
+          method: 'POST',
+          url: `/api/v1/screenshots/${screenshot.id}/reports`,
+          headers: modHeaders(player)
+        });
+
+        expect(response.statusCode).toBe(201);
+      }
+
+      expect(
+        await testApp.prisma.moderationCase.findMany({
+          select: { kind: true, screenshotId: true, discordMessageId: true, outcome: true }
+        })
+      ).toEqual([
+        { kind: 'report', screenshotId: screenshot.id, discordMessageId: null, outcome: null }
+      ]);
+    });
+
+    test(`opens a new case on a screenshot reported again after a settled case`, async () => {
+      const screenshot = await createScreenshot(
+        testApp.prisma,
+        await createCreator(testApp.prisma)
+      );
+
+      await createModerationCase(testApp.prisma, screenshot, { outcome: 'approved' });
+
+      const response = await testApp.app.inject({
+        method: 'POST',
+        url: `/api/v1/screenshots/${screenshot.id}/reports`,
+        headers: modHeaders(await createCreator(testApp.prisma))
+      });
+
+      expect(response.statusCode).toBe(201);
+
+      expect(
+        await testApp.prisma.moderationCase.count({ where: { screenshotId: screenshot.id } })
+      ).toBe(2);
+    });
+
     test.each(sessionHeaderCases)(`stores %s`, async (_case, headers, sessionId) => {
       const player = await createCreator(testApp.prisma);
 
@@ -2168,6 +2220,73 @@ describe('ScreenshotController', () => {
       expect(
         await testApp.prisma.screenshot.findUniqueOrThrow({ where: { id: screenshot.id } })
       ).toMatchObject({ isReported: false });
+    });
+  });
+
+  describe('DELETE /api/v1/screenshots/:id', () => {
+    test(`settles as moot the pending cases naming the screenshot, deleting their messages`, async () => {
+      const discord = new FakeDiscordApi().install();
+
+      const creator = await createCreator(testApp.prisma);
+
+      const screenshot = await createScreenshot(testApp.prisma, creator);
+      const newer = await createScreenshot(testApp.prisma, creator);
+
+      const reportCase = await createModerationCase(testApp.prisma, screenshot);
+
+      // As A, the older screenshot of a pair.
+      const pairCase = await createModerationCase(testApp.prisma, newer, {
+        kind: 'near_duplicate',
+        pairedScreenshotId: screenshot.id,
+        pairDistance: 0.08
+      });
+
+      const settledCase = await createModerationCase(testApp.prisma, screenshot, {
+        outcome: 'approved',
+        settledThrough: 'cli'
+      });
+
+      const claimedCase = await createModerationCase(testApp.prisma, screenshot, {
+        settleClaimedAt: new Date()
+      });
+
+      const otherCase = await createModerationCase(testApp.prisma, newer);
+
+      await testApp.app.get(ModerationCaseService).postPendingCases();
+
+      const postedCases = await testApp.prisma.moderationCase.findMany({
+        select: { id: true, discordMessageId: true }
+      });
+
+      const messageIdOf = (moderationCase: ModerationCase): string =>
+        nn(postedCases.find(posted => posted.id == moderationCase.id)?.discordMessageId);
+
+      const mootMessageIds = [messageIdOf(reportCase), messageIdOf(pairCase)];
+
+      const response = await testApp.app.inject({
+        method: 'DELETE',
+        url: `/api/v1/screenshots/${screenshot.id}`,
+        headers: modHeaders(creator)
+      });
+
+      expect(response.statusCode).toBe(200);
+
+      await testApp.backgroundTasks.settled();
+
+      const cases = await testApp.prisma.moderationCase.findMany({
+        select: { id: true, outcome: true, settledThrough: true }
+      });
+
+      expect(cases).toEqual([
+        { id: reportCase.id, outcome: 'moot', settledThrough: 'moot' },
+        { id: pairCase.id, outcome: 'moot', settledThrough: 'moot' },
+        { id: settledCase.id, outcome: 'approved', settledThrough: 'cli' },
+        { id: claimedCase.id, outcome: null, settledThrough: null },
+        { id: otherCase.id, outcome: null, settledThrough: null }
+      ]);
+
+      expect(discord.deletedMessageIds.toSorted()).toEqual(mootMessageIds.toSorted());
+      expect(discord.messages.map(message => message.id)).toEqual([messageIdOf(otherCase)]);
     });
   });
 

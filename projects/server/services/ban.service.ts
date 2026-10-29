@@ -122,11 +122,19 @@ export class BanService {
 
   /**
    * Bans a creator and all hardware IDs historically associated with them.
+   * A creator already banned is left as is, so retrying a ban and delete whose delete failed adds
+   * no duplicate bans.
    */
   public async banCreator(
     creator: Pick<Creator, 'id' | 'creatorName' | 'ips' | 'hwids'>,
     reason: string
   ): Promise<void> {
+    if (await this.prisma.ban.count({ where: { creatorId: creator.id } })) {
+      this.logger.warn(`Creator #${creator.id} is already banned, skipping the ban.`);
+
+      return;
+    }
+
     for (const ip of [creator.id, ...creator.ips, ...creator.hwids]) {
       this.banCache.delete(ip);
     }

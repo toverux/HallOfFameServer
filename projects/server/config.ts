@@ -57,6 +57,42 @@ export const config = {
     apiKey: getString('HOF_SKYVE_API_KEY')
   },
 
+  // The companion variables are read on use, as they may be absent while Discord is disabled;
+  // `checkDiscordConfig()` reads them all at boot when it is not.
+  discord: {
+    /**
+     * Whether Discord is on, read on use so a test can switch it off: the bot token's `disabled`
+     * value turns it off, as Sentry's DSN does.
+     */
+    get isEnabled(): boolean {
+      return getString('HOF_DISCORD_BOT_TOKEN') != 'disabled';
+    },
+    get botToken(): string {
+      return getString('HOF_DISCORD_BOT_TOKEN');
+    },
+    get applicationId(): string {
+      return getString('HOF_DISCORD_APPLICATION_ID');
+    },
+    get publicKey(): string {
+      return getString('HOF_DISCORD_PUBLIC_KEY');
+    },
+    get channelId(): string {
+      return getString('HOF_DISCORD_CHANNEL_ID');
+    },
+    /**
+     * Discord user IDs of the moderators, comma-separated in the environment.
+     */
+    get moderatorIds(): readonly string[] {
+      return getString('HOF_DISCORD_MODERATOR_IDS')
+        .split(',')
+        .map(id => id.trim())
+        .filter(Boolean);
+    },
+    batchCron: getString('HOF_DISCORD_BATCH_CRON'),
+    // Fixed in code, so the batch's hour holds through daylight saving and server moves.
+    batchTimeZone: 'Europe/Paris'
+  },
+
   // Read on use, as only the environment syncing the dashboards sets them.
   get metabase(): Readonly<{
     url: string;
@@ -99,12 +135,34 @@ export const config = {
   supportContact: getString('HOF_SUPPORT_CONTACT')
 } as const;
 
+checkDiscordConfig();
+
 export function setRuntimeType(type: RuntimeType): void {
   if (runtimeType) {
     throw new Error(`Runtime type already set.`);
   }
 
   runtimeType = type;
+}
+
+/**
+ * Reads every Discord variable when Discord is on, so a missing companion variable next to a real
+ * bot token fails the boot rather than the first post.
+ */
+function checkDiscordConfig(): void {
+  const { discord } = config;
+
+  if (!discord.isEnabled) {
+    return;
+  }
+
+  // Reading a variable throws when it is missing.
+  void [discord.applicationId, discord.publicKey, discord.channelId];
+
+  // Only the parsed list can still come out empty.
+  if (!discord.moderatorIds.length) {
+    throw new Error(`Missing environment variable: HOF_DISCORD_MODERATOR_IDS`);
+  }
 }
 
 function getEnum<const Choices extends string[]>(

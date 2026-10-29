@@ -72,7 +72,7 @@ export class ScreenshotMergingService {
     });
 
     for (const screenshot of deletedSources) {
-      this.screenshotService.deleteScreenshotImages(screenshot);
+      this.screenshotService.afterScreenshotDeleted(screenshot);
     }
 
     return counts;

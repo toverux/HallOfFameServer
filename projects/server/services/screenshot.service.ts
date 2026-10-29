@@ -27,6 +27,7 @@ import { CreatorService, uniqueUserConditions } from './creator.service';
 import { DateFnsLocalizationService } from './date-fns-localization.service';
 import { FavoriteService } from './favorite.service';
 import { ModService } from './mod.service';
+import { ModerationCaseService } from './moderation-case.service';
 import { PrismaService } from './prisma.service';
 import { ScreenshotProcessingService } from './screenshot-processing.service';
 import { ScreenshotSimilarityDetectorService } from './screenshot-similarity-detector.service';
@@ -121,6 +122,9 @@ export class ScreenshotService {
 
   @Inject(ScreenshotStatsService)
   private readonly screenshotStats!: ScreenshotStatsService;
+
+  @Inject(ModerationCaseService)
+  private readonly moderationCases!: ModerationCaseService;
 
   private readonly logger = new Logger(ScreenshotService.name);
 
@@ -389,8 +393,8 @@ export class ScreenshotService {
   }
 
   /**
-   * Deletes a screenshot and its embedding, then its stored images once the deletion is
-   * committed, so a failed deletion keeps them.
+   * Deletes a screenshot and its embedding, then runs {@link afterScreenshotDeleted} once the
+   * deletion is committed, so a failed deletion keeps the images and cases.
    *
    * @returns A promise that resolves to the deleted screenshot record.
    */
@@ -399,27 +403,36 @@ export class ScreenshotService {
       this.deleteScreenshotRecords(screenshotId, tx)
     );
 
-    this.deleteScreenshotImages(screenshot);
+    this.afterScreenshotDeleted(screenshot);
 
     return screenshot;
   }
 
   /**
-   * Deletes the stored images of a screenshot whose deletion is committed, in the background.
-   * A failure is logged and reported, leaving orphaned images, as the deletion itself stands.
+   * Runs in the background what follows a committed screenshot deletion: deletes its stored
+   * images, and settles as moot the pending moderation cases naming it.
+   * A failure is logged and reported, leaving orphaned images or a pending case, as the deletion
+   * itself stands.
    */
-  public deleteScreenshotImages(screenshot: Screenshot): void {
+  public afterScreenshotDeleted(screenshot: Screenshot): void {
     this.backgroundTasks.run(
       `Failed to delete the images of screenshot #${screenshot.id} "${screenshot.cityName}".`,
       () => this.screenshotStorage.deleteScreenshots(screenshot)
+    );
+
+    this.backgroundTasks.run(
+      oneLine`
+      Failed to settle the moderation cases of deleted screenshot #${screenshot.id}
+      "${screenshot.cityName}".`,
+      () => this.moderationCases.settleCasesOfDeletedScreenshot(screenshot.id)
     );
   }
 
   /**
    * Deletes a screenshot and its embedding within the caller's transaction, leaving its stored
-   * images.
-   * The caller deletes them with {@link deleteScreenshotImages} once the transaction is
-   * committed, so a rollback keeps them.
+   * images and moderation cases.
+   * The caller runs {@link afterScreenshotDeleted} once the transaction is committed, so a
+   * rollback keeps them.
    *
    * @returns A promise that resolves to the deleted screenshot record.
    */
@@ -449,7 +462,7 @@ export class ScreenshotService {
   }
 
   /**
-   * Marks a screenshot as reported by a user.
+   * Marks a screenshot as reported by a user, opening its report case unless one is pending.
    *
    * @param screenshotId Screenshot to mark as reported.
    * @param reportedById The Creator OID of the user who made the report.
@@ -479,11 +492,17 @@ export class ScreenshotService {
     }
 
     try {
-      return await this.prisma.screenshot.update({
-        where: { id: screenshotId },
-        // Cleared without a session ID, so it never outlives the report it came with.
-        data: { isReported: true, reportedById, reportSessionId: sessionId ?? { unset: true } },
-        include: { creator: true }
+      return await this.prisma.$transaction(async tx => {
+        const reportedScreenshot = await tx.screenshot.update({
+          where: { id: screenshotId },
+          // Cleared without a session ID, so it never outlives the report it came with.
+          data: { isReported: true, reportedById, reportSessionId: sessionId ?? { unset: true } },
+          include: { creator: true }
+        });
+
+        await this.moderationCases.openReportCase(screenshotId, tx);
+
+        return reportedScreenshot;
       });
     } catch (error) {
       if (isPrismaError(error) && error.code == 'P2025') {

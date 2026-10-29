@@ -2,18 +2,25 @@ import type { Provider } from '@nestjs/common';
 import { Command, CommandRunner } from 'nest-commander';
 import { iconsole } from '../../../../shared/iconsole';
 import { ModerateMergeCommand } from './moderate-merge.command';
+import { ModeratePostCasesCommand } from './moderate-post-cases.command';
 import { ModerateReportsCommand } from './moderate-reports.command';
 import { ModerateShowcasedModsCommand } from './moderate-showcased-mods.command';
 
 @Command({
   name: 'moderate',
   description: `Commands related to moderating screenshots.`,
-  subCommands: [ModerateMergeCommand, ModerateReportsCommand, ModerateShowcasedModsCommand]
+  subCommands: [
+    ModerateMergeCommand,
+    ModeratePostCasesCommand,
+    ModerateReportsCommand,
+    ModerateShowcasedModsCommand
+  ]
 })
 export class ModerateCommand extends CommandRunner {
   public static readonly providers: () => Provider[] = () => [
     ModerateCommand,
     ...ModerateMergeCommand.providers(),
+    ...ModeratePostCasesCommand.providers(),
     ...ModerateReportsCommand.providers(),
     ...ModerateShowcasedModsCommand.providers()
   ];

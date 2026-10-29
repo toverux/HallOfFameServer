@@ -96,7 +96,6 @@ export class UsageController implements OnApplicationBootstrap {
    * Creates the TTL index that expires usage events, which the Prisma schema cannot declare.
    * Runs at each boot, as each deploy's schema push drops it, and recreates an index left with
    * another expiry, which `createIndexes` refuses to change.
-   * Here rather than in a shared service, as a CLI command may run with read-only access.
    */
   public async onApplicationBootstrap(): Promise<void> {
     try {

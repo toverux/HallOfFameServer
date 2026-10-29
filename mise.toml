@@ -1,13 +1,6 @@
 # https://mise.jdx.dev -- One tool to manage languages, env vars, and tasks per project, reproducibly.
 
-redactions = [
-  "*_KEY",
-  "HOF_SYSTEM_PASSWORD",
-  "HOF_DATABASE_URL",
-  "HOF_DATABASE_WRITE_URL",
-  "HOF_AZURE_URL",
-  "HOF_SENTRY_DSN"
-]
+redactions = ["*_KEY", "HOF_SYSTEM_PASSWORD", "HOF_DATABASE_URL", "HOF_AZURE_URL", "HOF_SENTRY_DSN"]
 
 [tools]
 bun = "1.4.3"

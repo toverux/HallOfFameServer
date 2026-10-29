@@ -22,20 +22,14 @@ description = "Pushes the versioned Metabase dashboards, updating them in place.
 run = "mise tunnel mise run:cli dashboard sync"
 
 [tasks."tunnel"]
-description = "Runs a command with the remote database reachable, read-only unless --write."
+description = "Runs a command with the remote database reachable."
 usage = '''
-flag "--write" help="Connect with HOF_DATABASE_WRITE_URL, which can write."
 arg "<command>" var=#true help="The command to run, its arguments included."
 '''
 # The remote database only listens on its server's loopback: reach it through an SSH tunnel to
-# HOF_REMOTE_SSH, which the database URLs target as 127.0.0.1:27019.
-# mise takes --write anywhere on the line, so a wrapped command cannot receive its own --write.
-# A nested mise call reloads .env.remote's read-only URL: under --write, run the CLI with bun.
+# HOF_REMOTE_SSH, which HOF_DATABASE_URL targets as 127.0.0.1:27019.
 run = """
 set -e
-if [ "$usage_write" = true ]; then
-  export HOF_DATABASE_URL="$HOF_DATABASE_WRITE_URL"
-fi
 socket="${TMPDIR:-/tmp}/hof-remote-db-$$.sock"
 ssh -fNM -S "$socket" -o ExitOnForwardFailure=yes -L 27019:127.0.0.1:5432 "$HOF_REMOTE_SSH"
 trap 'ssh -S "$socket" -O exit "$HOF_REMOTE_SSH" 2>/dev/null' EXIT

@@ -43,6 +43,13 @@ env = { TF_CPP_MIN_LOG_LEVEL = "1" }
 raw = true
 run = "bun --watch --no-clear-screen --inspect projects/server/main.ts"
 
+[tasks."dev:tunnel"]
+description = "Expose the local server through a Cloudflare quick tunnel, for a dev Discord application's Interactions Endpoint URL (changes every run)."
+raw = true
+tools = { cloudflared = "2026.10.5" }
+# Bun reads the port from .env, which mise does not load, and from .env.local.
+run = "cloudflared tunnel --no-autoupdate --url \"http://localhost:$(bun -e 'console.log(process.env.HOF_HTTP_PORT)')\""
+
 [tasks."dev:client"]
 description = "Serve frontend application in development mode."
 raw = true

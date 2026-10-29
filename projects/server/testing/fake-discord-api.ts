@@ -12,9 +12,18 @@ export interface FakeDiscordMessage {
 }
 
 /**
+ * A follow-up message the fake holds, as sent to an interaction.
+ */
+export interface FakeDiscordFollowup {
+  readonly interactionToken: string;
+  readonly body: JsonObject;
+}
+
+/**
  * Stateful stand-in for Discord's REST API, answering on the fetch stub like Discord does for the
  * moderation channel: it posts messages with sequential snowflake IDs and deletes them, answering
- * Discord's unknown-message error for one already gone.
+ * Discord's unknown-message error for one already gone, and takes the follow-up messages sent to an
+ * interaction.
  * Any other channel or route answers 404, and a request without the bot token answers 401.
  */
 export class FakeDiscordApi {
@@ -27,6 +36,11 @@ export class FakeDiscordApi {
    * IDs of the messages deleted, in order, including deletions of a message already gone.
    */
   public readonly deletedMessageIds: string[] = [];
+
+  /**
+   * Follow-up messages sent to interactions, in order.
+   */
+  public readonly followups: FakeDiscordFollowup[] = [];
 
   /**
    * Runs before a post is answered, to hold it or act while it is in flight.
@@ -68,6 +82,12 @@ export class FakeDiscordApi {
       return this.delete(request.url.slice(messagesPath.length + 1));
     }
 
+    const webhookPath = `${DiscordService.apiUrl}/webhooks/${config.discord.applicationId}`;
+
+    if (request.method == 'POST' && request.url.startsWith(`${webhookPath}/`)) {
+      return this.followUp(request, request.url.slice(webhookPath.length + 1));
+    }
+
     return Response.json({ message: '404: Not Found', code: 0 }, { status: 404 });
   }
 
@@ -89,6 +109,16 @@ export class FakeDiscordApi {
     this.messages.push(message);
 
     return Response.json({ id: message.id, channel_id: config.discord.channelId, ...body });
+  }
+
+  private async followUp(request: Request, interactionToken: string): Promise<Response> {
+    const body = (await request.json()) as JsonObject;
+
+    this.followups.push({ interactionToken, body });
+
+    this.lastMessageId++;
+
+    return Response.json({ id: this.lastMessageId.toString(), ...body });
   }
 
   private delete(messageId: string): Response {

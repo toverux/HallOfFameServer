@@ -30,7 +30,7 @@ When changing public API behavior, pull the latest `dev` branch in `../hof-viewe
 - **Database**: MongoDB with Prisma ORM.
 - **ML Capabilities**: TensorFlow.js for image feature extraction.
 - **Error Tracking**: Sentry.
-- **Moderation notifications**: Discord, through an outbound REST client holding the bot token (`discord.service.ts`), no SDK or gateway; `HOF_DISCORD_BOT_TOKEN=disabled` turns it off.
+- **Moderation notifications**: Discord, through a REST client holding the bot token (`discord.service.ts`) and a signed interactions route the moderator's buttons reach (`discord.controller.ts`), no SDK or gateway; `HOF_DISCORD_BOT_TOKEN=disabled` turns it off.
 - **Containerization**: Docker.
 - **Toolchain**: oxfmt formats and oxlint lints, both extending `@toverux/blanc-hopital`, which also supplies the tsconfig bases; lefthook runs tsc/oxlint/oxfmt on staged files at pre-commit.
 
@@ -112,7 +112,7 @@ User-facing terms map to these Prisma models (`prisma/schema.prisma`):
 - **Ban** – moderation record; tracks hardware IDs and IPs to mitigate hostile multi-accounting.
 - **Mod** – cached metadata about a Paradox mod, referenced loosely by `paradoxModId`.
 - **ScreenshotFeatureEmbedding** – TensorFlow.js feature vector for a screenshot (image similarity).
-- **ModerationCase** – an item awaiting the moderator's decision about a screenshot, of a `ModerationCaseKind` (a report, for one); a daily batch posts it to a private Discord channel, and it records the outcome and the surface that settled it (the CLI, or the server when its subject left and the case went moot).
+- **ModerationCase** – an item awaiting the moderator's decision about a screenshot, of a `ModerationCaseKind` (a report, for one); a daily batch posts it to a private Discord channel, and it records the outcome and the surface that settled it (a Discord button, the CLI, or the server when its subject left and the case went moot).
 
 ## Guidelines
 

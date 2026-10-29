@@ -2387,6 +2387,94 @@ describe('ScreenshotController', () => {
       ]);
     });
 
+    test(`puts the showcased mod up for moderation, opening its case`, async () => {
+      const creator = await createCreator(testApp.prisma);
+
+      const response = await upload(modHeaders(creator));
+
+      expect(response.statusCode).toBe(201);
+
+      expect(
+        await testApp.prisma.moderationCase.findMany({
+          select: { kind: true, screenshotId: true, showcasedModId: true, outcome: true }
+        })
+      ).toEqual([
+        {
+          kind: 'showcased_mod',
+          screenshotId: response.json<{ id: string }>().id,
+          showcasedModId: 87_755,
+          outcome: null
+        }
+      ]);
+    });
+
+    test(`opens no case without a showcased mod`, async () => {
+      const { showcasedModId: _, ...fields } = modUploadFields;
+
+      const response = await upload(modHeaders(await createCreator(testApp.prisma)), fields);
+
+      expect(response.statusCode).toBe(201);
+      expect(await testApp.prisma.moderationCase.count()).toBe(0);
+    });
+
+    test(`opens a near-duplicate case per earlier screenshot of the creator close enough`, async () => {
+      setSystemTime(new Date('2026-09-12T10:00:00Z'));
+
+      const creator = await createCreator(testApp.prisma);
+
+      const otherCreator = await createCreator(testApp.prisma);
+
+      const older = await createScreenshot(testApp.prisma, creator, {
+        createdAt: new Date('2026-09-01T10:00:00Z')
+      });
+
+      // Uploaded after it but embedded first, so the upload is A of their pair.
+      const newer = await createScreenshot(testApp.prisma, creator, {
+        createdAt: new Date('2026-09-20T10:00:00Z')
+      });
+
+      const tooFar = await createScreenshot(testApp.prisma, creator);
+
+      const otherCreators = await createScreenshot(testApp.prisma, otherCreator);
+
+      testApp.screenshotSimilarityDetector.neighbours.push(
+        { screenshotId: otherCreators.id, distance: 0.04 },
+        { screenshotId: older.id, distance: 0.05 },
+        { screenshotId: newer.id, distance: 0.1 },
+        { screenshotId: tooFar.id, distance: 0.2 }
+      );
+
+      const response = await upload(modHeaders(creator));
+
+      expect(response.statusCode).toBe(201);
+
+      await testApp.backgroundTasks.settled();
+
+      const uploadId = response.json<{ id: string }>().id;
+
+      expect(
+        await testApp.prisma.moderationCase.findMany({
+          where: { kind: 'near_duplicate' },
+          orderBy: { pairDistance: 'asc' },
+          select: { screenshotId: true, pairedScreenshotId: true, pairDistance: true }
+        })
+      ).toEqual([
+        { screenshotId: uploadId, pairedScreenshotId: older.id, pairDistance: 0.05 },
+        { screenshotId: newer.id, pairedScreenshotId: uploadId, pairDistance: 0.1 }
+      ]);
+    });
+
+    test(`opens no case for a health check upload`, async () => {
+      const creator = await createCreator(testApp.prisma);
+
+      const response = await upload(modHeaders(creator), modUploadFields, testImage, {
+        healthcheck: true
+      });
+
+      expect(response.statusCode).toBe(201);
+      expect(await testApp.prisma.moderationCase.count()).toBe(0);
+    });
+
     test.each(sessionHeaderCases)(`stores %s`, async (_case, headers, sessionId) => {
       const creator = await createCreator(testApp.prisma);
 
@@ -2630,7 +2718,7 @@ describe('ScreenshotController', () => {
     ])(`returns 400 for an upload cut short in $part`, async ({ cutAt }) => {
       const creator = await createCreator(testApp.prisma);
 
-      const response = await upload(modHeaders(creator), modUploadFields, testImage, cutAt);
+      const response = await upload(modHeaders(creator), modUploadFields, testImage, { cutAt });
 
       expect(response.statusCode).toBe(400);
 
@@ -2789,13 +2877,17 @@ describe('ScreenshotController', () => {
 
     /**
      * Sends an upload the way the mod encodes it: the fields in order, then the screenshot file.
-     * `cutAt` ends the body at the offset it returns, as a connection lost mid-upload would.
+     * `cutAt` ends the body at the offset it returns, as a connection lost mid-upload would;
+     * `healthcheck` sends it as the health check does.
      */
     async function upload(
       headers: Readonly<Record<string, string>>,
       fields = modUploadFields,
       screenshot: Blob | null = testImage,
-      cutAt?: (body: Buffer) => number
+      {
+        cutAt,
+        healthcheck = false
+      }: { readonly cutAt?: (body: Buffer) => number; readonly healthcheck?: boolean } = {}
     ): Promise<Awaited<ReturnType<TestApp['app']['inject']>>> {
       const form = new FormData();
 
@@ -2819,7 +2911,7 @@ describe('ScreenshotController', () => {
 
       return testApp.app.inject({
         method: 'POST',
-        url: '/api/v1/screenshots',
+        url: healthcheck ? '/api/v1/screenshots?healthcheck=true' : '/api/v1/screenshots',
         headers: { ...headers, 'content-type': contentType },
         payload: cutAt ? body.subarray(0, cutAt(body)) : body
       });
@@ -3088,6 +3180,99 @@ describe('ScreenshotController', () => {
       expect(
         await testApp.prisma.screenshot.findUniqueOrThrow({ where: { id: screenshot.id } })
       ).toMatchObject({ showcasedModId: 87_755, isShowcasedModValidated: false });
+
+      expect(
+        await testApp.prisma.moderationCase.findMany({
+          select: { kind: true, screenshotId: true, showcasedModId: true, outcome: true }
+        })
+      ).toEqual([
+        {
+          kind: 'showcased_mod',
+          screenshotId: screenshot.id,
+          showcasedModId: 87_755,
+          outcome: null
+        }
+      ]);
+    });
+
+    test(`settles as moot the case of a changed showcased mod, then opens one for the new mod`, async () => {
+      const discord = new FakeDiscordApi().install();
+
+      const { screenshot, creator, moderationCase } = await postShowcaseCase();
+
+      stubParadoxMod(87_755);
+
+      const response = await testApp.app.inject({
+        method: 'PUT',
+        url: `/api/v1/screenshots/${screenshot.id}`,
+        headers: modHeaders(creator),
+        payload: { showcasedModId: '87755' }
+      });
+
+      expect(response.statusCode).toBe(200);
+
+      await testApp.backgroundTasks.settled();
+
+      expect(
+        await testApp.prisma.moderationCase.findMany({
+          select: { id: true, showcasedModId: true, outcome: true, settledThrough: true }
+        })
+      ).toEqual([
+        {
+          id: moderationCase.id,
+          showcasedModId: 74_604,
+          outcome: 'moot',
+          settledThrough: 'moot'
+        },
+        { id: expect.any(String), showcasedModId: 87_755, outcome: null, settledThrough: null }
+      ]);
+
+      expect(discord.deletedMessageIds).toEqual([nn(moderationCase.discordMessageId)]);
+      expect(discord.messages).toEqual([]);
+    });
+
+    test(`settles as moot the case of a cleared showcased mod`, async () => {
+      const discord = new FakeDiscordApi().install();
+
+      const { screenshot, creator, moderationCase } = await postShowcaseCase();
+
+      const response = await testApp.app.inject({
+        method: 'PUT',
+        url: `/api/v1/screenshots/${screenshot.id}`,
+        headers: modHeaders(creator),
+        payload: { showcasedModId: null }
+      });
+
+      expect(response.statusCode).toBe(200);
+
+      await testApp.backgroundTasks.settled();
+
+      expect(
+        await testApp.prisma.moderationCase.findMany({
+          select: { id: true, outcome: true, settledThrough: true }
+        })
+      ).toEqual([{ id: moderationCase.id, outcome: 'moot', settledThrough: 'moot' }]);
+
+      expect(discord.deletedMessageIds).toEqual([nn(moderationCase.discordMessageId)]);
+    });
+
+    test(`keeps the pending case of a showcased mod sent again`, async () => {
+      new FakeDiscordApi().install();
+
+      const { screenshot, creator, moderationCase } = await postShowcaseCase();
+
+      const response = await testApp.app.inject({
+        method: 'PUT',
+        url: `/api/v1/screenshots/${screenshot.id}`,
+        headers: modHeaders(creator),
+        payload: { showcasedModId: '74604', cityName: 'Osaka Bay' }
+      });
+
+      expect(response.statusCode).toBe(200);
+
+      await testApp.backgroundTasks.settled();
+
+      expect(await testApp.prisma.moderationCase.findMany()).toEqual([moderationCase]);
     });
 
     test.each([null, ''])(`clears the showcased mod sent as %p`, async showcasedModId => {
@@ -3189,6 +3374,35 @@ describe('ScreenshotController', () => {
         shareRenderSettings: false
       });
     });
+
+    /**
+     * Opens a showcase case on a screenshot showcasing mod 74604 and posts it, as the daily batch
+     * does.
+     */
+    async function postShowcaseCase(): Promise<{
+      creator: Creator;
+      screenshot: Screenshot;
+      moderationCase: ModerationCase;
+    }> {
+      const creator = await createCreator(testApp.prisma);
+
+      const screenshot = await createScreenshot(testApp.prisma, creator, {
+        showcasedModId: 74_604
+      });
+
+      const { id } = await createModerationCase(testApp.prisma, screenshot, {
+        kind: 'showcased_mod',
+        showcasedModId: 74_604
+      });
+
+      await testApp.app.get(ModerationCaseService).postPendingCases();
+
+      const moderationCase = await testApp.prisma.moderationCase.findUniqueOrThrow({
+        where: { id }
+      });
+
+      return { creator, screenshot, moderationCase };
+    }
   });
 
   test.each([

@@ -6,6 +6,7 @@ import { BanService } from './ban.service';
 import { CreatorAuthenticationService } from './creator-authentication.service';
 import { CreatorService } from './creator.service';
 import { DateFnsLocalizationService } from './date-fns-localization.service';
+import { DiscordInteractionService } from './discord-interaction.service';
 import { DiscordService } from './discord.service';
 import { FavoriteService } from './favorite.service';
 import { ModService } from './mod.service';
@@ -29,6 +30,7 @@ export * from './creator.service';
 export * from './creator-authentication.service';
 export * from './date-fns-localization.service';
 export * from './discord.service';
+export * from './discord-interaction.service';
 export * from './favorite.service';
 export * from './mod.service';
 export * from './moderation.service';
@@ -52,6 +54,7 @@ export const services: Provider[] = [
   CreatorAuthenticationService,
   DateFnsLocalizationService,
   DiscordService,
+  DiscordInteractionService,
   FavoriteService,
   ModerationCaseService,
   ModerationService,

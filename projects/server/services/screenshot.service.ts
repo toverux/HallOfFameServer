@@ -144,9 +144,11 @@ export class ScreenshotService {
    *
    * - Resizing the screenshot to two sizes.
    * - Uploading the screenshots to Azure Blob Storage.
-   * - Creating a {@link Screenshot} record in the database.
+   * - Creating a {@link Screenshot} record in the database, and the moderation case of its showcased
+   *   mod.
    * - Asynchronously requesting a translation for the city name (if required).
-   * - Asynchronously inferring similarity embeddings for the screenshot.
+   * - Asynchronously inferring similarity embeddings for the screenshot, then opening a
+   *   near-duplicate case for each earlier screenshot of its creator it is too similar to.
    * - Asynchronously warming up the mods' cache from the used playset.
    */
   public async ingestScreenshot({
@@ -222,12 +224,17 @@ export class ScreenshotService {
 
       this.backgroundTasks.run(
         oneLine`
-        Failed to infer embeddings for screenshot "${screenshot.cityName}"
-        (#${screenshot.id}).`,
-        () =>
-          this.screenshotSimilarityDetector.batchUpdateEmbeddings(screenshot.id, [
-            { id: screenshot.id, imageUrlOrBuffer: imageFhdBuffer }
-          ])
+        Failed to infer embeddings or open near-duplicate cases for screenshot
+        "${screenshot.cityName}" (#${screenshot.id}).`,
+        async () => {
+          // Also infers and stores the new screenshot's embedding.
+          const neighbours = await this.screenshotSimilarityDetector.findSimilarScreenshots(
+            { id: screenshot.id, imageUrlOrBuffer: imageFhdBuffer },
+            config.screenshots.nearDuplicateMaxDistance
+          );
+
+          await this.moderationCases.openNearDuplicateCases(screenshot, neighbours);
+        }
       );
 
       // Note: no need to include `showcasedModId` as it's necessarily included in `paradoxModIds`.
@@ -298,6 +305,12 @@ export class ScreenshotService {
       if (healthcheck) {
         await this.deleteScreenshotRecords(updatedScreenshot.id, prisma);
         await this.screenshotStorage.deleteScreenshots(updatedScreenshot);
+      } else if (updatedScreenshot.showcasedModId != null) {
+        await this.moderationCases.openShowcaseCase(
+          updatedScreenshot.id,
+          updatedScreenshot.showcasedModId,
+          prisma
+        );
       }
 
       return updatedScreenshot;
@@ -305,9 +318,10 @@ export class ScreenshotService {
   }
 
   /**
-   * Updates a screenshot with the specified data.
-   * Once the update is committed, runs in the background the translation of a changed city name,
-   * and the mods cache warmup for a newly showcased mod.
+   * Updates a screenshot with the specified data, opening the moderation case of a newly showcased
+   * mod. Once the update is committed, runs in the background the translation of a changed city
+   * name, the moot settle of the cases of a changed or cleared showcased mod, and the mods cache
+   * warmup for a newly showcased mod.
    *
    * @param screenshotId The unique identifier of the screenshot to update.
    * @param data The data to update the screenshot with.
@@ -321,11 +335,20 @@ export class ScreenshotService {
       'cityName' | 'showcasedModId' | 'description' | 'shareParadoxModIds' | 'shareRenderSettings'
     >
   ): Promise<Screenshot> {
-    const update = await this.prisma.$transaction(transaction);
+    const update = await this.prisma.$transaction(transaction.bind(this));
     const updatedScreenshot = update.screenshot;
 
     // After the commit, so a rollback starts no work and a slow Paradox API holds no transaction.
-    if (update.isShowcasedModAdded) {
+    if (update.isShowcasedModChanged) {
+      this.backgroundTasks.run(
+        oneLine`
+        Failed to settle the showcase cases of screenshot "${updatedScreenshot.cityName}"
+        (#${updatedScreenshot.id}).`,
+        () => this.moderationCases.settleCasesOfChangedShowcase(updatedScreenshot.id)
+      );
+    }
+
+    if (update.isShowcasedModChanged && updatedScreenshot.showcasedModId != null) {
       this.backgroundTasks.run(
         oneLine`
         Failed to warmup mods cache for screenshot "${updatedScreenshot.cityName}"
@@ -343,10 +366,13 @@ export class ScreenshotService {
 
     return updatedScreenshot;
 
-    async function transaction(tx: Prisma.TransactionClient): Promise<{
+    async function transaction(
+      this: ScreenshotService,
+      tx: Prisma.TransactionClient
+    ): Promise<{
       screenshot: Screenshot;
       needsTranslation: boolean;
-      isShowcasedModAdded: boolean;
+      isShowcasedModChanged: boolean;
     }> {
       try {
         const originalScreenshot = await tx.screenshot.findUniqueOrThrow({
@@ -375,13 +401,14 @@ export class ScreenshotService {
           }
         });
 
-        return {
-          screenshot,
-          needsTranslation,
-          isShowcasedModAdded:
-            screenshot.showcasedModId != null &&
-            screenshot.showcasedModId != originalScreenshot.showcasedModId
-        };
+        const isShowcasedModChanged =
+          screenshot.showcasedModId != originalScreenshot.showcasedModId;
+
+        if (isShowcasedModChanged && screenshot.showcasedModId != null) {
+          await this.moderationCases.openShowcaseCase(screenshotId, screenshot.showcasedModId, tx);
+        }
+
+        return { screenshot, needsTranslation, isShowcasedModChanged };
       } catch (error) {
         if (isPrismaError(error) && error.code == 'P2025') {
           throw new NotFoundByIdError(screenshotId, { cause: error });

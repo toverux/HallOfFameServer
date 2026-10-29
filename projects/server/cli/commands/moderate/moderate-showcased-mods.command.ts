@@ -8,7 +8,12 @@ import { iconsole } from '../../../../shared/iconsole';
 import type { ParadoxModId } from '../../../../shared/utils/branded-types';
 import { nn } from '../../../../shared/utils/type-assertion';
 import { config } from '../../../config';
-import { ModService, PrismaService, ScreenshotStorageService } from '../../../services';
+import {
+  ModerationService,
+  ModService,
+  PrismaService,
+  ScreenshotStorageService
+} from '../../../services';
 
 type ModeratedScreenshot = Screenshot & { imageUrl: string; creator: Creator; showcasedMod: Mod };
 
@@ -30,6 +35,9 @@ export class ModerateShowcasedModsCommand extends CommandRunner {
 
   @Inject(ModService)
   private readonly modService!: ModService;
+
+  @Inject(ModerationService)
+  private readonly moderation!: ModerationService;
 
   @Inject(ScreenshotStorageService)
   private readonly screenshotStorage!: ScreenshotStorageService;
@@ -111,10 +119,13 @@ export class ModerateShowcasedModsCommand extends CommandRunner {
         });
 
         if (mod?.isRetired) {
-          await this.prisma.screenshot.update({
-            where: { id: screenshot.id },
-            data: { showcasedModId: null, isShowcasedModValidated: false }
-          });
+          await this.moderation.settleShowcase(
+            { id: screenshot.id, showcasedModId: modId },
+            'remove',
+            {
+              surface: 'cli'
+            }
+          );
 
           iconsole.log(
             `Removed showcase of retired mod #${modId} for screenshot #${screenshot.id}.`
@@ -145,21 +156,13 @@ export class ModerateShowcasedModsCommand extends CommandRunner {
 
       setPageStatus(`Loading next...`);
 
-      if (action == 'accept') {
-        await this.prisma.screenshot.update({
-          where: { id: screenshot.id },
-          data: { isShowcasedModValidated: true }
-        });
+      await this.moderation.settleShowcase({ id: screenshot.id, showcasedModId: modId }, action, {
+        surface: 'cli'
+      });
 
-        iconsole.log(`Accepted showcase for screenshot #${screenshot.id}.`);
-      } else if (action == 'remove') {
-        await this.prisma.screenshot.update({
-          where: { id: screenshot.id },
-          data: { showcasedModId: null, isShowcasedModValidated: false }
-        });
-
-        iconsole.log(`Removed showcase for screenshot #${screenshot.id}.`);
-      }
+      iconsole.log(
+        `${action == 'accept' ? 'Accepted' : 'Removed'} showcase for screenshot #${screenshot.id}.`
+      );
     }
 
     iconsole.info(chalk.bold(`All screenshots have been moderated.`));

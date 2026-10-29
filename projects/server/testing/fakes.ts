@@ -83,11 +83,22 @@ type EmbeddingUpdate = Parameters<ScreenshotSimilarityDetectorService['batchUpda
 
 export class FakeScreenshotSimilarityDetectorService implements Pick<
   ScreenshotSimilarityDetectorService,
-  'batchUpdateEmbeddings' | 'deleteEmbedding'
+  | 'batchUpdateEmbeddings'
+  | 'deleteEmbedding'
+  | 'findSimilarScreenshots'
+  | 'allowScreenshotSimilarity'
 > {
   public readonly embeddingUpdates: EmbeddingUpdate[] = [];
 
   public readonly embeddingDeletions: string[] = [];
+
+  /**
+   * The neighbours {@link findSimilarScreenshots} returns for any screenshot, which a test sets; it
+   * keeps those within the maximum distance the caller asks for, as the detector does.
+   */
+  public readonly neighbours: Array<{ screenshotId: string; distance: number }> = [];
+
+  public readonly allowedSimilarities: Array<readonly [string, string]> = [];
 
   public batchUpdateEmbeddings(
     _batchName: string,
@@ -101,6 +112,22 @@ export class FakeScreenshotSimilarityDetectorService implements Pick<
 
   public deleteEmbedding(screenshotId: string): Promise<void> {
     this.embeddingDeletions.push(screenshotId);
+
+    return Promise.resolve();
+  }
+
+  public findSimilarScreenshots(
+    screenshot: EmbeddingUpdate[number],
+    maxDistance: number
+  ): Promise<Array<{ screenshotId: string; distance: number }>> {
+    // As the detector, which infers and stores the embedding of a screenshot that has none.
+    this.embeddingUpdates.push([screenshot]);
+
+    return Promise.resolve(this.neighbours.filter(neighbour => neighbour.distance <= maxDistance));
+  }
+
+  public allowScreenshotSimilarity(firstId: string, secondId: string): Promise<void> {
+    this.allowedSimilarities.push([firstId, secondId]);
 
     return Promise.resolve();
   }

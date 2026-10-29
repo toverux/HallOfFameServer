@@ -15,7 +15,9 @@ await bootstrap();
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestFastifyApplication>(AppModule, createFastifyAdapter(), {
     // Buffer logs until Sentry logger is instantiated.
-    bufferLogs: true
+    bufferLogs: true,
+    // Discord signs the raw body of the interactions it sends.
+    rawBody: true
   });
 
   configureApp(app);

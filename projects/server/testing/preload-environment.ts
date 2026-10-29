@@ -13,6 +13,16 @@ import * as Bun from 'bun';
 // Unique per run, so concurrent runs never share a database.
 const databaseName = `halloffame-test-${Date.now()}-${process.pid}`;
 
+// Generated per run, the private half signs the interaction requests that tests send.
+const discordKeyPair = await crypto.subtle.generateKey({ name: 'Ed25519' }, true, [
+  'sign',
+  'verify'
+]);
+
+const discordPublicKey = await crypto.subtle.exportKey('raw', discordKeyPair.publicKey);
+
+const discordPrivateKey = await crypto.subtle.exportKey('pkcs8', discordKeyPair.privateKey);
+
 Object.assign(
   process.env,
   parseEnv(await Bun.file(path.join(import.meta.dir, '../../../.env')).text()),
@@ -34,7 +44,9 @@ Object.assign(
     // Discord on, its REST API faked at the fetch stub; a test switches it off through the token.
     HOF_DISCORD_BOT_TOKEN: 'discord-inert',
     HOF_DISCORD_APPLICATION_ID: '1100000000000000001',
-    HOF_DISCORD_PUBLIC_KEY: '0000000000000000000000000000000000000000000000000000000000000000',
+    HOF_DISCORD_PUBLIC_KEY: new Uint8Array(discordPublicKey).toHex(),
+    // Read by the tests only, never by the server.
+    HOF_TEST_DISCORD_PRIVATE_KEY: new Uint8Array(discordPrivateKey).toBase64(),
     HOF_DISCORD_CHANNEL_ID: '1100000000000000002',
     HOF_DISCORD_MODERATOR_IDS: '1100000000000000003',
     HOF_DISCORD_BATCH_CRON: '0 18 * * *'

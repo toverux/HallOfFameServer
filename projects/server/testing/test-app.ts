@@ -63,7 +63,10 @@ export async function createTestApp(overrides: readonly ValueProvider[] = []): P
 
   const testingModule = await builder.compile();
 
-  const app = testingModule.createNestApplication<NestFastifyApplication>(createFastifyAdapter());
+  const app = testingModule.createNestApplication<NestFastifyApplication>(createFastifyAdapter(), {
+    // As the server bootstrap, for the signature of Discord's interactions.
+    rawBody: true
+  });
 
   configureApp(app);
 

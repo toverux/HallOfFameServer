@@ -1,12 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import * as Bun from 'bun';
+import LazyPromise from 'p-lazy';
 import { z } from 'zod';
 import { seconds } from '../../shared/utils/duration';
 import type { JsonObject } from '../../shared/utils/json';
 import { config } from '../config';
 
 /**
- * Outbound client of Discord's REST API, posting to and deleting from the moderation channel.
+ * Client of Discord's REST API, posting to and deleting from the moderation channel and answering
+ * interactions, and verifier of the interactions Discord sends.
  * Plain `fetch` with the bot token: no SDK, no gateway connection.
  */
 @Injectable()
@@ -24,6 +26,19 @@ export class DiscordService {
   private static readonly unknownMessageCode = 10_008;
 
   private static readonly messageSchema = z.looseObject({ id: z.string() });
+
+  /**
+   * The application's public key, imported once, on the first interaction.
+   */
+  private readonly publicKey = LazyPromise.from(() =>
+    crypto.subtle.importKey(
+      'raw',
+      Buffer.from(config.discord.publicKey, 'hex'),
+      { name: 'Ed25519' },
+      false,
+      ['verify']
+    )
+  );
 
   /**
    * Posts a message to the moderation channel.
@@ -55,6 +70,36 @@ export class DiscordService {
 
       throw error;
     }
+  }
+
+  /**
+   * Sends a follow-up message to an interaction already answered, through its token.
+   */
+  public async createFollowupMessage(interactionToken: string, message: JsonObject): Promise<void> {
+    await this.request(
+      'POST',
+      `/webhooks/${config.discord.applicationId}/${interactionToken}`,
+      `send a follow-up message`,
+      message
+    );
+  }
+
+  /**
+   * Checks that an interaction request comes from Discord: its Ed25519 signature, over the
+   * timestamp and the raw body, verifies against the application's public key.
+   */
+  public async verifyInteractionSignature(
+    rawBody: Uint8Array,
+    signature: string,
+    timestamp: string
+  ): Promise<boolean> {
+    // A malformed hex signature decodes to bytes that fail the verification.
+    return crypto.subtle.verify(
+      'Ed25519',
+      await this.publicKey,
+      Buffer.from(signature, 'hex'),
+      Buffer.concat([Buffer.from(timestamp), rawBody])
+    );
   }
 
   private messagesPath(): string {

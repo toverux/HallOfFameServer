@@ -50,7 +50,7 @@ describe('ModerationService', () => {
     await testApp.app.close();
   });
 
-  function findCase(moderationCase: ModerationCase): Promise<ModerationCase> {
+  function findCase(moderationCase: Pick<ModerationCase, 'id'>): Promise<ModerationCase> {
     return testApp.prisma.moderationCase.findUniqueOrThrow({ where: { id: moderationCase.id } });
   }
 
@@ -195,6 +195,134 @@ describe('ModerationService', () => {
 
       expect(await testApp.prisma.screenshot.count({ where: { id: screenshot.id } })).toBe(1);
       expect(await findCase(moderationCase)).toMatchObject({ outcome: null });
+    });
+  });
+
+  describe('settleShowcase()', () => {
+    let showcasing: Screenshot;
+
+    beforeEach(async () => {
+      showcasing = await createScreenshot(testApp.prisma, creator, { showcasedModId: 74_604 });
+    });
+
+    test.each([
+      { action: 'accept', outcome: 'accepted', showcasedModId: 74_604, isValidated: true },
+      { action: 'remove', outcome: 'removed', showcasedModId: null, isValidated: false }
+    ] as const)(
+      `settles with $action from the CLI: records the outcome and deletes the message`,
+      async ({ action, outcome, showcasedModId, isValidated }) => {
+        const { id } = await createModerationCase(testApp.prisma, showcasing, {
+          kind: 'showcased_mod',
+          showcasedModId: 74_604
+        });
+
+        await testApp.app.get(ModerationCaseService).postPendingCases();
+
+        const moderationCase = await findCase({ id });
+
+        await moderation.settleShowcase({ id: showcasing.id, showcasedModId: 74_604 }, action, {
+          surface: 'cli'
+        });
+
+        await testApp.backgroundTasks.settled();
+
+        expect(
+          await testApp.prisma.screenshot.findUniqueOrThrow({ where: { id: showcasing.id } })
+        ).toMatchObject({ showcasedModId, isShowcasedModValidated: isValidated });
+
+        expect(await findCase(moderationCase)).toMatchObject({
+          outcome,
+          settledThrough: 'cli',
+          settledByDiscordUserId: null
+        });
+
+        expect(discord.deletedMessageIds).toEqual([nn(moderationCase.discordMessageId)]);
+        expect(discord.messages).toEqual([]);
+      }
+    );
+
+    test(`settles a showcase made before cases existed`, async () => {
+      await moderation.settleShowcase({ id: showcasing.id, showcasedModId: 74_604 }, 'accept', {
+        surface: 'cli'
+      });
+
+      expect(
+        await testApp.prisma.screenshot.findUniqueOrThrow({ where: { id: showcasing.id } })
+      ).toMatchObject({ showcasedModId: 74_604, isShowcasedModValidated: true });
+    });
+
+    test(`fails on a screenshot that showcases another mod since, leaving it`, async () => {
+      expect(
+        moderation.settleShowcase({ id: showcasing.id, showcasedModId: 87_755 }, 'remove', {
+          surface: 'cli'
+        })
+      ).rejects.toThrow(`Screenshot #${showcasing.id} no longer showcases mod #87755.`);
+
+      expect(
+        await testApp.prisma.screenshot.findUniqueOrThrow({ where: { id: showcasing.id } })
+      ).toMatchObject({ showcasedModId: 74_604, isShowcasedModValidated: false });
+    });
+  });
+
+  describe('settleNearDuplicate()', () => {
+    let older: Screenshot;
+
+    let newer: Screenshot;
+
+    beforeEach(async () => {
+      older = await createScreenshot(testApp.prisma, creator, {
+        createdAt: new Date('2026-10-01T10:00:00Z')
+      });
+
+      newer = await createScreenshot(testApp.prisma, creator, {
+        createdAt: new Date('2026-10-02T10:00:00Z')
+      });
+    });
+
+    test.each([
+      { action: 'allow', outcome: 'allowed', remainingCount: 2 },
+      { action: 'keepA', outcome: 'kept_a', remainingCount: 1 },
+      { action: 'keepB', outcome: 'kept_b', remainingCount: 1 }
+    ] as const)(
+      `settles with $action from the CLI: records the outcome and deletes the message`,
+      async ({ action, outcome, remainingCount }) => {
+        const { id } = await createModerationCase(testApp.prisma, newer, {
+          kind: 'near_duplicate',
+          pairedScreenshotId: older.id,
+          pairDistance: 0.08
+        });
+
+        await testApp.app.get(ModerationCaseService).postPendingCases();
+
+        const moderationCase = await findCase({ id });
+
+        await moderation.settleNearDuplicate({ a: older.id, b: newer.id }, action, {
+          surface: 'cli'
+        });
+
+        await testApp.backgroundTasks.settled();
+
+        expect(
+          await testApp.prisma.screenshot.count({ where: { id: { in: [older.id, newer.id] } } })
+        ).toBe(remainingCount);
+
+        expect(await findCase(moderationCase)).toMatchObject({
+          outcome,
+          settledThrough: 'cli',
+          settledByDiscordUserId: null
+        });
+
+        expect(discord.deletedMessageIds).toEqual([nn(moderationCase.discordMessageId)]);
+        expect(discord.messages).toEqual([]);
+      }
+    );
+
+    test(`settles a pair found before cases existed`, async () => {
+      await moderation.settleNearDuplicate({ a: older.id, b: newer.id }, 'keepA', {
+        surface: 'cli'
+      });
+
+      expect(await testApp.prisma.screenshot.count({ where: { id: newer.id } })).toBe(0);
     });
   });
 });

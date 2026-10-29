@@ -12,6 +12,7 @@ import type {
   ModerationCase,
   Prisma,
   Screenshot,
+  ScreenshotFeatureEmbedding,
   View
 } from '#prisma-lib/client';
 import { nn } from '../../shared/utils/type-assertion';
@@ -217,6 +218,30 @@ export function createModerationCase(
       kind: 'report',
       screenshotId: screenshot.id,
       openedAt: new Date('2026-10-20T14:30:00Z'),
+      ...overrides
+    }
+  });
+}
+
+/**
+ * Stores an embedding for the given Screenshot, as inferring it does, under an ID numbered as a
+ * 16-hex-digit search index key.
+ * Screenshots seeded with the default vector are identical to one another.
+ */
+export function createScreenshotFeatureEmbedding(
+  prisma: PrismaService,
+  screenshot: Pick<Screenshot, 'id'>,
+  overrides: Partial<Omit<Prisma.ScreenshotFeatureEmbeddingCreateInput, 'screenshot'>> = {}
+): Promise<ScreenshotFeatureEmbedding> {
+  const sequence = nextSequence('screenshotFeatureEmbedding');
+
+  return prisma.screenshotFeatureEmbedding.create({
+    data: {
+      // oxlint-disable-next-line no-magic-numbers - hex, as the detector's keyToId renders a key
+      id: sequence.toString(16).padStart(16, '0'),
+      screenshotId: screenshot.id,
+      // EfficientNet V2's feature vector size.
+      embedding: Array.from({ length: 1280 }, () => 1),
       ...overrides
     }
   });

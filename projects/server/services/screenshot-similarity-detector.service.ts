@@ -360,11 +360,13 @@ export class ScreenshotSimilarityDetectorService implements OnModuleInit, OnAppl
       select: { id: true, screenshotId: true }
     });
 
-    // Map (embedding ID, distance) to (screenshot ID, distance).
-    return embeddingIdsAndDistance.map(item => ({
-      screenshotId: nn(embeddingDocs.find(doc => doc.id == item.id)).screenshotId,
-      distance: item.distance
-    }));
+    // Map (embedding ID, distance) to (screenshot ID, distance), skipping a key whose embedding
+    // another process (a CLI merge or delete) removed from the database but not from this index.
+    return embeddingIdsAndDistance.flatMap(item => {
+      const doc = embeddingDocs.find(match => match.id == item.id);
+
+      return doc ? [{ screenshotId: doc.screenshotId, distance: item.distance }] : [];
+    });
   }
 
   /**

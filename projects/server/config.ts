@@ -117,7 +117,12 @@ export const config = {
     rankMinFavorites: getNumber('HOF_SCREENSHOTS_RANK_MIN_FAVORITES'),
     newcomerViews: getNumber('HOF_SCREENSHOTS_NEWCOMER_VIEWS'),
     recencyThresholdDays: getNumber('HOF_SCREENSHOTS_RECENCY_THRESHOLD_DAYS'),
-    limitPer24h: getNumber('HOF_SCREENSHOTS_LIMIT_PER_24H')
+    limitPer24h: getNumber('HOF_SCREENSHOTS_LIMIT_PER_24H'),
+    /**
+     * Cosine distance under which an upload and an earlier screenshot of its creator open a
+     * near-duplicate moderation case.
+     */
+    nearDuplicateMaxDistance: getNumber('HOF_SCREENSHOTS_NEAR_DUPLICATE_MAX_DISTANCE')
   },
 
   puppeteer: {

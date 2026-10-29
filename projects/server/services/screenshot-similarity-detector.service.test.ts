@@ -1,7 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { TestingModule } from '@nestjs/testing';
 import { seconds } from '../../shared/utils/duration';
-import { createCreator, createScreenshot } from '../testing/factories';
+import {
+  createCreator,
+  createScreenshot,
+  createScreenshotFeatureEmbedding
+} from '../testing/factories';
 import { FakeScreenshotStorageService } from '../testing/fakes';
 import { createServiceTestingModule } from '../testing/testing-module';
 import { PrismaService } from './prisma.service';
@@ -75,4 +79,54 @@ describe('ScreenshotSimilarityDetectorService', () => {
     },
     seconds(60)
   );
+
+  // Uploads store their embedding this way, as the search finds none for a new screenshot.
+  test(
+    `infers and stores the embedding of a screenshot that has none before searching`,
+    async () => {
+      const creator = await createCreator(prisma);
+      const screenshot = await createScreenshot(prisma, creator);
+
+      const { imageFhdBuffer } = await screenshotProcessing.resizeScreenshots(
+        Buffer.from(await testImage.arrayBuffer()),
+        { creatorName: undefined, cityName: screenshot.cityName }
+      );
+
+      expect(
+        await similarityDetector.findSimilarScreenshots(
+          { id: screenshot.id, imageUrlOrBuffer: imageFhdBuffer },
+          0.1
+        )
+      ).toEqual([]);
+
+      const embedding = await prisma.screenshotFeatureEmbedding.findUniqueOrThrow({
+        where: { screenshotId: screenshot.id }
+      });
+
+      expect(embedding.embedding).toHaveLength(1280);
+    },
+    seconds(60)
+  );
+
+  // Another process (a CLI merge or delete) removes an embedding from the database but not from
+  // this process's index, which keeps the stale key.
+  test(`skips an index match whose embedding was deleted meanwhile`, async () => {
+    const creator = await createCreator(prisma);
+    const screenshot = await createScreenshot(prisma, creator);
+    const neighbour = await createScreenshot(prisma, creator);
+
+    await createScreenshotFeatureEmbedding(prisma, screenshot);
+    await createScreenshotFeatureEmbedding(prisma, neighbour);
+
+    const input = { id: screenshot.id, imageUrlOrBuffer: '' };
+
+    // Builds the index while both embeddings exist.
+    expect(await similarityDetector.findSimilarScreenshots(input, 0.1)).toEqual([
+      { screenshotId: neighbour.id, distance: expect.any(Number) }
+    ]);
+
+    await prisma.screenshotFeatureEmbedding.delete({ where: { screenshotId: neighbour.id } });
+
+    expect(await similarityDetector.findSimilarScreenshots(input, 0.1)).toEqual([]);
+  });
 });

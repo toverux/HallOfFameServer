@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import type { FastifyReply } from 'fastify';
 import type { ParadoxModId } from '../../../shared/utils/branded-types';
+import { paradoxModUrl } from '../../common/constants';
 import { NotFoundByIdError } from '../../common/standard-error';
 import { PrismaService } from '../../services';
 
@@ -44,12 +45,6 @@ export class ModController {
       data: { clicks: { increment: 1 } }
     });
 
-    res.redirect(
-      // Specifying the platform (Windows) is mandatory, and Windows is the one platform where we're
-      // sure to hit because everything is available to Windows.
-      // The "Any" platform only concerns portable assets that can be used everywhere.
-      `https://mods.paradoxplaza.com/mods/${paradoxModId}/Windows`,
-      HttpStatus.TEMPORARY_REDIRECT
-    );
+    res.redirect(paradoxModUrl(paradoxModId), HttpStatus.TEMPORARY_REDIRECT);
   }
 }

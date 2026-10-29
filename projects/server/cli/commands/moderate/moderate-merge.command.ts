@@ -1,5 +1,5 @@
 import { Inject, type Provider } from '@nestjs/common';
-import { oneLine, stripIndent } from 'common-tags';
+import { stripIndent } from 'common-tags';
 import { CommandRunner, SubCommand } from 'nest-commander';
 import puppeteer, { type Page, PuppeteerError } from 'puppeteer';
 import type { Creator, Screenshot } from '#prisma-lib/client';
@@ -7,8 +7,10 @@ import { iconsole } from '../../../../shared/iconsole';
 import { nn } from '../../../../shared/utils/type-assertion';
 import { config } from '../../../config';
 import {
+  ModerationService,
+  type NearDuplicateAction,
+  orientPair,
   PrismaService,
-  ScreenshotMergingService,
   ScreenshotSimilarityDetectorService,
   ScreenshotStorageService
 } from '../../../services';
@@ -19,9 +21,11 @@ interface ScreenshotsData {
   distance: number;
 }
 
+type HofChoice = 'first' | 'both' | 'second';
+
 interface HofWindow extends Window {
   setStatus: (text: string) => void;
-  screenshotSelectedEvent: PromiseWithResolvers<'first' | 'both' | 'second'>;
+  screenshotSelectedEvent: PromiseWithResolvers<HofChoice>;
   setScreenshotsData: (data: ScreenshotsData) => void;
 }
 
@@ -32,11 +36,17 @@ interface HofWindow extends Window {
 export class ModerateMergeCommand extends CommandRunner {
   public static readonly providers: () => Provider[] = () => [ModerateMergeCommand];
 
+  private static readonly actions = {
+    first: 'keepA',
+    both: 'allow',
+    second: 'keepB'
+  } as const satisfies Record<HofChoice, NearDuplicateAction>;
+
   @Inject(PrismaService)
   private readonly prisma!: PrismaService;
 
-  @Inject(ScreenshotMergingService)
-  private readonly screenshotMerging!: ScreenshotMergingService;
+  @Inject(ModerationService)
+  private readonly moderation!: ModerationService;
 
   @Inject(ScreenshotSimilarityDetectorService)
   private readonly screenshotSimilarityDetector!: ScreenshotSimilarityDetectorService;
@@ -92,12 +102,15 @@ export class ModerateMergeCommand extends CommandRunner {
       void page.evaluate(value => (globalThis as unknown as HofWindow).setStatus(value), text);
     }
 
-    let lastChoice: 'first' | 'second' | 'both' | undefined;
+    let lastChoice: HofChoice | undefined;
 
     for await (const {
-      screenshots: [first, second],
+      screenshots,
       distance
     } of this.screenshotSimilarityDetector.findPotentialDuplicates()) {
+      // Shown as the Discord message of the pair's case shows them, A the older.
+      const { a: first, b: second } = orientPair(...screenshots);
+
       iconsole.log(`Matching screenshots: #${first.id} and #${second.id}...`);
 
       const authors = await this.prisma.creator.findMany({
@@ -130,28 +143,18 @@ export class ModerateMergeCommand extends CommandRunner {
         () => (globalThis as unknown as HofWindow).screenshotSelectedEvent.promise
       );
 
-      if (lastChoice == 'both') {
-        setPageStatus(`Loading next...`);
+      setPageStatus(lastChoice == 'both' ? `Loading next...` : `Merging screenshots...`);
 
-        await this.screenshotSimilarityDetector.allowScreenshotSimilarity(first.id, second.id);
-
-        continue;
-      }
-
-      setPageStatus(`Merging screenshots...`);
-
-      const { mergedFavoritesCount, deletedFavoritesCount, mergedViewsCount, deletedViewsCount } =
-        await this.screenshotMerging.mergeScreenshots(
-          lastChoice == 'first' ? first.id : second.id,
-          [lastChoice == 'first' ? second.id : first.id]
-        );
-
-      setPageStatus(
-        oneLine`
-        Merged
-        ${mergedFavoritesCount} favorites (${deletedFavoritesCount} duplicates deleted),
-        ${mergedViewsCount} views (${deletedViewsCount} duplicates deleted).`
+      await this.moderation.settleNearDuplicate(
+        { a: first.id, b: second.id },
+        ModerateMergeCommand.actions[lastChoice],
+        { surface: 'cli' }
       );
+
+      if (lastChoice != 'both') {
+        // The merging service logs the counts of favorites and views merged.
+        setPageStatus(`Merged screenshots.`);
+      }
     }
   }
 

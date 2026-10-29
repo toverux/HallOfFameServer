@@ -24,3 +24,9 @@ Open points:
 - CDN egress: each desktop pulls a full image per interval, all day. Default to FHD and an interval of several minutes.
 - Views: `POST /screenshots/:id/views` requires a creator, so wallpaper displays count nowhere. Whether they should, and as what, is undecided: a desktop showing screenshots all day would outweigh players' views.
 - Nothing tells wallpaper requests apart from the mod's; a query parameter such as `client=wallpaper` would, if its traffic is worth measuring.
+
+## Instagram social links
+
+**Priority:** unsure · **Cost:** cheap
+
+Let a creator link an Instagram profile, as a `CreatorSocial` of platform `instagram`. The server stores and redirects any platform name, so the work sits in the clients: the mod renders only the platforms in `supportedSocialPlatforms` (`../HallOfFame`, `UI/src/common.ts`) with a logo and brand color from `social-platforms.ts`, and the viewer's `CreatorCard.tsx` maps platform names to labels. Links can go in before the mod release: the mod skips a platform it does not know, so they stay hidden until then.

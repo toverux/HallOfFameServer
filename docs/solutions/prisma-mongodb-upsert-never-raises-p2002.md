@@ -4,6 +4,7 @@ area: prisma
 symptoms:
   - 'a P2002 retry around a concurrent upsert never runs'
 tags: [prisma, mongodb, upsert, p2002, unique-index, concurrency, transactions]
+updated: 2026-10-29
 ---
 
 # Prisma on MongoDB never raises P2002 from a concurrent upsert
@@ -17,6 +18,7 @@ A once-retry on `P2002` around a Prisma `upsert`, meant for two concurrent first
 Prisma's MongoDB connector (6.19) has no native upsert.
 It emulates one inside a transaction: an `aggregate` lookup, then an `insertOne` or an `updateMany`, then an `aggregate` read-back, which `select` trims but never skips.
 Concurrent upserts on one key surface as transient write conflicts that the engine retries itself: 1,500 concurrent upserts on 30 keys against the dev MongoDB raised no error and left one record per key.
+An interactive transaction the code opens gets no such retry ([prisma-mongodb-interactive-transaction-write-conflict.md](prisma-mongodb-interactive-transaction-write-conflict.md)).
 
 A plain `create` runs outside such a transaction, so a `P2002` retry around one, as in `CreatorService.authenticateCreatorForMod`, stays valid.
 

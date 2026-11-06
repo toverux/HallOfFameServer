@@ -14,7 +14,8 @@ import {
   createView
 } from '../../testing/factories';
 import { createServiceTestingModule } from '../../testing/testing-module';
-import { loadCards, type ShippedChange } from './dashboard';
+import { loadCards, type ShippedChange } from '../dashboard';
+import { newcomersDashboard } from './dashboard';
 
 const mongo = new MongoClient(config.databaseUrl);
 
@@ -48,7 +49,7 @@ describe('Newcomers dashboard', () => {
   });
 
   test(`builds every pipeline from JSON values, the body of a Metabase question`, () => {
-    const cards = loadCards([{ date: '2026-01-07', label: 'A change' }]);
+    const cards = loadCards(newcomersDashboard, [{ date: '2026-01-07', label: 'A change' }]);
 
     for (const { pipeline } of cards) {
       // oxlint-disable-next-line unicorn/prefer-structured-clone - the JSON round trip is the point
@@ -515,7 +516,9 @@ describe('Newcomers dashboard', () => {
     name: string,
     changes: readonly ShippedChange[] = []
   ): Promise<Document[]> {
-    const card = nn(loadCards(changes).find(candidate => candidate.name == name));
+    const card = nn(
+      loadCards(newcomersDashboard, changes).find(candidate => candidate.name == name)
+    );
 
     const rows = await mongo
       .db()

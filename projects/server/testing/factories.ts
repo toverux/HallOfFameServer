@@ -13,6 +13,7 @@ import type {
   Prisma,
   Screenshot,
   ScreenshotFeatureEmbedding,
+  UsageEvent,
   View
 } from '#prisma-lib/client';
 import { nn } from '../../shared/utils/type-assertion';
@@ -156,6 +157,38 @@ export function createView(
 ): Promise<View> {
   return prisma.view.create({
     data: { screenshotId: screenshot.id, creatorId: creator.id, ...overrides }
+  });
+}
+
+/**
+ * Records a usage event the given Creator's mod sent, by default the main menu's first load, in a
+ * session of its own.
+ * The server receives it a second after it happened unless overridden too.
+ */
+export function createUsageEvent(
+  prisma: PrismaService,
+  creator: Pick<Creator, 'id'>,
+  overrides: Partial<Prisma.UsageEventUncheckedCreateInput> = {}
+): Promise<UsageEvent> {
+  const sequence = nextSequence('usageEvent');
+
+  const { trackedAt = new Date('2026-10-28T10:00:00Z') } = overrides;
+
+  return prisma.usageEvent.create({
+    data: {
+      creatorId: creator.id,
+      // A UUID v4, as the mod sends, numbered in its last group.
+      // oxlint-disable-next-line no-magic-numbers - length of the UUID's last group
+      sessionId: `00000000-0000-4000-9000-${String(sequence).padStart(12, '0')}`,
+      modVersion: '2026.6.1',
+      gameVersion: '1.6.2f1',
+      isDebug: false,
+      name: 'context_entered',
+      properties: { mode: 'MainMenu', purpose: 'Cleanup' },
+      trackedAt,
+      receivedAt: new Date(new Date(trackedAt).getTime() + 1000),
+      ...overrides
+    }
   });
 }
 

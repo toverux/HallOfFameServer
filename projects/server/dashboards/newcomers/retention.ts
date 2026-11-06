@@ -1,6 +1,6 @@
 import type { Prisma } from '#prisma-lib/client';
 import { cohortMemberStages, groupByCohortStages } from './cohort-stages';
-import type { DashboardCard } from './dashboard';
+import type { NewcomersCard } from './dashboard';
 
 /**
  * Below it, a cohort's retention swings too far to read.
@@ -35,7 +35,7 @@ export const dayThirtyRetention = retentionCard({
  */
 function retentionCard(
   window: Readonly<{ metric: 'd1' | 'd7' | 'd30'; start: number; end: number; description: string }>
-): DashboardCard {
+): NewcomersCard {
   const { metric, end } = window;
 
   return {

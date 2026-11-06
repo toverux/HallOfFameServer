@@ -1,7 +1,7 @@
-import { dayOf } from './cohort-stages';
-import type { DashboardCard } from './dashboard';
+import { dayOf } from '../expressions';
+import type { NewcomersCard } from './dashboard';
 
-export const dailyActivesByModVersion: DashboardCard = {
+export const dailyActivesByModVersion: NewcomersCard = {
   name: 'Daily actives by mod version',
   description: `Daily actives split by the mod version each player reported that day, with "unknown" when none was sent. Shows how fast each release reaches players.`,
   collection: 'creator_activities',

@@ -1,7 +1,7 @@
-import { weekOf } from './cohort-stages';
-import type { DashboardCard } from './dashboard';
+import { weekOf } from '../expressions';
+import type { NewcomersCard } from './dashboard';
 
-export const likeRateByAlgorithm: DashboardCard = {
+export const likeRateByAlgorithm: NewcomersCard = {
   name: 'Like rate by algorithm',
   description: `For each week and algorithm, the share of views that the player liked, at the time or later. Only views labelled with the algorithm that served them count.`,
   collection: 'views',

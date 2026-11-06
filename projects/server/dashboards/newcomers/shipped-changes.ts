@@ -1,14 +1,4 @@
-/**
- * A change shipped to players, which starts a new period in the dashboard's series.
- */
-export interface ShippedChange {
-  /**
-   * When the change reached players, an ISO 8601 date or date-time in UTC.
-   */
-  readonly date: string;
-
-  readonly label: string;
-}
+import type { ShippedChange } from '../dashboard';
 
 /**
  * The changes judged on the Newcomers dashboard, in any order.

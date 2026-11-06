@@ -1,7 +1,7 @@
 import { cohortMemberStages, dayOneLookupStage, groupByCohortStages } from './cohort-stages';
-import type { DashboardCard } from './dashboard';
+import type { NewcomersCard } from './dashboard';
 
-export const dayOneDepth: DashboardCard = {
+export const dayOneDepth: NewcomersCard = {
   name: 'Day-1 depth',
   description: `Median number of screenshots a newcomer viewed in their first 24 hours, with 0 for those who viewed none. A drop means newcomers leave sooner.`,
   collection: 'creators',

@@ -1,12 +1,8 @@
-import {
-  cohortMemberStages,
-  dayOneLookupStage,
-  groupByCohortStages,
-  ratioExpression
-} from './cohort-stages';
-import type { DashboardCard } from './dashboard';
+import { ratioExpression } from '../expressions';
+import { cohortMemberStages, dayOneLookupStage, groupByCohortStages } from './cohort-stages';
+import type { NewcomersCard } from './dashboard';
 
-export const dayOneNewcomerPicks: DashboardCard = {
+export const dayOneNewcomerPicks: NewcomersCard = {
   name: 'Day-1 newcomer picks',
   description: `Share of first-day views served by newcomer protection, which picks a newcomer's first screenshots among those ranked Gold or better.`,
   collection: 'creators',

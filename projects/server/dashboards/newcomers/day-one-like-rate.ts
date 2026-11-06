@@ -1,12 +1,8 @@
-import {
-  cohortMemberStages,
-  dayOneLookupStage,
-  groupByCohortStages,
-  ratioExpression
-} from './cohort-stages';
-import type { DashboardCard } from './dashboard';
+import { ratioExpression } from '../expressions';
+import { cohortMemberStages, dayOneLookupStage, groupByCohortStages } from './cohort-stages';
+import type { NewcomersCard } from './dashboard';
 
-export const dayOneLikeRate: DashboardCard = {
+export const dayOneLikeRate: NewcomersCard = {
   name: 'Day-1 like rate',
   description: `Likes divided by views over each newcomer's first 24 hours. This is the main measure of whether newcomers see cities they like.`,
   collection: 'creators',

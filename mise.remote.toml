@@ -17,7 +17,7 @@ run = [
 ]
 
 [tasks."dashboard:sync"]
-description = "Pushes the versioned Metabase dashboards, updating them in place."
+description = "Pushes a versioned Metabase dashboard by name, updating it in place."
 # The CLI connects to the database at boot.
 run = "mise tunnel mise run:cli dashboard sync"
 

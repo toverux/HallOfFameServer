@@ -3,7 +3,9 @@ import type { TestingModule } from '@nestjs/testing';
 import { iconsole } from '../../../../shared/iconsole';
 import type { JsonObject } from '../../../../shared/utils/json';
 import { ensureString, nn } from '../../../../shared/utils/type-assertion';
-import { introduction, loadCards } from '../../../dashboards/newcomers/dashboard';
+import { loadCards } from '../../../dashboards/dashboard';
+import { featureUsageDashboard } from '../../../dashboards/feature-usage/dashboard';
+import { newcomersDashboard } from '../../../dashboards/newcomers/dashboard';
 import { fetchStub } from '../../../testing/fetch-stub';
 import { createServiceTestingModule } from '../../../testing/testing-module';
 import { DashboardSyncCommand } from './dashboard-sync.command';
@@ -47,9 +49,9 @@ describe('dashboard sync', () => {
   });
 
   test(`creates the questions and the dashboard in the restricted collection`, async () => {
-    await command.run();
+    await command.run(['newcomers']);
 
-    const cards = loadCards();
+    const cards = loadCards(newcomersDashboard);
 
     expect(metabase.items.filter(item => item.model == 'card')).toEqual(
       cards.map(card => ({
@@ -78,7 +80,7 @@ describe('dashboard sync', () => {
     const question = (name: string): number => metabase.find('card', name).id;
 
     expect(dashcards.map(dashcard => dashcardContent(dashcard))).toEqual([
-      introduction,
+      newcomersDashboard.introduction,
       // The oldest change stays first as the list grows.
       expect.stringMatching(
         /^\*\*Shipped changes\*\*\n\n- 2026-10-15: newcomer protection(?:\n|$)/u
@@ -106,7 +108,7 @@ describe('dashboard sync', () => {
   });
 
   test(`updates every question and the dashboard in place on the next run`, async () => {
-    await command.run();
+    await command.run(['newcomers']);
 
     const firstRun = structuredClone(metabase.items);
 
@@ -114,27 +116,93 @@ describe('dashboard sync', () => {
 
     question.body = { ...question.body, display: 'table', dataset_query: { type: 'native' } };
 
-    await command.run();
+    await command.run(['newcomers']);
 
     expect(metabase.items).toEqual(firstRun);
   });
 
   test(`fails with the name of a question whose pipeline Metabase rejects, writing nothing`, () => {
-    const retention = nn(loadCards().find(card => card.name == 'D7 retention'));
+    const retention = nn(loadCards(newcomersDashboard).find(card => card.name == 'D7 retention'));
 
     metabase.rejectedQueries.add(JSON.stringify(retention.pipeline, null, 2));
 
-    expect(command.run()).rejects.toThrow(
+    expect(command.run(['newcomers'])).rejects.toThrow(
       `Metabase rejected the pipeline of "D7 retention": Unrecognized pipeline stage name`
     );
 
     expect(metabase.items).toEqual([collection]);
   });
 
+  test(`publishes the Feature usage dashboard, its introduction across the top`, async () => {
+    const featureUsage = metabase.add('collection', 'Feature usage', parentId, {});
+
+    await command.run(['feature-usage']);
+
+    const cards = loadCards(featureUsageDashboard);
+
+    const questions = metabase.items.filter(item => item.model == 'card');
+
+    expect(questions.map(item => [item.name, item.parentId])).toEqual(
+      cards.map(card => [card.name, featureUsage.id])
+    );
+
+    const dashboard = metabase.find('dashboard', 'Feature usage');
+
+    expect(dashboard.parentId).toBe(featureUsage.id);
+
+    const dashcards = nn(dashboard.body.dashcards) as JsonObject[];
+
+    const placement = (dashcard: JsonObject): unknown => ({
+      content: dashcardContent(dashcard),
+      row: dashcard.row,
+      col: dashcard.col,
+      width: dashcard.size_x,
+      height: dashcard.size_y
+    });
+
+    const question = (name: string): number => metabase.find('card', name).id;
+
+    // Headline numbers are half as tall as charts, and each row as tall as its tallest card.
+    expect(dashcards.slice(0, 7).map(dashcard => placement(dashcard))).toEqual([
+      { content: featureUsageDashboard.introduction, row: 0, col: 0, width: 24, height: 3 },
+      { content: 'Last week', row: 3, col: 0, width: 24, height: 1 },
+      { content: question('Active players'), row: 4, col: 0, width: 6, height: 3 },
+      { content: question('Sessions per player'), row: 4, col: 6, width: 6, height: 3 },
+      { content: question('Upload rate'), row: 4, col: 12, width: 6, height: 3 },
+      { content: question('Event coverage'), row: 4, col: 18, width: 6, height: 3 },
+      { content: 'Adoption', row: 7, col: 0, width: 24, height: 1 }
+    ]);
+
+    const adoption = metabase.find('card', 'Feature adoption per week').body;
+
+    expect(adoption.visualization_settings).toMatchObject({
+      'graph.dimensions': ['week', 'feature'],
+      'graph.series_order': expect.arrayContaining([
+        {
+          key: 'Slideshow navigation',
+          name: 'Slideshow navigation',
+          color: '#509EE3',
+          enabled: true
+        }
+      ]),
+      'column_settings': {
+        '["name","share"]': { column_title: 'Players', number_style: 'percent', decimals: 1 }
+      }
+    });
+  });
+
+  test(`fails on an unknown dashboard before any request`, () => {
+    expect(command.run(['retention'])).rejects.toThrow(
+      `Unknown dashboard "retention", expected one of: newcomers, feature-usage.`
+    );
+
+    expect(fetchStub.requests).toEqual([]);
+  });
+
   test(`fails without the restricted collection before checking any query`, () => {
     metabase.items.length = 0;
 
-    expect(command.run()).rejects.toThrow(
+    expect(command.run(['newcomers'])).rejects.toThrow(
       `Create the "Newcomers" collection in collection ${parentId} and restrict its access first.`
     );
 

@@ -5,7 +5,8 @@
  */
 
 import type { Prisma } from '#prisma-lib/client';
-import type { PeriodExpression } from './dashboard';
+import type { PeriodExpression } from '../dashboard';
+import { weekOf } from '../expressions';
 
 /**
  * Monday of the first cohort shown, the first whole week of November 2024.
@@ -78,13 +79,6 @@ export function dayOneLookupStage(
 }
 
 /**
- * The expression dividing two sums, or null where the divisor is 0.
- */
-export function ratioExpression(dividend: string, divisor: string): Prisma.InputJsonObject {
-  return { $cond: [{ $gt: [divisor, 0] }, { $divide: [dividend, divisor] }, null] };
-}
-
-/**
  * Groups the members by cohort into a row of `week`, `period`, the cohort size (`creators`), and
  * the given metrics, computed from the group's accumulators.
  */
@@ -103,18 +97,4 @@ export function groupByCohortStages(
     { $project: { _id: 0, week: '$_id.week', period: '$_id.period', creators: 1, ...metrics } },
     { $sort: { week: 1, period: 1 } }
   ];
-}
-
-/**
- * The expression of the UTC week, starting on Monday, of a date.
- */
-export function weekOf(date: Prisma.InputJsonValue): Prisma.InputJsonObject {
-  return { $dateTrunc: { date, unit: 'week', startOfWeek: 'monday' } };
-}
-
-/**
- * The expression of the UTC day of a date.
- */
-export function dayOf(date: Prisma.InputJsonValue): Prisma.InputJsonObject {
-  return { $dateTrunc: { date, unit: 'day' } };
 }

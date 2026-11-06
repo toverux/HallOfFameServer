@@ -1,7 +1,7 @@
-import { dayOf } from './cohort-stages';
-import type { DashboardCard } from './dashboard';
+import { dayOf } from '../expressions';
+import type { NewcomersCard } from './dashboard';
 
-export const dailyActives: DashboardCard = {
+export const dailyActives: NewcomersCard = {
   name: 'Daily actives',
   description: `Players who loaded the game with the mod each UTC day, whether the slideshow is on or off. The series starts when the server began recording game loads.`,
   collection: 'creator_activities',

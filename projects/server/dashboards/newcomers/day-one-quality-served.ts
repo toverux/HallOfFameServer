@@ -1,18 +1,14 @@
 import { nn } from '../../../shared/utils/type-assertion';
 import { percentileFacet, ScreenshotStatsService } from '../../services/screenshot-stats.service';
-import {
-  cohortMemberStages,
-  dayOneLookupStage,
-  groupByCohortStages,
-  ratioExpression
-} from './cohort-stages';
-import type { DashboardCard } from './dashboard';
+import { ratioExpression } from '../expressions';
+import { cohortMemberStages, dayOneLookupStage, groupByCohortStages } from './cohort-stages';
+import type { NewcomersCard } from './dashboard';
 
 const { rankPercentiles, rankableFilter, likeRateExpression } = ScreenshotStatsService;
 
 const goldPercentile = nn(rankPercentiles.find(({ rank }) => rank == 'gold')).percentile;
 
-export const dayOneQualityServed: DashboardCard = {
+export const dayOneQualityServed: NewcomersCard = {
   name: 'Day-1 quality served',
   description: `Share of first-day views on screenshots that rank Gold or better today. Past cohorts are measured against today's medals, so older values are approximate.`,
   collection: 'creators',

@@ -39,6 +39,7 @@ No cron runs, and the app logs only errors, so a passing run prints nothing.
   Override only the fields the test is about, and pass related records in (a screenshot takes its creator).
   Add a factory or a default when a test needs one.
 - `identifiers.ts` holds identifiers no factory hands out, for what a test adds beside the seeded records.
+  A test writing its own UUIDs takes another group than the factories' sequence-numbered `8000` and `9000`, so no default record lands on one.
 - The upload fixture is `projects/shared/assets/healthcheck-test-image.jpg`.
 
 ## Fakes and the fetch stub

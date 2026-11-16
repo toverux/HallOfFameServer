@@ -16,6 +16,7 @@ The Feature usage cards group usage events, screenshots, views and likes by sess
 
 - Grouping by a compound key (`{ sessionId, name }`) to count each name per session: 11 s against 1.5 s for the same group keyed by session alone, as the group holds one entry per pair.
 - Counting each name with a `$sum` accumulator per name in the session group: the per-session state grew with the names and spilled.
+- Gating on the mod version with a `$match` before the session group: its `$split` keeps the group out of the slot-based engine (explain version 1), and the classic group spilled where the slot-based one did not.
 
 ## Root cause
 
@@ -26,9 +27,13 @@ A `$group` holds every key and its accumulators in memory up to its limit, then 
 `sessionStages` in `projects/server/dashboards/feature-usage/sessions.ts`:
 
 - Group each source by session alone before the union. Events `$push` only the counted names (`$cond` with `$$REMOVE`), then a `$project` counts each with `$size` of a `$filter`.
+- Gate on the mod version after the session group, on the `modVersion` it carries with `$first`.
 - Union only the server rows a card counts, each pre-grouped to `{ _id: session, [name]: count }`.
 - Merge the sources with one `$mergeObjects` of the whole rows, since their fields never overlap but for the session ID: a `$max` per name spilled the merge group at the same volume.
 
 ## Prevention
 
 Key a group by one field over the largest set, and keep its accumulators few; count per name after the group, in a `$project`.
+Keep a `$match` before a pushed-down group free of `$split`, and check the explain version.
+A card that asks only whether a session did something collects its names with `$addToSet` (`isPresenceOnly`).
+Seed a spill check at the production ratio of sessions per player-week, about 4.5: a lower ratio inflates the player-week groups and shows spills production does not have.

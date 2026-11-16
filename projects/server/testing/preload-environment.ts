@@ -41,6 +41,8 @@ Object.assign(
     HOF_METABASE_DATABASE_ID: '2',
     HOF_METABASE_COLLECTION_ID: '5',
     HOF_SENTRY_DSN: 'disabled',
+    // A test switches it on with `FakeSentryIngest.dsn`.
+    HOF_SENTRY_MOD_DSN: 'disabled',
     // Discord on, its REST API faked at the fetch stub; a test switches it off through the token.
     HOF_DISCORD_BOT_TOKEN: 'discord-inert',
     HOF_DISCORD_APPLICATION_ID: '1100000000000000001',

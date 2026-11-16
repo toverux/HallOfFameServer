@@ -1,1 +1,3 @@
 * text=auto eol=lf
+# The runtime's strings byte for byte, Mono's CRLF line endings included.
+projects/server/testing/mod-error-fixtures/*.txt -text

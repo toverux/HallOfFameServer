@@ -29,7 +29,7 @@ When changing public API behavior, pull the latest `dev` branch in `../hof-viewe
 - **API**: REST controllers, which the mod and the viewer use, and an experimental GraphQL endpoint (GraphQL Yoga with Pothos) that no client uses yet, so its schema and behavior change freely.
 - **Database**: MongoDB with Prisma ORM.
 - **ML Capabilities**: TensorFlow.js for image feature extraction.
-- **Error Tracking**: Sentry.
+- **Error Tracking**: Sentry; the mod's error reports go to a `mod` project of their own, through a second client.
 - **Moderation notifications**: Discord, through a REST client holding the bot token (`discord.service.ts`) and a signed interactions route the moderator's buttons reach (`discord.controller.ts`), no SDK or gateway; `HOF_DISCORD_BOT_TOKEN=disabled` turns it off.
 - **Containerization**: Docker.
 - **Toolchain**: oxfmt formats and oxlint lints, both extending `@toverux/blanc-hopital`, which also supplies the tsconfig bases; lefthook runs tsc/oxlint/oxfmt on staged files at pre-commit.

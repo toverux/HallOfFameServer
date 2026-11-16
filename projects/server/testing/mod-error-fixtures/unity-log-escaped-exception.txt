@@ -1,0 +1,10 @@
+InvalidOperationException: Probe: thrown from an async void trigger handler.
+HallOfFame.Probe.InnerThrower (System.String message) (at /home/user/Documents/Dev/HallOfFame/HallOfFame/Probe.cs:66)
+HallOfFame.Probe.ThrowAsyncVoid () (at /home/user/Documents/Dev/HallOfFame/HallOfFame/Probe.cs:58)
+System.Runtime.CompilerServices.AsyncMethodBuilderCore+<>c.<ThrowAsync>b__7_0 (System.Object state) (at <ec44db4194e74e18bbf336ba559460da>:0)
+UnityEngine.UnitySynchronizationContext+WorkRequest.Invoke () (at <3f4ee31e4ddf4e8a936eabcff96e3617>:0)
+UnityEngine.UnitySynchronizationContext.Exec () (at <3f4ee31e4ddf4e8a936eabcff96e3617>:0)
+UnityEngine.UnitySynchronizationContext.ExecuteTasks () (at <3f4ee31e4ddf4e8a936eabcff96e3617>:0)
+UnityEngine.DebugLogHandler:LogException(Exception, Object)
+Colossal.Logging.CustomLogHandler:LogException(Exception, Object)
+UnityEngine.Debug:CallOverridenDebugHandler(Exception, Object)

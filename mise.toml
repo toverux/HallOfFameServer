@@ -6,6 +6,7 @@ redactions = [
   "HOF_DATABASE_URL",
   "HOF_AZURE_URL",
   "HOF_SENTRY_DSN",
+  "HOF_SENTRY_MOD_DSN",
   "HOF_DISCORD_BOT_TOKEN"
 ]
 

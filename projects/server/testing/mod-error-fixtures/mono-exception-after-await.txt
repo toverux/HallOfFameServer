@@ -1,0 +1,6 @@
+System.InvalidOperationException: Probe: thrown after an await. ---> System.InvalidOperationException: Probe: the inner cause.
+  at HallOfFame.Probe.InnerThrower (System.String message) [0x00001] in /home/user/Documents/Dev/HallOfFame/HallOfFame/Probe.cs:66 
+  at HallOfFame.Probe.ThrowAfterAwait () [0x0006e] in /home/user/Documents/Dev/HallOfFame/HallOfFame/Probe.cs:85 
+   --- End of inner exception stack trace ---
+  at HallOfFame.Probe.ThrowAfterAwait () [0x00085] in /home/user/Documents/Dev/HallOfFame/HallOfFame/Probe.cs:88 
+  at HallOfFame.Probe.AwaitProbe () [0x00023] in /home/user/Documents/Dev/HallOfFame/HallOfFame/Probe.cs:72 

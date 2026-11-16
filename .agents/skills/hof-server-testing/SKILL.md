@@ -27,6 +27,7 @@ Take the first seam that reaches the behavior:
 
 - `preload-environment.ts` overwrites the environment with inert values for every external service and the run's own database URL.
   The configuration is read once, when its module loads: a test needing another value sets it in this preload.
+  A value `config.ts` reads through a getter (the Discord token, the mod's Sentry DSN) is read on use instead: a test switches it in `process.env` and restores it once the test ends, in `afterEach` or a `finally`.
 - `preload-database.ts` gives the run a throwaway database with the schema's indexes, emptied before each test.
   Each test starts empty and seeds what it needs; tests share the database, so they run one at a time.
 

@@ -9,6 +9,7 @@ import { DateFnsLocalizationService } from './date-fns-localization.service';
 import { DiscordInteractionService } from './discord-interaction.service';
 import { DiscordService } from './discord.service';
 import { FavoriteService } from './favorite.service';
+import { ModErrorReportService } from './mod-error-report.service';
 import { ModService } from './mod.service';
 import { ModerationCaseService } from './moderation-case.service';
 import { ModerationService } from './moderation.service';
@@ -33,6 +34,7 @@ export * from './discord.service';
 export * from './discord-interaction.service';
 export * from './favorite.service';
 export * from './mod.service';
+export * from './mod-error-report.service';
 export * from './moderation.service';
 export * from './moderation-case.service';
 export * from './prisma.service';
@@ -58,6 +60,7 @@ export const services: Provider[] = [
   FavoriteService,
   ModerationCaseService,
   ModerationService,
+  ModErrorReportService,
   ModService,
   PrismaService,
   ScreenshotService,

@@ -50,7 +50,14 @@ export const config = {
   },
 
   sentry: {
-    dsn: getString('HOF_SENTRY_DSN')
+    dsn: getString('HOF_SENTRY_DSN'),
+    /**
+     * DSN of the Sentry project receiving the mod's error reports, apart from the server's own;
+     * `disabled` drops them. Read on use, so a test can switch it on.
+     */
+    get modDsn(): string {
+      return getString('HOF_SENTRY_MOD_DSN');
+    }
   },
 
   skyve: {

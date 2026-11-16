@@ -1,0 +1,5 @@
+TypeError: Probe: thrown in the UI bundle at 1794814312482.
+    at J2 (coui://ui-mods/HallOfFame.mjs:15:33308)
+    at J2 (coui://ui-mods/HallOfFame.mjs:15:33287)
+    at J2 (coui://ui-mods/HallOfFame.mjs:15:33287)
+    at coui://ui-mods/HallOfFame.mjs:15:33420

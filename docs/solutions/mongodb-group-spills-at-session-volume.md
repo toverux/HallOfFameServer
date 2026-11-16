@@ -27,7 +27,7 @@ A `$group` holds every key and its accumulators in memory up to its limit, then 
 
 - Group each source by session alone before the union. Events `$push` only the counted names (`$cond` with `$$REMOVE`), then a `$project` counts each with `$size` of a `$filter`.
 - Union only the server rows a card counts, each pre-grouped to `{ _id: session, [name]: count }`.
-- Merge the sources with `$max` per name, since each source alone holds its counts.
+- Merge the sources with one `$mergeObjects` of the whole rows, since their fields never overlap but for the session ID: a `$max` per name spilled the merge group at the same volume.
 
 ## Prevention
 

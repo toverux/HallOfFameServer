@@ -13,13 +13,17 @@ import {
   sessionsPerPlayerPerWeek,
   viewsPerSessionPerWeek
 } from './depth';
-import { firstReleaseWithEvents } from './sessions';
+import { detailsTabsPerWeek } from './details-tabs';
+import { menuTourOutcomesPerWeek, uploadOutcomesPerWeek } from './outcomes';
+import { firstReleaseWithCompleteEvents, firstReleaseWithEvents } from './sessions';
 
 const columnTitles = {
   week: 'Week',
   feature: 'Feature',
   share: 'Players',
   step: 'Step',
+  outcome: 'Outcome',
+  tab: 'Tab',
   count: 'Count',
   uploadRate: 'Upload rate',
   players: 'Players',
@@ -44,7 +48,8 @@ export const featureUsageDashboard: Dashboard<Column> = {
   introduction: [
     `**How to read this dashboard**`,
     `A session is one game launch: the usage events the mod sent, and the views, likes, and uploads its requests made. Weeks run Monday to Sunday (UTC) and show once ended, each session whole in the week it started; the headline numbers compare last week with the week before.`,
-    `Players count when they ran mod ${firstReleaseWithEvents} or later that week and left usage statistics on; debug builds never count.`
+    `Players count when they ran mod ${firstReleaseWithEvents} or later that week and left usage statistics on; debug builds never count.`,
+    `The three newest cards, Upload outcomes per week and the Details window and tour section, count the sessions whose events reached the server, from mod ${firstReleaseWithCompleteEvents} on, without that eligibility rule.`
   ].join('\n\n'),
   columnTitles,
   sections: [
@@ -53,7 +58,14 @@ export const featureUsageDashboard: Dashboard<Column> = {
       rows: [[activePlayers, sessionsPerPlayer, uploadRate, eventCoverage]]
     },
     { heading: 'Adoption', rows: [[featureAdoptionLastWeek, featureAdoptionPerWeek]] },
-    { heading: 'Capture funnel', rows: [[captureFunnelLastWeek, captureFunnelPerWeek]] },
+    {
+      heading: 'Capture funnel',
+      rows: [[captureFunnelLastWeek, captureFunnelPerWeek], [uploadOutcomesPerWeek]]
+    },
+    {
+      heading: 'Details window and tour',
+      rows: [[detailsTabsPerWeek, menuTourOutcomesPerWeek]]
+    },
     {
       heading: 'Depth',
       rows: [[activePlayersPerWeek, sessionsPerPlayerPerWeek, viewsPerSessionPerWeek]]

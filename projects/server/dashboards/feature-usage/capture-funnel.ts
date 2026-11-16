@@ -16,7 +16,7 @@ const steps = [
 
 export const captureFunnelPerWeek: FeatureUsageCard = {
   name: 'Capture funnel per week',
-  description: `Captures requested in photo mode, screenshots captured, uploads started, and screenshots the server stored, summed over the week's sessions. A session counts whole in the week it started. An upload abandoned or failed shows as a stored screenshot missing.`,
+  description: `Captures requested in photo mode, screenshots captured, uploads started, and screenshots the server stored, summed over the week's sessions. A session counts whole in the week it started. An upload abandoned or failed shows as a stored screenshot missing; Upload outcomes per week tells why.`,
   collection: 'usage_events',
   chart: {
     display: 'bar',

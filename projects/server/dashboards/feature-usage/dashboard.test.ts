@@ -17,6 +17,7 @@ import * as identifiers from '../../testing/identifiers';
 import { createServiceTestingModule } from '../../testing/testing-module';
 import { loadCards } from '../dashboard';
 import { featureUsageDashboard } from './dashboard';
+import { firstReleaseWithCompleteEvents } from './sessions';
 
 const mongo = new MongoClient(config.databaseUrl);
 
@@ -276,6 +277,199 @@ describe('Feature usage dashboard', () => {
     });
   });
 
+  describe('Upload outcomes per week', () => {
+    test(`counts every started upload by outcome, the unlisted ones as Other error`, async () => {
+      const [first, second] = await Array.fromAsync({ length: 2 }, () => createCreator(prisma));
+
+      const outcomes = ['stored', 'stored', 'network', 'failed', 'cosmic_ray'];
+
+      for (const outcome of outcomes) {
+        // oxlint-disable-next-line no-await-in-loop - events in order
+        await seedNewerEvent(first, sessions[0], 'upload_started');
+        // oxlint-disable-next-line no-await-in-loop - events in order
+        await seedNewerEvent(first, sessions[0], 'upload_finished', { properties: { outcome } });
+      }
+
+      // Two uploads started, one finished: the other reported no outcome.
+      await seedNewerEvent(second, sessions[1], 'upload_started');
+      await seedNewerEvent(second, sessions[1], 'upload_started');
+      await seedNewerEvent(second, sessions[1], 'upload_finished', {
+        properties: { outcome: 'rejected' }
+      });
+
+      // A finished upload whose start was lost does not take a missing outcome off another session.
+      await seedNewerEvent(second, sessions[2], 'upload_finished', {
+        properties: { outcome: 'encode_failed' }
+      });
+
+      expect(await runCard('Upload outcomes per week')).toEqual(
+        outcomeRows(monday, [
+          ['Stored', 2],
+          ['Encoding failed', 1],
+          ['Network error', 1],
+          ['Unreadable response', 0],
+          ['Refused', 1],
+          ['Mod outdated', 0],
+          ['Server error', 0],
+          ['Other error', 2],
+          ['No outcome reported', 1]
+        ])
+      );
+    });
+
+    test(`counts the sessions of the gating release or later, eligible or not`, async () => {
+      const optedOut = await createCreator(prisma, { metadata: { sendUsageStatistics: false } });
+
+      // No creator activity either, as the eligibility rule would require.
+      const player = await createCreator(prisma);
+
+      await seedStoredUpload(optedOut, sessions[0], {});
+
+      // Compared as integers: as strings, 2026.10.0 would sort below the gate.
+      await seedStoredUpload(player, sessions[1], { modVersion: '2026.10.0' });
+
+      // An earlier release, then a debug build.
+      await seedStoredUpload(player, sessions[2], { modVersion: '2026.7.0' });
+      await seedStoredUpload(player, sessions[3], { isDebug: true });
+
+      const rows = await runCard('Upload outcomes per week');
+
+      expect(rows.find(row => row.outcome == 'Stored')).toEqual({
+        week: monday,
+        outcome: 'Stored',
+        count: 2
+      });
+    });
+
+    test(`counts a session whole in the week it started`, async () => {
+      const player = await createCreator(prisma);
+
+      await seedNewerEvent(player, sessions[0], 'upload_started');
+
+      // The upload ends past Sunday midnight.
+      await seedStoredUpload(player, sessions[0], { trackedAt: hoursAfterMonday(7 * 24 + 1) });
+
+      // The week in progress.
+      await seedStoredUpload(player, sessions[1], { trackedAt: new Date() });
+
+      const rows = await runCard('Upload outcomes per week');
+
+      expect(rows.filter(row => row.count > 0)).toEqual(
+        outcomeRows(monday, [
+          ['Stored', 1],
+          ['No outcome reported', 1]
+        ])
+      );
+    });
+
+    /**
+     * Seeds an upload started and stored in a session.
+     */
+    async function seedStoredUpload(
+      creator: Creator | undefined,
+      sessionId: string,
+      overrides: Partial<Prisma.UsageEventUncheckedCreateInput>
+    ): Promise<void> {
+      await seedNewerEvent(creator, sessionId, 'upload_started', overrides);
+      await seedNewerEvent(creator, sessionId, 'upload_finished', {
+        ...overrides,
+        properties: { outcome: 'stored' }
+      });
+    }
+  });
+
+  describe('Details window tabs per week', () => {
+    test(`shares the openers who viewed each tab, opened on it or switched to`, async () => {
+      const [first, second, third] = await Array.fromAsync({ length: 3 }, () =>
+        createCreator(prisma)
+      );
+
+      const optedOut = await createCreator(prisma, { metadata: { sendUsageStatistics: false } });
+
+      await seedOpened(first, sessions[0], 'description');
+      await seedNewerEvent(first, sessions[0], 'screenshot_details_tab_changed', {
+        properties: { tab: 'playset' }
+      });
+
+      // A player counts once however many sessions opened the tab.
+      await seedOpened(second, sessions[1], 'description');
+      await seedOpened(second, sessions[2], 'description');
+      await seedOpened(second, sessions[2], 'photoModeSettings');
+
+      // An opening on a tab outside the list still makes an opener.
+      await seedOpened(third, sessions[3], 'comments');
+
+      await seedOpened(optedOut, sessions[4], 'playset');
+
+      // A week whose sessions opened no details window.
+      await seedNewerEvent(first, identifiers.sessionId1, 'context_entered', {
+        trackedAt: hoursAfterMonday(7 * 24 + 1)
+      });
+
+      const nextWeek = new Date(monday.getTime() + weekInMs);
+
+      expect(await runCard('Details window tabs per week')).toEqual([
+        { week: monday, tab: 'Description', share: 2 / 4 },
+        { week: monday, tab: 'Photo mode settings', share: 1 / 4 },
+        { week: monday, tab: 'Playset', share: 2 / 4 },
+        { week: nextWeek, tab: 'Description', share: null },
+        { week: nextWeek, tab: 'Photo mode settings', share: null },
+        { week: nextWeek, tab: 'Playset', share: null }
+      ]);
+    });
+
+    async function seedOpened(
+      creator: Creator | undefined,
+      sessionId: string,
+      tab: string
+    ): Promise<void> {
+      await seedNewerEvent(creator, sessionId, 'screenshot_details_opened', {
+        properties: { from: 'menu', tab }
+      });
+    }
+  });
+
+  describe('Menu tour outcomes per week', () => {
+    test(`keys each tour's end by completed, then left menu, then step`, async () => {
+      const player = await createCreator(prisma);
+
+      const endings = [
+        { completed: true, leftMenu: true, step: 'like' },
+        { completed: false, leftMenu: true, step: 'navigation' },
+        { completed: false, leftMenu: false, step: 'navigation' },
+        { completed: false, leftMenu: false, step: 'navigation' },
+        { completed: false, leftMenu: false, step: 'menuVisibility' },
+        { completed: false, leftMenu: false, step: 'like' },
+        // Closing the last balloon reports completed, so Dashboard keys no series.
+        { completed: false, leftMenu: false, step: 'dashboard' }
+      ];
+
+      for (const properties of endings) {
+        // oxlint-disable-next-line no-await-in-loop - events in order
+        await seedNewerEvent(player, sessions[0], 'tour_started');
+        // oxlint-disable-next-line no-await-in-loop - events in order
+        await seedNewerEvent(player, sessions[0], 'tour_finished', { properties });
+      }
+
+      // A tour started with no reported end, and an end whose start was lost.
+      await seedNewerEvent(player, sessions[1], 'tour_started');
+      await seedNewerEvent(player, sessions[2], 'tour_finished', {
+        properties: { completed: true, leftMenu: false, step: 'dashboard' }
+      });
+
+      expect(await runCard('Menu tour outcomes per week')).toEqual(
+        outcomeRows(monday, [
+          ['Completed', 2],
+          ['Dismissed at Navigation', 2],
+          ['Dismissed at Menu visibility', 1],
+          ['Dismissed at Like', 1],
+          ['Left the main menu', 1],
+          ['No outcome reported', 1]
+        ])
+      );
+    });
+  });
+
   describe('Depth', () => {
     test(`counts sessions per eligible player, and views per session by session ID`, async () => {
       const [first, second] = await seedPlayers(3);
@@ -413,6 +607,24 @@ describe('Feature usage dashboard', () => {
     await createUsageEvent(prisma, nn(creator), { sessionId, name, trackedAt });
   }
 
+  /**
+   * Creates an event sent on Monday by a mod release the outcome, tab, and tour cards count.
+   */
+  async function seedNewerEvent(
+    creator: Creator | undefined,
+    sessionId: string,
+    name: string,
+    overrides: Partial<Prisma.UsageEventUncheckedCreateInput> = {}
+  ): Promise<void> {
+    await createUsageEvent(prisma, nn(creator), {
+      sessionId,
+      name,
+      modVersion: firstReleaseWithCompleteEvents,
+      trackedAt: hoursAfterMonday(1),
+      ...overrides
+    });
+  }
+
   async function runCard(name: string): Promise<Document[]> {
     const card = nn(loadCards(featureUsageDashboard).find(candidate => candidate.name == name));
 
@@ -432,6 +644,13 @@ describe('Feature usage dashboard', () => {
     return rows;
   }
 });
+
+/**
+ * The rows of an outcome card's week, one per outcome in the given order.
+ */
+function outcomeRows(week: Date, counts: ReadonlyArray<readonly [string, number]>): Document[] {
+  return counts.map(([outcome, count]) => ({ week, outcome, count }));
+}
 
 function hoursAfterMonday(hours: number): Date {
   return new Date(monday.getTime() + hours * hourInMs);

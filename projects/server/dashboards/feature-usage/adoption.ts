@@ -80,7 +80,9 @@ function adoptionStages(
   counted: ReadonlyArray<Pick<Feature, 'label' | 'events'>>
 ): Prisma.InputJsonObject[] {
   return [
-    ...sessionStages([...new Set(counted.flatMap(feature => feature.events))]),
+    ...sessionStages([...new Set(counted.flatMap(feature => feature.events))], {
+      isPresenceOnly: true
+    }),
     // Whether the session touched each feature, as 1 or 0.
     {
       $project: {

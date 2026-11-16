@@ -45,6 +45,25 @@ export interface PropertySplit {
   readonly values: readonly string[];
 }
 
+/**
+ * How {@link sessionStages} reads the sessions.
+ */
+export interface SessionOptions {
+  /**
+   * Keeps only the sessions of this mod release or later, every event of a session carrying the
+   * same version.
+   */
+  readonly sinceRelease?: string;
+
+  /**
+   * Counts each name an event pushes once per session, for a card asking only whether a session did
+   * something: an event's count is then 1 or 0, and a split's whole count the number of distinct
+   * values the session sent, those outside the list as one.
+   * The group then holds each name once per session rather than every event.
+   */
+  readonly isPresenceOnly?: boolean;
+}
+
 type ServerRowName = (typeof serverRowNames)[keyof typeof serverRowNames];
 
 /**
@@ -67,13 +86,13 @@ const serverRowSources: Readonly<
  * debug flag, so this keeps the author's test sessions out of them too.
  * A session belongs to the week of its first event's receipt, all its rows with it, and shows once
  * that week has ended.
- * Given a release, only the sessions of that mod release or later count, every event of a session
- * carrying the same version.
  */
 export function sessionStages(
   counted: ReadonlyArray<string | PropertySplit>,
-  sinceRelease?: string
+  options: SessionOptions = {}
 ): Prisma.InputJsonObject[] {
+  const { sinceRelease, isPresenceOnly = false } = options;
+
   const names = counted.filter(item => typeof item == 'string');
 
   const splits = counted.filter(item => typeof item != 'string');
@@ -117,7 +136,7 @@ export function sessionStages(
         creatorId: { $first: '$creatorId' },
         ...(sinceRelease != null && { modVersion: { $first: '$modVersion' } }),
         firstReceivedAt: { $min: '$receivedAt' },
-        names: { $push: pushedName }
+        names: { [isPresenceOnly ? '$addToSet' : '$push']: pushedName }
       }
     },
     ...(sinceRelease == null

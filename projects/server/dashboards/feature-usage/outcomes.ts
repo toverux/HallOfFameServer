@@ -127,7 +127,7 @@ function outcomeStages(
   outcomes: readonly Outcome[]
 ): Prisma.InputJsonObject[] {
   return [
-    ...sessionStages(counted, firstReleaseWithCompleteEvents),
+    ...sessionStages(counted, { sinceRelease: firstReleaseWithCompleteEvents }),
     {
       $project: {
         week: 1,

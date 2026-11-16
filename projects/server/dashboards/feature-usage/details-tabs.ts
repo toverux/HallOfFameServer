@@ -55,7 +55,7 @@ function detailsTabsStages(): Prisma.InputJsonObject[] {
   const tabKeys = tabs.map((_, index) => `tab${index}`);
 
   return [
-    ...sessionStages([opened, switched], firstReleaseWithCompleteEvents),
+    ...sessionStages([opened, switched], { sinceRelease: firstReleaseWithCompleteEvents }),
     // Whether the session opened the window and viewed each tab, as 1 or 0.
     // The sessions that opened none share one player per week, null, which counts as no opener
     // and keeps the week's row while holding little state in the next group.

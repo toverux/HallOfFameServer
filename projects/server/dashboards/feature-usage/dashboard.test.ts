@@ -93,6 +93,8 @@ describe('Feature usage dashboard', () => {
         'More actions menu',
         'Screenshot details',
         'Creator dashboard',
+        'Edit a screenshot',
+        'Delete a screenshot',
         'Upload',
         'Save to disk',
         'Web viewer',
@@ -193,7 +195,7 @@ describe('Feature usage dashboard', () => {
       ]);
       // The launch baseline shows as Event coverage instead.
       expect(rows.map(row => row.feature as unknown)).not.toContain('Launched the mod');
-      expect(rows).toHaveLength(11);
+      expect(rows).toHaveLength(13);
     });
   });
 

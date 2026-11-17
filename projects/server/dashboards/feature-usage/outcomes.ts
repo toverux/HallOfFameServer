@@ -114,7 +114,7 @@ function outcomeChart(outcomes: readonly Outcome[]): FeatureUsageCard['chart'] {
     display: 'bar',
     dimensions: ['week', 'outcome'],
     metric: 'count',
-    isStacked: true,
+    stacking: 'stacked',
     seriesColors: Object.fromEntries(outcomes.map(outcome => [outcome.label, outcome.color]))
   };
 }

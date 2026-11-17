@@ -18,22 +18,39 @@ export interface Dashboard<TColumn extends string = string> {
   readonly name: string;
 
   /**
-   * Markdown opening the dashboard, on how to read it.
-   */
-  readonly introduction: string;
-
-  /**
    * Titles of the columns the pipelines output, as the charts and tables show them.
    */
   readonly columnTitles: Readonly<Record<TColumn, string>>;
 
   /**
-   * Changes the cards split their series at, listed beside the introduction.
+   * Columns holding dates, which the charts show as days: the pipelines output UTC midnights.
+   */
+  readonly dateColumns?: readonly TColumn[];
+
+  /**
+   * Changes the cards split their series at, listed beside the first tab's introduction.
    * Absent when no card has a period dimension, and the introduction then spans the dashboard.
    */
   readonly shippedChanges?: readonly ShippedChange[];
 
-  readonly sections: ReadonlyArray<DashboardSection<DashboardCard<TColumn>>>;
+  /**
+   * The tabs, in order; a dashboard of one tab shows no tab bar, and its tab's name goes unused.
+   */
+  readonly tabs: ReadonlyArray<DashboardTab<DashboardCard<TColumn>>>;
+}
+
+/**
+ * A tab of the dashboard, its introduction across the top, then its sections.
+ */
+export interface DashboardTab<T = DashboardCard> {
+  readonly name: string;
+
+  /**
+   * Markdown opening the tab, on how to read it.
+   */
+  readonly introduction: string;
+
+  readonly sections: ReadonlyArray<DashboardSection<T>>;
 }
 
 /**
@@ -78,14 +95,15 @@ export interface DashboardCard<TColumn extends string = string> {
 /**
  * How Metabase draws a card's rows.
  * A `smartscalar` shows the metric of the last row, with its change since the row before; a
- * `funnel` draws one step per row, in row order.
+ * `scalar` the metric of the only row; a `funnel` draws one step per row, in row order.
+ * A `row` chart labels each bar with its value.
  */
 export interface Chart<TColumn extends string = string> {
-  readonly display: 'line' | 'bar' | 'row' | 'funnel' | 'smartscalar';
+  readonly display: 'line' | 'bar' | 'row' | 'funnel' | 'smartscalar' | 'scalar';
 
   /**
    * The column on the x-axis (the categories of a row chart, the steps of a funnel), then the
-   * column whose values each draw a series, if any.
+   * column whose values each draw a series, if any; a `scalar` names its metric.
    */
   readonly dimensions: readonly [TColumn] | readonly [TColumn, TColumn];
 
@@ -100,9 +118,15 @@ export interface Chart<TColumn extends string = string> {
   readonly isPercent?: boolean;
 
   /**
-   * Whether bars stack, as the parts of a total.
+   * How bars stack: `stacked` as the parts of a total, `normalized` as the shares of 100%.
    */
-  readonly isStacked?: boolean;
+  readonly stacking?: 'stacked' | 'normalized';
+
+  /**
+   * Height of the card on the dashboard, in grid rows, for a chart whose categories need more room
+   * than the default.
+   */
+  readonly height?: number;
 
   /**
    * Color of each series, keyed by the value of the series column, in the legend's order.
@@ -140,26 +164,31 @@ export interface DashboardSection<T = DashboardCard> {
  * Expands every card's pipeline with the periods of the given shipped changes, by default the
  * dashboard's own.
  */
-export function loadSections<TColumn extends string>(
+export function loadTabs<TColumn extends string>(
   dashboard: Dashboard<TColumn>,
   changes: readonly ShippedChange[] = dashboard.shippedChanges ?? []
-): ReadonlyArray<DashboardSection<LoadedCard<TColumn>>> {
+): ReadonlyArray<DashboardTab<LoadedCard<TColumn>>> {
   const period = periodExpression(changes);
 
-  return dashboard.sections.map(section => ({
-    heading: section.heading,
-    rows: section.rows.map(row => row.map(card => ({ ...card, pipeline: card.pipeline(period) })))
+  return dashboard.tabs.map(tab => ({
+    ...tab,
+    sections: tab.sections.map(section => ({
+      heading: section.heading,
+      rows: section.rows.map(row => row.map(card => ({ ...card, pipeline: card.pipeline(period) })))
+    }))
   }));
 }
 
 /**
- * The cards of {@link loadSections}, in the dashboard's order.
+ * The cards of {@link loadTabs}, in the dashboard's order.
  */
 export function loadCards<TColumn extends string>(
   dashboard: Dashboard<TColumn>,
   changes?: readonly ShippedChange[]
 ): ReadonlyArray<LoadedCard<TColumn>> {
-  return loadSections(dashboard, changes).flatMap(section => section.rows.flat());
+  return loadTabs(dashboard, changes).flatMap(tab =>
+    tab.sections.flatMap(section => section.rows.flat())
+  );
 }
 
 function periodExpression(changes: readonly ShippedChange[]): PeriodExpression {

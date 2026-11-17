@@ -5,6 +5,11 @@ export const cohortSize: NewcomersCard = {
   name: 'Cohort size',
   description: `New accounts per week. A week that straddles a shipped change splits into two bars.`,
   collection: 'creators',
-  chart: { display: 'bar', dimensions: ['week', 'period'], metric: 'creators', isStacked: true },
+  chart: {
+    display: 'bar',
+    dimensions: ['week', 'period'],
+    metric: 'creators',
+    stacking: 'stacked'
+  },
   pipeline: period => [...cohortMemberStages(period), ...groupByCohortStages({}, {})]
 };

@@ -45,23 +45,29 @@ export type NewcomersCard = DashboardCard<Column>;
 
 export const newcomersDashboard: Dashboard<Column> = {
   name: 'Newcomers',
-  introduction: [
-    `**How to read this dashboard**`,
-    `Newcomers are grouped into cohorts by the UTC week (Monday to Sunday) in which they created their account. Day 1 is a newcomer's first 24 hours. Cohorts start with the week of November 4, 2024, after the mod's launch weeks.`,
-    `Each chart splits its series at every shipped change, except Daily actives by mod version, whose series are releases. Wait for about four cohorts on each side of a change before reading it, and check the cohort sizes.`
-  ].join('\n\n'),
   columnTitles,
   shippedChanges,
-  sections: [
+  dateColumns: ['week', 'day'],
+  tabs: [
     {
-      heading: 'First day',
-      rows: [[dayOneLikeRate], [dayOneQualityServed, dayOneDepth, dayOneNewcomerPicks]]
-    },
-    {
-      heading: 'Cohorts',
-      rows: [[cohortSize], [dayOneRetention, daySevenRetention, dayThirtyRetention]]
-    },
-    { heading: 'Daily actives', rows: [[dailyActives, dailyActivesByModVersion]] },
-    { heading: 'Algorithms', rows: [[likeRateByAlgorithm]] }
+      name: 'Newcomers',
+      introduction: [
+        `**How to read this dashboard**`,
+        `Newcomers are grouped into cohorts by the UTC week (Monday to Sunday) in which they created their account. Day 1 is a newcomer's first 24 hours. Cohorts start with the week of November 4, 2024, after the mod's launch weeks.`,
+        `Each chart splits its series at every shipped change, except Daily actives by mod version, whose series are releases. Wait for about four cohorts on each side of a change before reading it, and check the cohort sizes.`
+      ].join('\n\n'),
+      sections: [
+        {
+          heading: 'First day',
+          rows: [[dayOneLikeRate], [dayOneQualityServed, dayOneDepth, dayOneNewcomerPicks]]
+        },
+        {
+          heading: 'Cohorts',
+          rows: [[cohortSize], [dayOneRetention, daySevenRetention, dayThirtyRetention]]
+        },
+        { heading: 'Daily actives', rows: [[dailyActives, dailyActivesByModVersion]] },
+        { heading: 'Algorithms', rows: [[likeRateByAlgorithm]] }
+      ]
+    }
   ]
 };

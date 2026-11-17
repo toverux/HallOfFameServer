@@ -1,5 +1,5 @@
 import type { Prisma } from '#prisma-lib/client';
-import { ratioExpression } from '../expressions';
+import { isPositive, ratioExpression } from '../expressions';
 import type { FeatureUsageCard } from './dashboard';
 import {
   firstReleaseWithCompleteEvents,
@@ -107,11 +107,4 @@ function detailsTabsStages(): Prisma.InputJsonObject[] {
     { $unwind: '$rows' },
     { $project: { week: 1, tab: '$rows.tab', share: '$rows.share' } }
   ];
-}
-
-/**
- * The expression of whether a count is above 0, as 1 or 0.
- */
-function isPositive(count: Prisma.InputJsonValue): Prisma.InputJsonObject {
-  return { $cond: [{ $gt: [count, 0] }, 1, 0] };
 }

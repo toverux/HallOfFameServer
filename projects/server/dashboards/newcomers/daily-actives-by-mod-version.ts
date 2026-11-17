@@ -9,7 +9,7 @@ export const dailyActivesByModVersion: NewcomersCard = {
     display: 'bar',
     dimensions: ['day', 'modVersion'],
     metric: 'creators',
-    isStacked: true
+    stacking: 'stacked'
   },
   pipeline: period => [
     // Today's count is still growing.

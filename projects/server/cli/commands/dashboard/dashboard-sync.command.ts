@@ -9,9 +9,10 @@ import { config } from '../../../config';
 import {
   type Chart,
   type Dashboard,
-  type DashboardSection,
+  type DashboardTab,
   type LoadedCard,
-  loadSections
+  loadTabs,
+  type ShippedChange
 } from '../../../dashboards/dashboard';
 import { featureUsageDashboard } from '../../../dashboards/feature-usage/dashboard';
 import { newcomersDashboard } from '../../../dashboards/newcomers/dashboard';
@@ -39,6 +40,8 @@ const itemsSchema = z.object({
 });
 
 const createdSchema = z.object({ id: z.int() });
+
+const dashboardSchema = z.object({ tabs: z.array(z.object({ id: z.int(), name: z.string() })) });
 
 const queryResultSchema = z.object({ status: z.string(), error: z.string().nullish() });
 
@@ -97,10 +100,10 @@ export class DashboardSyncCommand extends CommandRunner {
 
     const metabase = new MetabaseApi(url, apiKey);
 
-    const sections = loadSections(dashboard);
+    const tabs = loadTabs(dashboard);
 
-    const questions = sections
-      .flatMap(section => section.rows.flat())
+    const questions = tabs
+      .flatMap(tab => tab.sections.flatMap(section => section.rows.flat()))
       .map(card => ({ card, query: nativeQuery(card, databaseId) }));
 
     // Created and restricted by hand first, as one created here would inherit the parent's access.
@@ -131,7 +134,7 @@ export class DashboardSyncCommand extends CommandRunner {
         description: card.description,
         collection_id: collectionId,
         display: card.chart.display,
-        visualization_settings: visualizationSettings(card.chart, dashboard.columnTitles),
+        visualization_settings: visualizationSettings(card.chart, dashboard),
         dataset_query: query
       };
 
@@ -150,10 +153,26 @@ export class DashboardSyncCommand extends CommandRunner {
       findItem(items, 'dashboard', dashboard.name) ??
       (await metabase.create('dashboard', { name: dashboard.name, collection_id: collectionId }));
 
-    // Dashcards left out of the list are removed, and those with a negative ID created.
+    // A tab keeps its ID across syncs, found by name, so links to it hold.
+    const { tabs: existingTabs } = dashboardSchema.parse(
+      await metabase.send('GET', `api/dashboard/${dashboardId}`)
+    );
+
+    const tabIds =
+      tabs.length > 1
+        ? tabs.map(
+            (tab, index) =>
+              existingTabs.find(existing => existing.name == tab.name)?.id ?? -1 - index
+          )
+        : [];
+
+    // Dashcards and tabs left out of the lists are removed, and those with a negative ID created.
     await metabase.send('PUT', `api/dashboard/${dashboardId}`, {
       width: 'full',
-      dashcards: dashcards(dashboard, sections, cardIds)
+      tabs: tabs
+        .filter((_, index) => index < tabIds.length)
+        .map((tab, index) => ({ id: nn(tabIds[index]), name: tab.name })),
+      dashcards: dashcards(dashboard, tabs, { cardIds, tabIds })
     });
 
     const dashboardUrl = new URL(`dashboard/${dashboardId}`, url);
@@ -253,11 +272,10 @@ function nativeQuery(card: LoadedCard, databaseId: number): Prisma.InputJsonObje
   };
 }
 
-function visualizationSettings(
-  chart: Chart,
-  columnTitles: Readonly<Record<string, string>>
-): Prisma.InputJsonObject {
+function visualizationSettings(chart: Chart, dashboard: Dashboard): Prisma.InputJsonObject {
   const [dimension] = chart.dimensions;
+
+  const { columnTitles, dateColumns = [] } = dashboard;
 
   const columnSettings = Object.fromEntries(
     Object.entries(columnTitles).map(([column, title]) => [
@@ -268,7 +286,13 @@ function visualizationSettings(
           column == chart.metric && {
             number_style: 'percent',
             decimals: 1
-          })
+          }),
+        // UTC midnights, shown as the day alone, ex. "Nov 9, 2026".
+        ...(dateColumns.includes(column) && {
+          date_style: 'MMMM D, YYYY',
+          date_abbreviate: true,
+          time_enabled: null
+        })
       }
     ])
   );
@@ -280,6 +304,9 @@ function visualizationSettings(
         'scalar.comparisons': [{ id: 'previous-value', type: 'previousValue' }],
         'column_settings': columnSettings
       };
+    }
+    case 'scalar': {
+      return { 'scalar.field': chart.metric, 'column_settings': columnSettings };
     }
     case 'funnel': {
       return {
@@ -294,7 +321,12 @@ function visualizationSettings(
       return {
         'graph.dimensions': chart.dimensions,
         'graph.metrics': [chart.metric],
-        ...(chart.isStacked && { 'stackable.stack_type': 'stacked' }),
+        ...(chart.stacking && { 'stackable.stack_type': chart.stacking }),
+        ...(chart.display == 'row' && {
+          'graph.show_values': true,
+          // A normalized stack labels its segments, too small for every value to fit.
+          ...(chart.stacking == 'normalized' && { 'graph.label_value_frequency': 'fit' })
+        }),
         // Charts title their axes from the column names, not the column titles.
         'graph.x_axis.title_text': nn(columnTitles[dimension]),
         'graph.y_axis.title_text': nn(columnTitles[chart.metric]),
@@ -321,19 +353,43 @@ function seriesSettings(colors: Readonly<Record<string, string>>): Prisma.InputJ
 }
 
 /**
- * Lays out the text cards across the top, then each section under its heading, row by row.
- * A row is as tall as its tallest card.
+ * Lays out each tab: its text cards across the top, then each section under its heading, row by
+ * row.
  */
 function dashcards(
   dashboard: Dashboard,
-  sections: ReadonlyArray<DashboardSection<LoadedCard>>,
-  cardIds: ReadonlyMap<string, number>
+  tabs: ReadonlyArray<DashboardTab<LoadedCard>>,
+  ids: Readonly<{ cardIds: ReadonlyMap<string, number>; tabIds: readonly number[] }>
 ): Prisma.InputJsonObject[] {
-  const { cards: layout, height } = textCards(dashboard);
+  const layout = tabs.flatMap((tab, index) => {
+    const tabId = ids.tabIds[index];
+
+    const cards = tabLayout(dashboard, tab, { cardIds: ids.cardIds, isFirst: index == 0 });
+
+    // Fresh objects, each set once.
+    return tabId == null
+      ? cards
+      : cards.map(dashcard => Object.assign(dashcard, { dashboard_tab_id: tabId }));
+  });
+
+  // Each a new dashcard.
+  // oxlint-disable-next-line oxc/no-map-spread - a few dashcards, each spread once
+  return layout.map((dashcard, index) => ({ id: -1 - index, ...dashcard }));
+}
+
+function tabLayout(
+  dashboard: Dashboard,
+  tab: DashboardTab<LoadedCard>,
+  options: Readonly<{ cardIds: ReadonlyMap<string, number>; isFirst: boolean }>
+): Prisma.InputJsonObject[] {
+  const { cards: layout, height } = textCards(
+    tab.introduction,
+    options.isFirst ? dashboard.shippedChanges : undefined
+  );
 
   let row = height;
 
-  for (const section of sections) {
+  for (const section of tab.sections) {
     layout.push(
       virtualCard('heading', section.heading, { row, col: 0, size_x: gridWidth, size_y: 1 })
     );
@@ -345,46 +401,52 @@ function dashcards(
 
       const top = row;
 
-      const heights = cards.map(card =>
-        card.chart.display == 'smartscalar' ? scalarHeight : chartHeight
+      // Every card stretches to the tallest, so the row leaves no gap under a shorter one.
+      const rowHeight = Math.max(
+        ...cards.map(card => card.chart.height ?? defaultHeight(card.chart))
       );
 
       layout.push(
         ...cards.map((card, index) => ({
-          card_id: nn(cardIds.get(card.name)),
+          card_id: nn(options.cardIds.get(card.name)),
           row: top,
           col: index * width,
           size_x: width,
-          size_y: nn(heights[index]),
+          size_y: rowHeight,
           parameter_mappings: [],
           visualization_settings: {}
         }))
       );
 
-      row += Math.max(...heights);
+      row += rowHeight;
     }
   }
 
-  // Each a new dashcard.
-  // oxlint-disable-next-line oxc/no-map-spread - a few dashcards, each spread once
-  return layout.map((dashcard, index) => ({ id: -1 - index, ...dashcard }));
+  return layout;
+}
+
+function defaultHeight(chart: Chart): number {
+  return chart.display == 'smartscalar' || chart.display == 'scalar' ? scalarHeight : chartHeight;
 }
 
 /**
- * The introduction and, for a dashboard with shipped changes, the "Shipped changes" text card
- * beside it, with the height they take.
+ * The introduction and, given shipped changes, the "Shipped changes" text card beside it, with the
+ * height they take.
  */
-function textCards(dashboard: Dashboard): { cards: Prisma.InputJsonObject[]; height: number } {
-  if (!dashboard.shippedChanges) {
+function textCards(
+  introduction: string,
+  shippedChanges: readonly ShippedChange[] | undefined
+): { cards: Prisma.InputJsonObject[]; height: number } {
+  if (!shippedChanges) {
     const position = { row: 0, col: 0, size_x: gridWidth, size_y: introductionHeight };
 
     return {
-      cards: [virtualCard('text', dashboard.introduction, position)],
+      cards: [virtualCard('text', introduction, position)],
       height: introductionHeight
     };
   }
 
-  const lines = dashboard.shippedChanges
+  const lines = shippedChanges
     .toSorted((a, b) => a.date.localeCompare(b.date))
     .map(change => `- ${change.date.slice(0, 'YYYY-MM-DD'.length)}: ${change.label}`);
 
@@ -395,7 +457,7 @@ function textCards(dashboard: Dashboard): { cards: Prisma.InputJsonObject[]; hei
 
   return {
     cards: [
-      virtualCard('text', dashboard.introduction, {
+      virtualCard('text', introduction, {
         row: 0,
         col: 0,
         size_x: introductionWidth,

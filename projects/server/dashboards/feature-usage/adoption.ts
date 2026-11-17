@@ -29,6 +29,8 @@ const features: readonly Feature[] = [
   { label: 'More actions menu', events: ['more_actions_opened'], color: '#A989C5' },
   { label: 'Screenshot details', events: ['screenshot_details_opened'], color: '#98D9D9' },
   { label: 'Creator dashboard', events: ['dashboard_opened'], color: '#7172AD' },
+  { label: 'Edit a screenshot', events: ['dashboard_screenshot_edited'], color: '#4C5773' },
+  { label: 'Delete a screenshot', events: ['dashboard_screenshot_deleted'], color: '#949AAB' },
   { label: 'Capture', events: ['capture_requested'], color: '#88BF4D' },
   { label: 'Upload', events: ['upload_started'], color: '#F2A86F' },
   { label: 'Save to disk', events: ['screenshot_saved'], color: '#F9D45C' },

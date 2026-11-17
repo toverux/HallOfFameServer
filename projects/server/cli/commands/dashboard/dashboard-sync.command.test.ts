@@ -80,7 +80,7 @@ describe('dashboard sync', () => {
     const question = (name: string): number => metabase.find('card', name).id;
 
     expect(dashcards.map(dashcard => dashcardContent(dashcard))).toEqual([
-      newcomersDashboard.introduction,
+      nn(newcomersDashboard.tabs[0]).introduction,
       // The oldest change stays first as the list grows.
       expect.stringMatching(
         /^\*\*Shipped changes\*\*\n\n- 2026-10-15: newcomer protection(?:\n|$)/u
@@ -133,7 +133,7 @@ describe('dashboard sync', () => {
     expect(metabase.items).toEqual([collection]);
   });
 
-  test(`publishes the Feature usage dashboard, its introduction across the top`, async () => {
+  test(`publishes the Feature usage dashboard's tabs, each introduction across its top`, async () => {
     const featureUsage = metabase.add('collection', 'Feature usage', parentId, {});
 
     await command.run(['feature-usage']);
@@ -164,7 +164,13 @@ describe('dashboard sync', () => {
 
     // Headline numbers are half as tall as charts, and each row as tall as its tallest card.
     expect(dashcards.slice(0, 7).map(dashcard => placement(dashcard))).toEqual([
-      { content: featureUsageDashboard.introduction, row: 0, col: 0, width: 24, height: 3 },
+      {
+        content: nn(featureUsageDashboard.tabs[0]).introduction,
+        row: 0,
+        col: 0,
+        width: 24,
+        height: 3
+      },
       { content: 'Last week', row: 3, col: 0, width: 24, height: 1 },
       { content: question('Active players'), row: 4, col: 0, width: 6, height: 3 },
       { content: question('Sessions per player'), row: 4, col: 6, width: 6, height: 3 },
@@ -186,9 +192,58 @@ describe('dashboard sync', () => {
         }
       ]),
       'column_settings': {
-        '["name","share"]': { column_title: 'Players', number_style: 'percent', decimals: 1 }
+        '["name","share"]': { column_title: 'Players', number_style: 'percent', decimals: 1 },
+        // Weeks show as days, without the midnight the pipelines output.
+        '["name","week"]': {
+          column_title: 'Week',
+          date_style: 'MMMM D, YYYY',
+          date_abbreviate: true,
+          time_enabled: null
+        }
       }
     });
+
+    // Row charts label their bars.
+    expect(
+      metabase.find('card', 'Feature adoption, last week').body.visualization_settings
+    ).toMatchObject({ 'graph.show_values': true });
+
+    const tabs = nn(dashboard.body.tabs) as JsonObject[];
+
+    expect(tabs.map(tab => tab.name)).toEqual(featureUsageDashboard.tabs.map(tab => tab.name));
+
+    // Each tab opens on its introduction, its cards laid out from the top.
+    for (const [index, tab] of tabs.entries()) {
+      const tabTop = dashcards.find(dashcard => dashcard.dashboard_tab_id == tab.id);
+
+      expect(placement(nn(tabTop))).toEqual({
+        content: nn(featureUsageDashboard.tabs[index]).introduction,
+        row: 0,
+        col: 0,
+        width: 24,
+        height: 3
+      });
+    }
+
+    expect(dashcards.filter(dashcard => dashcard.dashboard_tab_id == null)).toEqual([]);
+  });
+
+  test(`keeps the tabs' IDs on the next run, and gives a one-tab dashboard no tab`, async () => {
+    metabase.add('collection', 'Feature usage', parentId, {});
+
+    await command.run(['feature-usage']);
+
+    const dashboard = metabase.find('dashboard', 'Feature usage');
+
+    const firstTabs = structuredClone(dashboard.body.tabs);
+
+    await command.run(['feature-usage']);
+
+    expect(dashboard.body.tabs).toEqual(firstTabs);
+
+    await command.run(['newcomers']);
+
+    expect(metabase.find('dashboard', 'Newcomers').body.tabs).toEqual([]);
   });
 
   test(`fails on an unknown dashboard before any request`, () => {
@@ -301,6 +356,19 @@ class FakeMetabase {
       return Response.json({ id: item.id });
     }
 
+    const dashboardRead = /^GET \/api\/dashboard\/(?<id>\d+)$/u.exec(route);
+
+    if (dashboardRead) {
+      const dashboard = this.items.find(
+        candidate =>
+          candidate.model == 'dashboard' && candidate.id == Number(dashboardRead.groups?.id)
+      );
+
+      return dashboard
+        ? Response.json({ tabs: dashboard.body.tabs ?? [] })
+        : new Response('Not found', { status: 404 });
+    }
+
     const update = /^PUT \/api\/(?<model>card|dashboard)\/(?<id>\d+)$/u.exec(route);
 
     const item = this.items.find(
@@ -309,12 +377,37 @@ class FakeMetabase {
     );
 
     if (item) {
-      item.body = { ...item.body, ...body };
+      item.body = { ...item.body, ...(item.model == 'dashboard' ? this.withTabIds(body) : body) };
 
       return Response.json({ id: item.id });
     }
 
     return new Response('Not found', { status: 404 });
+  }
+
+  /**
+   * Gives each new tab of a dashboard update an ID, and its dashcards with it, as Metabase does.
+   */
+  private withTabIds(body: JsonObject): JsonObject {
+    const tabs = (body.tabs ?? []) as JsonObject[];
+
+    const ids = new Map(
+      tabs.map(tab => [tab.id, Number(tab.id) < 0 ? this.nextId++ : Number(tab.id)])
+    );
+
+    const dashcards = (body.dashcards ?? []) as JsonObject[];
+
+    return {
+      ...body,
+      // oxlint-disable-next-line oxc/no-map-spread - a few tabs, each spread once
+      tabs: tabs.map(tab => ({ ...tab, id: nn(ids.get(tab.id)) })),
+      // oxlint-disable-next-line oxc/no-map-spread - a few dashcards, each spread once
+      dashcards: dashcards.map(dashcard =>
+        dashcard.dashboard_tab_id == null
+          ? dashcard
+          : { ...dashcard, dashboard_tab_id: nn(ids.get(dashcard.dashboard_tab_id)) }
+      )
+    };
   }
 }
 
